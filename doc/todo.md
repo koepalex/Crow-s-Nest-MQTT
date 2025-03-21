@@ -6,54 +6,49 @@ A comprehensive list of tasks derived from the specification. Use this document 
 
 ## 1. Project Setup & Architecture
 
-- [ ] **Select Cross-Platform Framework**  
-  - [ ] Decide on UI framework (Qt, Electron, .NET MAUI, etc.)  
-  - [ ] Establish project structure (core, UI, tests, etc.)
+- [ ] **Select and Set Up Technology Stack**  
+  - [ ] Use **.NET 9** as the backend/runtime.
+  - [ ] Use **AvaloniaUI** for the cross-platform GUI.
+  - [ ] Establish project structure (Core, UI, Services, Tests, etc.).
+  - [ ] Set up build scripts and CI/CD pipelines for Windows, Linux, and macOS.
 
-- [ ] **Basic Project Configuration**  
-  - [ ] Set up build scripts for Windows, Linux, macOS  
-  - [ ] Configure CI/CD pipelines (optional, but recommended)  
-  - [ ] Add initial dependencies (MQTT library, JSON parser, etc.)
-
-- [ ] **Logging & Diagnostics**  
-  - [ ] Integrate OpenTelemetry-compatible logging  
-  - [ ] Decide on log formats (JSON, CSV, or both)  
-  - [ ] Implement diagnostics module (expose logs, metrics)
+- [ ] **Dependencies & Tooling**  
+  - [ ] Add MQTTnet for MQTT v5 support.
+  - [ ] Add JSON parsing library (System.Text.Json or Newtonsoft.Json).
+  - [ ] Integrate OpenTelemetry for logging and metrics.
+  - [ ] Set up SQLite/DuckDB integration (optional persistence).
+  - [ ] Configure packaging as a global tool (dotnet tool) and self-update mechanism.
 
 ---
 
 ## 2. MQTT Client & Connection
 
 - [ ] **Core MQTT Engine**  
-  - [ ] Implement MQTT v5 connect/disconnect  
-  - [ ] Handle session timeout, keepalive, clean session vs. session expiry  
-  - [ ] Automatically reconnect on failure  
-  - [ ] Capture detailed error info (reason string, error code)  
+  - [ ] Implement MQTT v5 connect/disconnect using MQTTnet.
+  - [ ] Support basic settings (broker hostname, port).
+  - [ ] Support advanced settings: client ID, keepalive, session timeout, clean session vs. session expiry.
+  - [ ] Automatically reconnect on failure.
+  - [ ] Capture and expose detailed error info (reason string, error code).
 
 - [ ] **Subscription & Message Handling**  
-  - [ ] Subscribe to `#` with QoS 1  
-  - [ ] Verify subscription callbacks  
-  - [ ] Expose events to the rest of the application (e.g., new message event)
-
-- [ ] **Advanced Settings**  
-  - [ ] UI for broker hostname/port (basic)  
-  - [ ] UI for client ID, keepalive, session options (advanced)  
-  - [ ] Persist all settings (reuse on next startup)
+  - [ ] Subscribe to `#` with QoS 1.
+  - [ ] Handle message callbacks and propagate events to the UI.
+  - [ ] Expose events for new messages, errors, and connection status changes.
 
 ---
 
 ## 3. Data Storage & Ring Buffer
 
-- [ ] **Ring Buffer Per Topic**  
-  - [ ] Implement in-memory ring buffer structure  
-  - [ ] Track total size (default 10MB per topic)  
-  - [ ] Overwrite oldest messages when full  
-  - [ ] Display memory usage in the UI  
+- [ ] **In-Memory Ring Buffer**  
+  - [ ] Implement a ring buffer for each topic.
+  - [ ] Set a configurable maximum size (default 10MB per topic).
+  - [ ] Automatically remove oldest messages when the buffer is full.
+  - [ ] Track and display memory usage for each topic in the UI.
 
 - [ ] **Optional Persistent Storage**  
-  - [ ] Integrate DuckDB/SQLite as a backend (toggle in advanced settings)  
-  - [ ] Mirror ring buffer logic in persistent DB  
-  - [ ] Clean up oldest messages to respect size limits
+  - [ ] Integrate SQLite or DuckDB for optional message persistence.
+  - [ ] Mirror ring buffer logic in persistent storage.
+  - [ ] Manage cleanup of old messages to respect size limits.
 
 ---
 
@@ -62,130 +57,120 @@ A comprehensive list of tasks derived from the specification. Use this document 
 ### 4.1 Layout & Panels
 
 - [ ] **Main Window Layout**  
-  - [ ] Left panel: topic tree (collapsed by default for performance)  
-  - [ ] Right panel split:  
-    - [ ] Message history (list of timestamps, partial payloads)  
-    - [ ] Message details (metadata, full payload, diff view)
+  - [ ] Left Panel: Topic tree (collapsed by default for performance) with message counters.
+  - [ ] Right Panel: Split between Message History and Message Details.
+  - [ ] Global Search/Command Bar at the top.
+  - [ ] Diagnostics window accessible via command or button (hidden by default).
 
-- [ ] **Dark Mode Theme**  
-  - [ ] Implement dark theme styling  
-  - [ ] Ensure color contrast for text, icons, and backgrounds
+- [ ] **Theme & Styling**  
+  - [ ] Implement a default dark mode using AvaloniaUI theming.
+  - [ ] Ensure UI elements (panels, buttons, text) are styled for high contrast and clarity.
 
 - [ ] **Resizing & Repositioning**  
-  - [ ] Make panels resizable  
-  - [ ] Store user layout preferences if desired (stretch goal)
+  - [ ] Allow panels to be resizable and repositionable.
+  - [ ] Save user layout preferences if possible.
 
 ### 4.2 Topic Tree & Message History
 
 - [ ] **Topic Tree**  
-  - [ ] Show topic names with message counters  
-  - [ ] Expand/collapse nodes for subtopics  
-  - [ ] Only update counts for visible (expanded) branches to reduce overhead
+  - [ ] Display topic names with real-time message counters.
+  - [ ] Implement expand/collapse functionality for subtopics.
+  - [ ] Optimize performance: only update visible branches.
 
-- [ ] **Message History**  
-  - [ ] Display list of messages (timestamp, partial payload preview)  
-  - [ ] Implement pause/resume UI updates (with icon/badge)  
-  - [ ] Global reset/clear to empty ring buffers
+- [ ] **Message History Panel**  
+  - [ ] List messages for the selected topic with timestamps and payload previews.
+  - [ ] Implement a global pause/resume feature for UI updates.
+  - [ ] Show paused state, including number of messages buffered and ring-buffer usage.
+  - [ ] Provide a global reset/clear button to reset counters and clear buffers.
 
 ### 4.3 Message Details
 
 - [ ] **Metadata Display**  
-  - [ ] Message ID  
-  - [ ] Content-Type  
-  - [ ] Correlation-Data  
-  - [ ] User-Properties  
-  - [ ] Payload-Format-Indicator  
-  - [ ] Retain Flag  
-  - [ ] Message-Expiry-Interval  
-  - [ ] Timestamp
-
+  - [ ] Display message metadata: Message ID, content-type, correlation-data, user-properties, payload-format-indicator, retain flag, message-expiry-interval, timestamp.
+  
 - [ ] **Payload Rendering**  
-  - [ ] Raw text view  
-  - [ ] JSON highlighting (if content-type is JSON)  
-  - [ ] Image rendering (JPEG/PNG) with zoom and save options  
-  - [ ] Diff mode (compare with previous message on same topic)
-
-- [ ] **Copying Payload/Metadata**  
-  - [ ] Buttons to copy payload, topic, or full message as JSON
+  - [ ] Render payload as raw text or highlighted JSON (auto-detect based on content-type).
+  - [ ] For JPEG/PNG content-type, render images with zoom and save functionality.
+  - [ ] Implement diff mode to compare the current payload to the previous message on the same topic.
+  
+- [ ] **Copying & Exporting**  
+  - [ ] Add buttons to copy payload, topic, or the entire message (with metadata) as JSON to the system clipboard.
 
 ### 4.4 Interactive JSON Element View
 
 - [ ] **JSON Tree-View**  
-  - [ ] Parse JSON payload into a tree structure  
-  - [ ] Allow user to click elements to add them to a live-updating table
+  - [ ] Parse JSON payloads into a navigable tree.
+  - [ ] Enable clicking on tree elements to add them to a live-updating table.
 
 - [ ] **Live-Updating Table**  
-  - [ ] Shows last known value for each selected JSON path  
-  - [ ] Handle missing fields gracefully (display “N/A” or blank)
+  - [ ] Display selected JSON elements with the last known value.
+  - [ ] Handle cases where not all messages contain the same elements.
 
-### 4.5 Search & Commands
+### 4.5 Search & Command System
 
-- [ ] **Global Search**  
-  - [ ] Fuzzy matching on topics, message payloads  
-  - [ ] Contextual searches (e.g., `@correlation-data:`)  
-  - [ ] Implement performance optimizations for large data sets
+- [ ] **Global Search Bar**  
+  - [ ] Implement fuzzy matching for topics and messages.
+  - [ ] Support context-based search filters (e.g., `@correlation-data:`, `@message-id:`, etc.).
 
-- [ ] **Command System**  
-  - [ ] Colon-prefixed commands (auto-completion)  
-  - [ ] `:connect`, `:disconnect`, `:settings`, `:diagnostic`  
-  - [ ] `:export [topic]`, `:export-all`  
-  - [ ] `:verify` (check message-id gaps), `:stats` (messages/sec, avg size)
+- [ ] **Command System (Colon-Prefixed)**  
+  - [ ] Support commands: `:connect`, `:disconnect`, `:settings`, `:diagnostic`.
+  - [ ] Support export commands: `:export [topic]`, `:export-all`.
+  - [ ] Support additional commands: `:verify` (check for message-id gaps), `:stats` (display messages/second and average size).
+  - [ ] Provide auto-completion for commands.
+  - [ ] On error, display transient toast notifications with "Retry" and "Jump to Diagnostics" options.
 
 ### 4.6 Keyboard Shortcuts (Vim-like)
 
-- [ ] **Navigation**  
-  - [ ] `h, j, k, l` for navigation  
-  - [ ] `/` to jump to search bar  
-  - [ ] `:w` to save current message  
-  - [ ] `yy` to copy current message as JSON  
-  - [ ] Ensure standard arrow keys and mouse interactions also work
-
-- [ ] **Error Notifications**  
-  - [ ] Transient toast messages on command errors or MQTT failures  
-  - [ ] Quick actions: “Retry” or “Jump to Diagnostics”
+- [ ] **Navigation & Commands**  
+  - [ ] Implement standard vim navigation: `h, j, k, l` for movement.
+  - [ ] `/` to focus the search bar.
+  - [ ] `:w` to save the current message to a file.
+  - [ ] `yy` to copy the current message with all metadata as JSON.
+  - [ ] Ensure standard arrow keys and mouse interactions are also supported.
 
 ---
 
 ## 5. Logging & Diagnostics
 
-- [ ] **OpenTelemetry Integration**  
-  - [ ] Record logs for connection events, errors, performance metrics  
-  - [ ] Expose logs in diagnostics view  
-  - [ ] Export logs as CSV/JSON
+- [ ] **OpenTelemetry Logging**  
+  - [ ] Integrate OpenTelemetry for capturing logs and metrics.
+  - [ ] Log connection events, errors, command executions, and performance metrics.
+  - [ ] Support exporting logs/metrics as CSV or JSON.
 
 - [ ] **Diagnostics View**  
-  - [ ] Filter by severity (info, warning, error)  
-  - [ ] Show command errors, MQTT connection issues  
-  - [ ] Access via `:diagnostic` or dedicated UI button
+  - [ ] Develop a diagnostics panel to display detailed logs and errors.
+  - [ ] Allow filtering of logs by severity (info, warning, error).
+  - [ ] Accessible via the `:diagnostic` command or dedicated UI button.
 
 ---
 
 ## 6. Performance & Resource Management
 
-- [ ] **Interval-Based UI Updates**  
-  - [ ] Refresh visible data every 1 second by default  
-  - [ ] Make interval configurable under advanced settings
+- [ ] **UI Update Optimization**  
+  - [ ] Set default UI update interval to 1 second for visible content.
+  - [ ] Allow configuration of the update interval under advanced settings.
 
-- [ ] **Pause/Resume Mechanism**  
-  - [ ] Continue buffering incoming messages  
-  - [ ] Display “paused” state with message count in background
+- [ ] **Pause/Resume Functionality**  
+  - [ ] Ensure that when paused, messages continue to populate ring buffers but the UI is not updated.
+  - [ ] Clearly display paused state, including buffered message count and ring-buffer memory usage.
 
-- [ ] **Memory Usage**  
-  - [ ] Monitor ring buffer sizes per topic  
-  - [ ] Log or alert if usage is near limits (optional debug feature)
+- [ ] **Memory Management**  
+  - [ ] Monitor ring buffer sizes per topic.
+  - [ ] Log and alert if memory usage nears configured limits (optional).
 
 ---
 
 ## 7. Packaging & Distribution
 
 - [ ] **Global Tool Packaging**  
-  - [ ] Provide installation instructions (e.g., dotnet tool install, npm install -g, etc.)  
-  - [ ] Avoid admin/root privileges
+  - [ ] Package the application as a global tool (e.g., via `dotnet tool install -g`).
+  - [ ] Ensure no admin/root privileges are required.
+  - [ ] Provide instructions for installation via package managers (winget, brew, apt) in future releases.
 
 - [ ] **Self-Update Mechanism**  
-  - [ ] Check for new versions at startup or on demand  
-  - [ ] Notify user of available updates  
-  - [ ] (Optional) Automated download and install
+  - [ ] Implement a built-in self-update check.
+  - [ ] Notify users of available updates.
+  - [ ] Optionally support auto-download and install of updates.
 
 ---
 
@@ -193,85 +178,83 @@ A comprehensive list of tasks derived from the specification. Use this document 
 
 ### 8.1 Unit Tests
 
-- [ ] **MQTT Core**  
-  - [ ] Connection, reconnection logic  
-  - [ ] Subscription to `#`, message reception events  
-  - [ ] Error handling (session expiry, keepalive)
+- [ ] **MQTT Core & Connection Handling**  
+  - [ ] Test MQTT connection/disconnection, reconnection logic, and error handling.
+  - [ ] Validate proper subscription to `#` and message reception.
 
-- [ ] **Ring Buffer**  
-  - [ ] Insert messages, handle overflow correctly  
-  - [ ] Respect 10MB limit (configurable)  
-  - [ ] Verify oldest messages are removed
+- [ ] **Ring Buffer Functionality**  
+  - [ ] Test insertion, overflow handling, and memory tracking.
+  - [ ] Validate correct removal of oldest messages when limits are exceeded.
 
-- [ ] **Command Parsing**  
-  - [ ] Correctly handle colon-prefixed commands  
-  - [ ] Fuzzy search logic for invalid commands
+- [ ] **Command Parsing and Execution**  
+  - [ ] Test colon-prefixed commands and auto-completion.
+  - [ ] Verify fuzzy search accuracy and error handling for invalid commands.
 
-- [ ] **JSON Parsing & Diff**  
-  - [ ] Validate correct parsing for JSON payloads  
-  - [ ] Confirm diff logic is accurate
+- [ ] **JSON Parsing & Diff Mode**  
+  - [ ] Validate JSON parsing from payloads.
+  - [ ] Test diff mode functionality between consecutive messages.
 
 ### 8.2 Integration Tests
 
-- [ ] **Local MQTT Broker**  
-  - [ ] Connect, subscribe, receive test messages  
-  - [ ] Check message display and ring buffer rollover
+- [ ] **End-to-End MQTT Communication**  
+  - [ ] Set up a local MQTT broker (e.g., Mosquitto) for testing.
+  - [ ] Verify full message lifecycle: connection, subscription, message reception, and UI update.
 
-- [ ] **UI Interaction**  
-  - [ ] Simulate user selecting topics, viewing details, toggling diff mode  
-  - [ ] Pause/resume, reset/clear ring buffer
+- [ ] **UI Interaction Tests**  
+  - [ ] Simulate user interactions: topic selection, pausing/resuming UI, command execution.
+  - [ ] Validate that keyboard shortcuts and vim-like navigation work as expected.
 
 ### 8.3 Performance Tests
 
-- [ ] **High Volume**  
-  - [ ] Test thousands of topics, hundreds of thousands of messages  
-  - [ ] Confirm UI remains responsive with 1-second update interval  
-  - [ ] Check memory usage under load
+- [ ] **High Throughput Scenarios**  
+  - [ ] Simulate thousands of topics and hundreds of thousands of messages.
+  - [ ] Confirm UI responsiveness with 1-second update intervals.
+  - [ ] Monitor memory usage and ring buffer management under load.
 
 ### 8.4 Error Handling Tests
 
-- [ ] **Simulated Broker Disconnection**  
-  - [ ] Validate reconnection logic and error toasts  
-  - [ ] Confirm diagnostics logs the error reason
+- [ ] **Simulated Connection Failures**  
+  - [ ] Test reconnection logic and verify detailed error toasts.
+  - [ ] Ensure diagnostics view logs all connection errors.
 
-- [ ] **Invalid Commands**  
-  - [ ] Show transient toast with “Retry” or “Jump to Diagnostics”  
-  - [ ] Confirm logs are captured in diagnostics
+- [ ] **Invalid Command Scenarios**  
+  - [ ] Verify transient toast messages for invalid or failed commands.
+  - [ ] Test quick-action buttons for retry and diagnostics jump.
 
 ### 8.5 Cross-Platform Validation
 
 - [ ] **Windows**  
-  - [ ] Verify .exe or relevant binary runs without admin privileges  
-  - [ ] Check UI and logging paths
+  - [ ] Ensure the packaged .exe runs without requiring admin privileges.
+  - [ ] Validate all UI and functionality aspects.
 
 - [ ] **Linux**  
-  - [ ] Confirm .AppImage or other packaging approach  
-  - [ ] Validate no root privileges required
+  - [ ] Test the single-file executable (or AppImage) on various distributions.
+  - [ ] Validate UI rendering and file paths.
 
 - [ ] **macOS**  
-  - [ ] Test .dmg or .pkg alternative (or .NET single file)  
-  - [ ] Confirm all UI elements render correctly
+  - [ ] Confirm the packaged binary runs correctly on macOS.
+  - [ ] Verify UI elements and cross-platform consistency.
 
 ---
 
 ## 9. Future Enhancements (Out of Scope for Initial Release)
 
-- [ ] **TLS/SSL Support**  
-- [ ] **Username/Password or Certificate-Based Auth**  
-- [ ] **Topic-Specific Settings** (QoS, ring buffer size, etc.)  
-- [ ] **Light Theme Toggle**  
-- [ ] **Plugin System** for custom actions on messages
+- [ ] **Security Enhancements**: TLS/SSL, username/password, or certificate-based authentication.
+- [ ] **User Management and Multi-Profile Support.**
+- [ ] **Topic-Specific Settings**: Custom ring buffer sizes, QoS configurations.
+- [ ] **Light Theme Option**.
+- [ ] **Plugin System** for custom message actions.
 
 ---
 
 ## 10. Completion Criteria
 
-- [ ] **All Core Features** are implemented (MQTT connection, ring buffer, UI, commands).  
-- [ ] **Basic Performance Goals** are met (responsive UI under heavy load).  
-- [ ] **Cross-Platform Builds** pass smoke tests on Windows, Linux, macOS.  
-- [ ] **Test Suite** (unit, integration, performance) passes with no major issues.  
-- [ ] **Documentation** (help references, keyboard shortcuts, usage instructions) is up-to-date.
+- [ ] **Core Functionality**: MQTT connection, message handling, ring buffer, and UI rendering are fully implemented.
+- [ ] **Performance Goals**: Responsive UI under heavy load with proper memory management.
+- [ ] **Cross-Platform Compatibility**: Successful smoke tests on Windows, Linux, and macOS.
+- [ ] **Testing Suite**: All unit, integration, and performance tests pass with no major issues.
+- [ ] **Documentation**: Complete and up-to-date user and developer documentation, including help references and keyboard shortcuts.
 
 ---
 
-Use this checklist as a living document. Mark tasks as complete, add notes or references, and adjust priorities as needed throughout development.
+Use this checklist as a living document to track progress and ensure all components are addressed during development.

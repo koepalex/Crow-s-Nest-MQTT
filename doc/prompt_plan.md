@@ -1,64 +1,74 @@
-
-## 1. Overall Blueprint
+## 1. Overall Blueprint (Updated)
 
 **Project Overview:**  
-Build a cross-platform MQTT v5 client application with a graphical user interface. The application subscribes to all topics (`#` at QoS 1), handles high message volumes, and provides structured visualization, a Vim-like keyboard interface, and a command/search system. The application is designed to be packaged as a global tool across Windows, Linux, and macOS.
+Build a cross-platform MQTT v5 client application with a graphical user interface using .NET 9 and Avalonia UI. The application subscribes to all topics (`#` at QoS 1), handles high message volumes, and provides structured visualization, a Vim-like keyboard interface, and a command/search system. The application is designed to be packaged as a global tool on Windows, Linux, and macOS.
 
 **High-Level Phases:**
 
 1. **Project Setup & Environment Initialization**  
-   - Establish project structure and configuration.
-   - Setup a unit-testing framework.
-   - Create a minimal cross-platform GUI skeleton.
+   - Establish the .NET 9 project structure.
+   - Setup Avalonia UI for cross-platform GUI.
+   - Create directories for the MQTT engine, UI components, utilities, and tests.
+   - Create a basic configuration file (e.g., appsettings.json) for future settings.
+   - Write a README with project purpose and instructions for running tests.
 
 2. **MQTT Engine Implementation**  
-   - Develop the core module for MQTT connection, subscription to `#`, and reconnection.
-   - Integrate unit tests for connection, message handling, and error cases.
+   - Develop a .NET module for the MQTT engine using MQTT v5 libraries.
+   - Implement connection to the broker, subscribing to `#` at QoS 1, and reconnect logic.
+   - Include unit tests to verify connection, message handling, and error cases.
 
 3. **Message Buffer & Storage**  
-   - Build an in-memory ring buffer per topic.
-   - Handle overflow and replacement logic.
-   - Write tests to ensure correctness of the buffer operations.
+   - Build an in-memory ring buffer per topic with a configurable maximum size (e.g., 10MB).
+   - Remove the oldest messages when the buffer is full.
+   - Write tests for insertion, retrieval, and overflow behavior.
+   - Integrate the ring buffer with the MQTT engine.
 
-4. **GUI Implementation**  
-   - Create UI panels for topics, message history, and message details.
-   - Implement dark theme, keyboard navigation, and interval-based UI updates.
-   - Integrate MQTT engine with GUI components.
+4. **GUI Implementation with Avalonia UI**  
+   - Develop UI panels using Avalonia:
+     - Left panel for topic list.
+     - Right panel split between message history and message details.
+     - Top search/command bar.
+   - Implement a dark theme as default and Vim-like keyboard navigation.
+   - Use .NET’s timer mechanisms for interval-based UI updates.
+   - Write tests (or integration test scripts) to verify that the UI loads correctly.
 
 5. **Advanced Features**  
-   - Implement command and search parser with fuzzy matching.
-   - Create an interactive JSON tree view for payloads.
-   - Support image rendering, diff mode, clipboard, and file saving.
-   - Integrate diagnostics, logging, and error notifications.
+   - Create a command parser module to process colon-prefixed commands (e.g., :connect, :export, etc.) and fuzzy search for non-prefixed input.
+   - Implement an interactive JSON view to parse and render JSON payloads in a tree view.
+   - Support image rendering (for JPEG/PNG payloads), diff mode for comparing consecutive messages, clipboard functionality, and file saving.
+   - Integrate these into the Avalonia UI.
 
-6. **Packaging & Distribution**  
-   - Package the app as a global tool (single binary if possible).
-   - Integrate a self-update mechanism.
+6. **Diagnostics, Logging, and Error Handling**  
+   - Use .NET logging (with OpenTelemetry-compatible format) for connection events, errors, and performance metrics.
+   - Implement transient toast notifications and a diagnostics view accessible via commands (e.g., :diagnostic).
+   - Write tests simulating errors to verify logging and diagnostics.
 
-7. **Final Integration & Testing**  
-   - Wire together all components.
-   - Perform end-to-end tests (including high-throughput scenarios and cross-platform tests).
-
----
-
-## 2. Iterative Breakdown into Prompts
-
-Below are the iterative prompts for a code-generation LLM. Each prompt is designed to produce small, testable increments, and every step wires the new functionality into the existing project.
+7. **Packaging & Distribution**  
+   - Configure the project for single-binary distribution as a global tool (via dotnet tool packaging).
+   - Implement a self-update mechanism that checks for newer versions on startup or user command.
+   - Integrate self-update notifications into the UI.
+   - Run final end-to-end tests for overall functionality.
 
 ---
 
-### **Prompt 1: Project Setup and Initial Structure**
+## 2. Iterative Breakdown into Prompts (Updated)
+
+Each prompt below now assumes .NET 9 and Avalonia UI as the foundational technologies.
+
+---
+
+### **Prompt 1: Project Setup and Initial Structure (dotnet9 + Avalonia UI)**
 
 ```text
-# Prompt 1: Project Setup and Initial Structure
+# Prompt 1: Project Setup and Initial Structure (dotnet9 + Avalonia UI)
 
-Create a new project structure for our MQTT monitoring tool. The project should include:
-- A main application entry point.
-- Separate directories for the MQTT engine, GUI components, utilities, and tests.
-- A basic configuration file (e.g., config.json or similar) for future settings.
+Create a new .NET 9 solution for our MQTT monitoring tool using Avalonia UI. The project should include:
+- A main application entry point using Avalonia AppBuilder.
+- Separate directories/projects for the MQTT engine, Avalonia UI components, utilities, and tests.
+- A basic configuration file (appsettings.json) for future settings.
 - A README outlining the project purpose and instructions for running tests.
 
-Please generate a scaffold with placeholder modules (files) that set up this structure. Also, add a basic unit test setup with an example test that always passes.
+Generate a scaffold with placeholder modules that set up this structure, and add a basic unit test project with an example test that always passes.
 ```
 
 ---
@@ -68,18 +78,18 @@ Please generate a scaffold with placeholder modules (files) that set up this str
 ```text
 # Prompt 2: MQTT Engine – Connection and Subscription
 
-Develop a module for the MQTT engine that:
-- Connects to a given MQTT broker using MQTT v5.
+Develop a .NET module for the MQTT engine that:
+- Connects to an MQTT broker using MQTT v5 libraries available in .NET.
 - Subscribes to the wildcard topic "#" at QoS 1.
-- Includes basic reconnect logic on disconnect.
+- Implements reconnect logic on disconnect.
 - Emits events or callbacks for new messages and errors.
 
-Also, write a unit test that mocks the MQTT broker to verify that:
-- The connection is established.
-- The subscription to "#" is performed.
-- Reconnection logic is triggered on simulated disconnect.
+Also, create a unit test that mocks the MQTT broker to verify that:
+- The connection is successfully established.
+- Subscription to "#" is executed.
+- Reconnection logic is triggered when simulating a disconnect.
 
-Ensure that the module is testable and that all new code is integrated with the project setup from Prompt 1.
+Ensure this module is integrated within the solution structure set up in Prompt 1.
 ```
 
 ---
@@ -89,48 +99,48 @@ Ensure that the module is testable and that all new code is integrated with the 
 ```text
 # Prompt 3: Message Buffer – Ring Buffer Implementation
 
-Create a module for an in-memory ring buffer to store messages per topic. The ring buffer should:
-- Have a configurable maximum size (e.g., 10MB per topic).
-- Automatically remove the oldest messages when the buffer reaches its limit.
-- Provide methods to insert a new message and to retrieve messages.
+Create a .NET module for an in-memory ring buffer that stores messages per topic. The ring buffer should:
+- Support a configurable maximum size (e.g., 10MB per topic).
+- Automatically remove the oldest messages when the buffer limit is reached.
+- Provide methods to insert a new message and to retrieve stored messages.
 
 Include unit tests for:
-- Inserting messages and maintaining the size limit.
-- Retrieving messages.
-- Correct behavior when the buffer overflows.
+- Insertion of messages with size constraint handling.
+- Correct retrieval of messages.
+- Proper behavior when the buffer overflows.
 
-Integrate this module with the MQTT engine such that incoming messages are stored in the appropriate ring buffer.
+Wire this ring buffer module with the MQTT engine so that incoming messages are stored in the corresponding buffers.
 ```
 
 ---
 
-### **Prompt 4: Basic GUI Skeleton with Panels**
+### **Prompt 4: Basic GUI Skeleton with Avalonia UI Panels**
 
 ```text
-# Prompt 4: Basic GUI Skeleton with Panels
+# Prompt 4: Basic GUI Skeleton with Avalonia UI Panels
 
-Develop a basic cross-platform GUI skeleton for the application. The GUI should include:
-- A left panel to list topics (initially empty).
+Develop a basic Avalonia UI skeleton for the application. The UI should include:
+- A left panel for listing topics (initially empty).
 - A right panel split into two sections: one for message history and one for message details.
-- A top search/command bar that will later accept commands and search queries.
-- A dark theme layout by default.
+- A top search/command bar for accepting commands and queries.
+- A default dark theme.
 
-Wire this GUI skeleton into the main application, and add basic navigation (e.g., keyboard or button navigation) to switch between panels. Also, add a unit test (or integration test script) that verifies the GUI loads correctly and displays all panels.
+Set up keyboard navigation (e.g., basic focus management for panels) and interval-based updates using .NET timers. Integrate this UI skeleton into the main application, and include a simple test or integration check to verify that the UI loads and displays all panels correctly.
 ```
 
 ---
 
-### **Prompt 5: Integrating MQTT Engine with GUI**
+### **Prompt 5: Integrating MQTT Engine with Avalonia UI**
 
 ```text
-# Prompt 5: Integrating MQTT Engine with GUI
+# Prompt 5: Integrating MQTT Engine with Avalonia UI
 
-Integrate the MQTT engine with the GUI:
-- When a new message is received via the MQTT engine, update the topics list on the left panel.
-- Display the message (with a timestamp) in the message history panel when a topic is selected.
-- Ensure that the UI updates at a configurable interval (default 1 second) to reflect new messages without freezing the interface.
+Integrate the MQTT engine with the Avalonia UI:
+- Update the left topics panel when a new message is received.
+- When a topic is selected, display the message (with a timestamp) in the message history panel.
+- Use a .NET timer to update the UI at a configurable interval (default 1 second) without blocking the interface.
 
-Include tests or logging that confirms the integration is working (e.g., simulated message injection and UI update).
+Include logging or tests (or create a demo mode) to simulate message injection and verify that the UI updates accordingly.
 ```
 
 ---
@@ -143,19 +153,18 @@ Include tests or logging that confirms the integration is working (e.g., simulat
 Develop two additional modules:
 1. A command parser that:
    - Processes colon-prefixed commands (e.g., :connect, :disconnect, :export, :diagnostic, etc.).
-   - Performs fuzzy matching for searches when the colon is not used.
-   - Returns appropriate responses or triggers actions.
+   - Supports fuzzy matching for non-command search queries.
+   - Triggers appropriate actions or returns command responses.
 
 2. An interactive JSON view:
-   - Parses JSON payloads from messages.
-   - Renders a tree-view for the JSON data.
-   - Allows clicking on elements to add them to a live-updating table of last known values.
+   - Parses JSON payloads and renders them in a tree-view.
+   - Allows users to click on JSON elements to add them to a live-updating table of last known values.
 
-Integrate these features with the existing GUI:
+Integrate these features with the Avalonia UI:
 - Wire the command parser to the top search/command bar.
-- Make sure that JSON messages in the message details panel switch to the interactive view when applicable.
+- Ensure that when a JSON message is selected in the message details panel, the interactive JSON view is displayed.
 
-Add tests to simulate command input and validate JSON parsing and rendering.
+Include tests that simulate command input and verify JSON parsing and rendering.
 ```
 
 ---
@@ -165,12 +174,12 @@ Add tests to simulate command input and validate JSON parsing and rendering.
 ```text
 # Prompt 7: Additional GUI Enhancements – Image Rendering, Diff, and Clipboard
 
-Enhance the GUI by adding:
-- Image rendering for messages with content-type image/jpeg or image/png, including zoom and save options.
+Enhance the Avalonia UI by adding:
+- Image rendering for messages with content-type image/jpeg or image/png, including features for zooming and saving.
 - A diff mode that compares the current payload with the previous message for the same topic.
-- Clipboard functionality: allow copying of the current message (with metadata) as JSON and provide a command (e.g., :w to save to file).
+- Clipboard functionality to copy the current message (with metadata) as JSON, and a command (e.g., :w) to save the current message to file.
 
-Integrate these enhancements into the existing GUI panels, ensuring that each feature is wired into the message details view. Include tests or scripts to simulate image payloads, diff comparisons, and clipboard operations.
+Integrate these enhancements into the message details panel. Include tests or demo scenarios to simulate image payloads, perform diff operations, and validate clipboard and file-saving functionality.
 ```
 
 ---
@@ -181,15 +190,15 @@ Integrate these enhancements into the existing GUI panels, ensuring that each fe
 # Prompt 8: Diagnostics, Logging, and Error Handling
 
 Develop modules to handle:
-- Logging and diagnostics: record events (connection events, errors, and performance metrics) in an OpenTelemetry-compliant format.
+- Logging and diagnostics using .NET logging libraries with OpenTelemetry-compatible output.
 - Transient toast notifications for errors and command failures.
-- A dedicated diagnostics view in the GUI that can be opened via a command (e.g., :diagnostic) to display logs and error details.
+- A diagnostics view in the Avalonia UI that can be opened via a command (e.g., :diagnostic) to display logs and error details.
 
-Wire these modules into both the MQTT engine and the GUI so that:
-- Errors in connection or commands trigger toast notifications.
-- The diagnostics view is updated in real time with the latest logs.
+Integrate these modules with both the MQTT engine and the GUI so that:
+- Connection errors, command errors, and other issues trigger toast notifications.
+- The diagnostics view is updated in real-time with the latest log entries.
 
-Include tests that simulate errors and verify that logs are captured and that the diagnostics view displays the correct information.
+Write tests to simulate errors and verify that logs and notifications are correctly displayed.
 ```
 
 ---
@@ -200,17 +209,14 @@ Include tests that simulate errors and verify that logs are captured and that th
 # Prompt 9: Packaging, Self-Update Mechanism, and Final Integration
 
 Prepare the application for packaging and distribution:
-- Create build scripts or configuration files for building a single-binary distribution or a global tool (via npm, dotnet tool, etc.).
-- Implement a self-update mechanism that, on startup or on user request, checks for a new version and notifies the user if an update is available.
-- Wire the self-update notifications into the diagnostics or settings panel.
+- Create build scripts/configurations for packaging as a global tool (e.g., a dotnet tool) with a single-binary distribution.
+- Implement a self-update mechanism that checks for new versions on startup or upon user request, notifying the user of available updates.
+- Integrate self-update notifications into the diagnostics or settings panel.
 
-Finally, ensure that all modules (MQTT engine, message buffer, GUI, command parser, diagnostics, etc.) are fully integrated and perform an end-to-end test:
-- Simulate message flow from a local MQTT broker.
-- Verify UI updates, command responses, error handling, and logging.
+Finally, perform an end-to-end integration test that covers:
+- Simulated MQTT message flow using a local broker.
+- Complete UI updates including topic, message history, and message details.
+- Command processing, error handling, logging, and self-update checks.
 
-Include final integration tests that cover the overall functionality.
+Include final integration tests to verify overall functionality across all components.
 ```
-
----
-
-Each prompt is self-contained yet builds incrementally on the previous work. By following these steps, you can ensure early testing, incremental progress, and strong integration without any orphaned code.
