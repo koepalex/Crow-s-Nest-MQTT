@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <RootNamespace>CrowsNestMqtt.Tests</RootNamespace>
+    <AssemblyName>CrowsNestMqtt.Tests</AssemblyName>
     <TargetFramework>$(TestsTargetFramework)</TargetFramework>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
@@ -10,6 +12,10 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.3.2" />
+    
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MQTTnet" Version="5.0.1.1416" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\MQTTEngine\MQTTEngine.csproj" />
