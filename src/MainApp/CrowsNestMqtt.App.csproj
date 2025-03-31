@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>CrowsNestMqtt.App</RootNamespace>
+    <AssemblyName>CrowsNestMqtt.App</AssemblyName>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(AppTargetFramework)</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RuntimeIdentifiers>$(TargetRuntimeIdentifiers)</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.0.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.0.0" />
+    <PackageReference Include="Avalonia.ReactiveUI" Version="11.0.0" />
+    <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+   <ProjectReference Include="../UI/UI.csproj" />
+  </ItemGroup>
+</Project>

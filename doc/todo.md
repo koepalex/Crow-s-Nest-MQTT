@@ -7,9 +7,9 @@ A comprehensive list of tasks derived from the specification. Use this document 
 ## 1. Project Setup & Architecture
 
 - [ ] **Select and Set Up Technology Stack**  
-  - [ ] Use **.NET 9** as the backend/runtime.
-  - [ ] Use **AvaloniaUI** for the cross-platform GUI.
-  - [ ] Establish project structure (Core, UI, Services, Tests, etc.).
+  - [x] Use **.NET 9** as the backend/runtime.
+  - [x] Use **AvaloniaUI** for the cross-platform GUI.
+  - [x] Establish project structure (Core, UI, Services, Tests, etc.).
   - [ ] Set up build scripts and CI/CD pipelines for Windows, Linux, and macOS.
 
 - [ ] **Dependencies & Tooling**  

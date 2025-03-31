@@ -1,0 +1,45 @@
+<Project>
+  <PropertyGroup>
+    <Product>Crow's NestMQTT</Product>
+    <RepositoryUrl>https://github.com/koepalex/Crow-s-Nest-MQTT</RepositoryUrl>
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <VersionSuffix>preview-$([System.DateTime]::Now.ToString("yyyyMMdd"))</VersionSuffix>
+    <Copyright>Copyright © 2025 Alexander Köpke</Copyright>
+    <Authors>Alexander Köpke</Authors>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <HighEntropyVA>true</HighEntropyVA>
+    <IsPackable>false</IsPackable>
+    <LangVersion>preview</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <CodeAnalysisTreatWarningsAsErrors>false</CodeAnalysisTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AnalysisLevel>preview</AnalysisLevel>
+    <AnalysisMode>all</AnalysisMode>
+    <AnalysisModeStyle>default</AnalysisModeStyle>
+    <AnalysisModePerformance>all</AnalysisModePerformance>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/MainApp/CrowsNestMqtt.App.csproj" />
+  <Project Path="src/Businesslogic/Businesslogic.csproj" />
+  <Project Path="src/UI/UI.csproj" />
+  <Project Path="src/Utils/Utils.csproj" />
+  <Project Path="tests/UnitTests/UnitTests.csproj" />
+</Solution>
