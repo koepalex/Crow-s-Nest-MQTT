@@ -469,14 +469,18 @@ public class MainViewModel : ReactiveViewModel
 
             if (existingNode == null)
             {
-                existingNode = new NodeViewModel(segment) { Parent = parentNode, FullPath = currentPath }; // Assign parent and path
-                // TODO: Consider sorting currentLevel before adding
-                currentLevel.Add(existingNode);
-                // Sort the current level after adding a new node
-                var sortedLevel = new ObservableCollection<NodeViewModel>(currentLevel.OrderBy(n => n.Name));
-                currentLevel.Clear(); // Clear and re-add is one way to handle sorting ObservableCollection in place
-                foreach(var node in sortedLevel) currentLevel.Add(node);
+                var newNode = new NodeViewModel(segment) { Parent = parentNode, FullPath = currentPath };
 
+                // Find the correct index to insert the new node to maintain alphabetical order
+                int insertIndex = 0;
+                while (insertIndex < currentLevel.Count && string.Compare(newNode.Name, currentLevel[insertIndex].Name, StringComparison.OrdinalIgnoreCase) > 0)
+                {
+                    insertIndex++;
+                }
+
+                // Insert the node at the determined index
+                currentLevel.Insert(insertIndex, newNode);
+                existingNode = newNode; // Assign the newly created node to existingNode for subsequent logic
             }
 
             // Increment count for the current node and all its parents
