@@ -15,7 +15,7 @@ namespace CrowsNestMqtt.BusinessLogic;
 public class MqttEngine
 {
     private readonly IMqttClient _client;
-    private readonly MqttConnectionSettings _settings; // Store settings
+    private MqttConnectionSettings _settings; // Store settings (removed readonly)
     private MqttClientOptions? _currentOptions; // Store the options used for the current/last connection attempt
     private readonly ConcurrentDictionary<string, TopicRingBuffer> _topicBuffers; // Added buffer storage
     private const long DefaultMaxTopicBufferSize = 10 * 1024 * 1024; // 10 MB - Added default size
@@ -56,6 +56,18 @@ public class MqttEngine
             return Task.CompletedTask;
         };
 
+    }
+
+    /// <summary>
+    /// Updates the connection settings used by the engine for subsequent connection attempts.
+    /// </summary>
+    /// <param name="newSettings">The new settings to use.</param>
+    public void UpdateSettings(MqttConnectionSettings newSettings)
+    {
+        _settings = newSettings ?? throw new ArgumentNullException(nameof(newSettings));
+        LogMessage?.Invoke(this, "MqttEngine settings updated.");
+        // Note: This doesn't automatically reconnect or apply settings to an *active* connection.
+        // A disconnect/reconnect cycle is needed for changes to take effect.
     }
 
     // Helper method for initial subscription and resubscription

@@ -398,12 +398,9 @@ public class MainViewModel : ReactiveViewModel
             SessionExpiryInterval = Settings.SessionExpiryInterval
             // TODO: Map other settings like TLS, Credentials if added
         };
-        // NOTE: MqttEngine currently uses the settings passed in its constructor.
-        // To make Connect use *updated* settings, MqttEngine needs modification
-        // (e.g., accept settings in ConnectAsync or have a method to update its internal settings).
-        // For now, it uses the settings from startup. Let's proceed with this for now.
-        // A better approach would be to refactor MqttEngine to take settings on ConnectAsync.
-        await _mqttEngine.ConnectAsync(); // Uses settings passed in constructor
+        // Update the engine with the latest settings before connecting
+        _mqttEngine.UpdateSettings(connectionSettings);
+        await _mqttEngine.ConnectAsync(); // Now uses the updated settings
     }
 
     private async Task DisconnectAsync()
