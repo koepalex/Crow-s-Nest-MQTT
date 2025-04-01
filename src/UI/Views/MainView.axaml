@@ -13,44 +13,127 @@
     <vm:MainViewModel />
   </Design.DataContext>
 
-  <Grid RowDefinitions="Auto,*" ColumnDefinitions="Auto,*">
+  <!-- Changed RowDefinitions to Auto,Auto,*, removed ColumnDefinitions from top Grid -->
+  <!-- Use a root Panel for layering -->
+  <Panel>
+    <!-- Main layout Grid (without settings) -->
+    <Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="*">
+ 
+      <!-- Top Command/Search Bar -->
+      <TextBox Grid.Row="0"
+               Watermark="Enter command or search query..."
+               Text="{Binding CommandText}"
+               Margin="5"/>
+ 
+      <!-- Buttons and Status Indicators -->
+      <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="5" Margin="5,0,5,5">
+          <Button Content="Connect" Command="{Binding ConnectCommand}" />
+          <Button Content="Disconnect" Command="{Binding DisconnectCommand}" />
+          <Button Content="Simulate Msg" Command="{Binding SimulateMessageCommand}" />
+          <Button Content="Clear History" Command="{Binding ClearHistoryCommand}" />
+          <Button Content="Pause/Resume" Command="{Binding PauseResumeCommand}" />
+          <Button Content="Settings" Command="{Binding OpenSettingsCommand}" Margin="10,0,0,0" />
+          <TextBlock Text="Status:" VerticalAlignment="Center" Margin="10,0,0,0"/>
+          <TextBlock Text="{Binding IsConnected, StringFormat='Connected: {0}'}" VerticalAlignment="Center" Margin="5,0"/>
+          <TextBlock Text="{Binding IsPaused, StringFormat='Paused: {0}'}" VerticalAlignment="Center" Margin="5,0"/>
+      </StackPanel>
+ 
+      <!-- Main Content Area using DockPanel -->
+      <Grid Grid.Row="2" RowDefinitions="*" ColumnDefinitions="*,Auto">
+          <!-- Main Content Grid (Fills Remaining Space) -->
+          <Grid Grid.Row="0" Grid.Column="0" ColumnDefinitions="Auto,*" DockPanel.Dock="Left" >
+              <!-- Left Panel: Topic List -->
+              <Border Grid.Column="0" BorderBrush="Gray" BorderThickness="0,0,1,0" MinWidth="250">
+                  <ListBox ItemsSource="{Binding Topics}"
+                           SelectedItem="{Binding SelectedTopic, Mode=TwoWay}"
+                           Margin="5">
+                      <ListBox.ItemTemplate>
+                          <DataTemplate x:DataType="vm:TopicViewModel">
+                              <TextBlock Text="{Binding Name}" />
+                          </DataTemplate>
+                      </ListBox.ItemTemplate>
+                  </ListBox>
+              </Border>
+ 
+              <!-- Right Panel: Split View for History and Details -->
+              <SplitView Grid.Column="1" PanePlacement="Right" DisplayMode="Inline" IsPaneOpen="True" OpenPaneLength="300" >
+                  <SplitView.Pane>
+                      <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="5">
+                          <ScrollViewer>
+                               <TextBlock Text="{Binding MessageDetails}" TextWrapping="Wrap" FontFamily="Consolas" MinWidth="250"/>
+                          </ScrollViewer>
+                      </Border>
+                  </SplitView.Pane>
+                  <SplitView.Content>
+                       <ListBox ItemsSource="{Binding MessageHistory}"
+                                SelectedItem="{Binding SelectedMessage, Mode=TwoWay}"
+                                Margin="5">
+                          <ListBox.ItemTemplate>
+                              <DataTemplate x:DataType="vm:MessageViewModel">
+                                  <TextBlock Text="{Binding DisplayText}" FontFamily="Consolas" MinWidth="250"/>
+                              </DataTemplate>
+                          </ListBox.ItemTemplate>
+                      </ListBox>
+                  </SplitView.Content>
+              </SplitView>
+          </Grid> <!-- End of Main Content Grid -->
 
-    <!-- Top Command/Search Bar -->
-    <TextBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
-             Watermark="Enter command or search query..."
-             Text="{Binding CommandText}"
-             Margin="5"/>
+          <Panel Grid.Row="0" Grid.Column="1" IsVisible="{Binding IsSettingsVisible}" Background="{DynamicResource ApplicationBackgroundBrush}">
+            <Grid ColumnDefinitions="Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="5">
+                <Grid.Styles>
+                    <Style Selector="TextBlock">
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                        <Setter Property="Margin" Value="0,0,5,0"/> <!-- Right margin for labels -->
+                    </Style>
+                    <Style Selector="TextBox, NumericUpDown, CheckBox">
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                        <Setter Property="Margin" Value="0,0,0,5"/> <!-- Bottom margin for controls -->
+                    </Style>
+                    <Style Selector="Grid > :nth-child(n)" x:SetterTargetType="Grid">
+                        <Setter Property="Grid.Column" Value="0"/> <!-- Default to first column -->
+                    </Style>
+                    <Style Selector="Grid > TextBox, Grid > NumericUpDown, Grid > CheckBox">
+                        <Setter Property="Grid.Column" Value="1"/> <!-- Inputs go to second column -->
+                    </Style>
+                    <Style Selector="Grid > StackPanel" x:SetterTargetType="Grid">
+                        <Setter Property="Grid.ColumnSpan" Value="2"/> <!-- Span StackPanels across columns -->
+                        <Setter Property="Grid.Column" Value="0"/>
+                    </Style>
+                </Grid.Styles>
 
-    <!-- Left Panel: Topic List -->
-    <Border Grid.Row="1" Grid.Column="0" BorderBrush="Gray" BorderThickness="0,0,1,0" MinWidth="150">
-        <ListBox ItemsSource="{Binding Topics}" Margin="5">
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding}" />
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
-    </Border>
+                <!-- Hostname -->
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Hostname:"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Settings.Hostname, Mode=TwoWay}"/>
 
-    <!-- Right Panel: Split View for History and Details -->
-    <SplitView Grid.Row="1" Grid.Column="1" PanePlacement="Right" DisplayMode="Inline" IsPaneOpen="True" OpenPaneLength="200">
-        <SplitView.Pane>
-            <!-- Bottom Pane: Message Details -->
-            <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="5">
-                <TextBlock Text="{Binding MessageDetails}" TextWrapping="Wrap"/>
-            </Border>
-        </SplitView.Pane>
-        <SplitView.Content>
-            <!-- Top Content: Message History -->
-             <ListBox ItemsSource="{Binding MessageHistory}" Margin="5">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding}" />
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-        </SplitView.Content>
-    </SplitView>
+                <!-- Port -->
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Port:"/>
+                <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding Settings.Port, Mode=TwoWay, StringFormat=N0}" ParsingNumberStyle="Integer" Minimum="1" Maximum="65535"/>
 
-  </Grid>
+                <!-- Client ID -->
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Client ID:"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Settings.ClientId, Mode=TwoWay}" Watermark="(auto-generated)"/>
+
+                <!-- Keep Alive -->
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Keep Alive (s):"/>
+                <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding Settings.KeepAliveIntervalSeconds, Mode=TwoWay, StringFormat=N0}"  ParsingNumberStyle="Integer" MinWidth="80" Minimum="0"/>
+                
+                <!-- Clean Session -->
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Clean Session:"/>
+                <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding Settings.CleanSession, Mode=TwoWay}" Margin="10,0,0,0"/>
+
+                <!-- Session Expiry -->
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Session Expiry (s):"/>
+                <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Vertical" Spacing="5">
+                    <NumericUpDown Value="{Binding Settings.SessionExpiryIntervalSeconds, Mode=TwoWay}" MinWidth="120"  FormatString="N0" Minimum="0" Watermark="(infinite)"/>
+                    <TextBlock Text="(0 = expires immediately, empty = infinite)" FontSize="10"/>
+                </StackPanel>
+            </Grid>
+        </Panel>
+
+      </Grid> <!-- End of Main Content Area DockPanel -->
+ 
+    </Grid> <!-- End of Main Layout Grid -->
+    
+ 
+  </Panel>
 </UserControl>

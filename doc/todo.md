@@ -25,14 +25,14 @@ A comprehensive list of tasks derived from the specification. Use this document 
 
 - [ ] **Core MQTT Engine**  
   - [x] Implement MQTT v5 connect/disconnect using MQTTnet.
-  - [ ] Support basic settings (broker hostname, port).
-  - [ ] Support advanced settings: client ID, keepalive, session timeout, clean session vs. session expiry.
+  - [x] Support basic settings (broker hostname, port).
+  - [x] Support advanced settings: client ID, keepalive, session timeout, clean session vs. session expiry.
   - [ ] Automatically reconnect on failure.
   - [ ] Capture and expose detailed error info (reason string, error code).
 
 - [ ] **Subscription & Message Handling**  
   - [x] Subscribe to `#` with QoS 1.
-  - [ ] Handle message callbacks and propagate events to the UI.
+  - [x] Handle message callbacks and propagate events to the UI.
   - [ ] Expose events for new messages, errors, and connection status changes.
 
 ---
@@ -78,7 +78,7 @@ A comprehensive list of tasks derived from the specification. Use this document 
   - [ ] Optimize performance: only update visible branches.
 
 - [ ] **Message History Panel**  
-  - [ ] List messages for the selected topic with timestamps and payload previews.
+  - [x] List messages for the selected topic with timestamps and payload previews.
   - [ ] Implement a global pause/resume feature for UI updates.
   - [ ] Show paused state, including number of messages buffered and ring-buffer usage.
   - [ ] Provide a global reset/clear button to reset counters and clear buffers.
@@ -147,7 +147,7 @@ A comprehensive list of tasks derived from the specification. Use this document 
 ## 6. Performance & Resource Management
 
 - [ ] **UI Update Optimization**  
-  - [ ] Set default UI update interval to 1 second for visible content.
+  - [x] Set default UI update interval to 1 second for visible content.
   - [ ] Allow configuration of the update interval under advanced settings.
 
 - [ ] **Pause/Resume Functionality**  

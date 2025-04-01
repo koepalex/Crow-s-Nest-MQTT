@@ -7,14 +7,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using CrowsNestMqtt.Utils; // Added for TopicRingBuffer
+using CrowsNestMqtt.Utils;
+// Removed incorrect using: using CrowsNestMqtt.UI.ViewModels;
 
 namespace CrowsNestMqtt.BusinessLogic;
 
 public class MqttEngine
 {
     private readonly IMqttClient _client;
-    private readonly MqttClientOptions _options;
+    private readonly MqttConnectionSettings _settings; // Store settings
+    private MqttClientOptions? _currentOptions; // Store the options used for the current/last connection attempt
     private readonly ConcurrentDictionary<string, TopicRingBuffer> _topicBuffers; // Added buffer storage
     private const long DefaultMaxTopicBufferSize = 10 * 1024 * 1024; // 10 MB - Added default size
 
@@ -22,32 +24,14 @@ public class MqttEngine
     public event EventHandler<MqttConnectionStateChangedEventArgs>? ConnectionStateChanged; // Renamed/Refined event
     public event EventHandler<string>? LogMessage; // Added for logging internal info/errors
 
-    public MqttEngine(string brokerHost, int brokerPort)
+    public MqttEngine(MqttConnectionSettings settings) // Accept MqttConnectionSettings
     {
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings)); // Store settings
         var factory = new MqttClientFactory();
-        _options = new MqttClientOptionsBuilder() // Use new MqttClientOptionsBuilder()
-            .WithTcpServer(brokerHost, brokerPort)
-            .WithProtocolVersion(MQTTnet.Formatter.MqttProtocolVersion.V500)
-            // Add other options as needed (e.g., credentials, KeepAlive)
-            .WithCleanSession(true) // Example: Configure CleanSession
-            .Build();
-
         _client = factory.CreateMqttClient();
-        _topicBuffers = new ConcurrentDictionary<string, TopicRingBuffer>(); // Initialize buffer dictionary
+        _topicBuffers = new ConcurrentDictionary<string, TopicRingBuffer>();
 
-        _client.ApplicationMessageReceivedAsync += (e =>
-        {
-            // Store message in buffer
-            var topic = e.ApplicationMessage.Topic;
-            var buffer = _topicBuffers.GetOrAdd(topic, _ => new TopicRingBuffer(DefaultMaxTopicBufferSize));
-            buffer.AddMessage(e.ApplicationMessage);
-
-            // Notify subscribers (e.g., UI)
-            MessageReceived?.Invoke(this, e);
-
-            // No need to await Task.CompletedTask, just return it.
-            return Task.CompletedTask;
-        });
+        _client.ApplicationMessageReceivedAsync += HandleIncomingMessageAsync; // Subscribe the handler method
 
         // Removed ConnectingFailedAsync handler. Initial connection failures
         // are caught in the ConnectAsync method's try-catch block.
@@ -106,17 +90,64 @@ public class MqttEngine
         }
     }
 
+    // Builds MqttClientOptions based on current settings
+    private MqttClientOptions BuildMqttOptions()
+    {
+        var builder = new MqttClientOptionsBuilder()
+            .WithTcpServer(_settings.Hostname, _settings.Port)
+            .WithProtocolVersion(MQTTnet.Formatter.MqttProtocolVersion.V500)
+            .WithKeepAlivePeriod(_settings.KeepAliveInterval); // Use KeepAliveInterval
+
+        // Client ID: Use provided or let MQTTnet generate
+        if (!string.IsNullOrWhiteSpace(_settings.ClientId))
+        {
+            builder.WithClientId(_settings.ClientId);
+        }
+
+        // Clean Session vs Session Expiry (MQTT v5 logic)
+        if (_settings.CleanSession)
+        {
+            // For MQTT v5, CleanSession=true implies SessionExpiryInterval=0
+            builder.WithCleanSession(true);
+            builder.WithSessionExpiryInterval(0);
+        }
+        else
+        {
+            builder.WithCleanSession(false);
+            // If SessionExpiryInterval is null, session lasts indefinitely (MQTT default)
+            // Otherwise, use the provided value.
+            if (_settings.SessionExpiryInterval.HasValue)
+            {
+                 builder.WithSessionExpiryInterval(_settings.SessionExpiryInterval.Value);
+            }
+            // If null, MQTTnet handles the default behavior (session never expires)
+        }
+
+        // Add other options from settings as needed (TLS, Credentials, etc.)
+
+        return builder.Build();
+    }
+
+
     public async Task ConnectAsync()
     {
+        if (_client.IsConnected)
+        {
+            LogMessage?.Invoke(this, "Already connected.");
+            return;
+        }
+
         try
         {
-            LogMessage?.Invoke(this, $"Attempting to connect to {_options.ChannelOptions}...");
-            await _client.ConnectAsync(_options, CancellationToken.None);
-            // Subscription is now handled by the ConnectedAsync handler
+            _currentOptions = BuildMqttOptions(); // Build options just before connecting
+            LogMessage?.Invoke(this, $"Attempting to connect to {_currentOptions.ChannelOptions} with ClientId '{_currentOptions.ClientId ?? "<generated>"}'. CleanSession={_currentOptions.CleanSession}, SessionExpiry={_currentOptions.SessionExpiryInterval}");
+            await _client.ConnectAsync(_currentOptions, CancellationToken.None);
+            // Subscription is handled by the ConnectedAsync handler
         }
         catch (Exception ex)
         {
             LogMessage?.Invoke(this, $"Connection attempt failed: {ex.Message}");
+            _currentOptions = null; // Clear options on failure
             ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, ex));
             // Reconnect logic will be triggered by DisconnectedAsync if the connection drops later
             // Or by ConnectingFailedAsync if the initial connection fails.
@@ -125,9 +156,15 @@ public class MqttEngine
 
     public async Task DisconnectAsync()
     {
+        if (!_client.IsConnected)
+        {
+             LogMessage?.Invoke(this, "Already disconnected.");
+             return;
+        }
         // Use default disconnect options (ReasonCode=NormalDisconnection, no UserProperties)
         await _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build());
         LogMessage?.Invoke(this, "Disconnect requested by user.");
+        _currentOptions = null; // Clear options on disconnect
         // State change is handled by the DisconnectedAsync handler
     }
 
@@ -204,6 +241,57 @@ public class MqttEngine
             await Task.Delay(TimeSpan.FromSeconds(5)); // Wait 5 seconds between attempts
         }
         LogMessage?.Invoke(this, "Reconnection attempts stopped.");
+    }
+
+    /// <summary>
+    /// Injects a simulated message into the engine for testing or demo purposes.
+    /// </summary>
+    /// <param name="topic">The topic of the simulated message.</param>
+    /// <param name="payload">The payload of the simulated message (as a string).</param>
+    /// <param name="qos">The Quality of Service level.</param>
+    /// <param name="retain">The retain flag.</param>
+    public void InjectMessage(
+        string topic,
+        string payload,
+        MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtMostOnce,
+        bool retain = false)
+    {
+        LogMessage?.Invoke(this, $"Injecting simulated message on topic '{topic}'");
+
+        var message = new MqttApplicationMessageBuilder()
+            .WithTopic(topic)
+            .WithPayload(payload) // Assumes UTF-8 string payload
+            .WithQualityOfServiceLevel(qos)
+            .WithRetainFlag(retain)
+            // Add other properties if needed for simulation
+            .Build();
+
+        // Manually create the event args
+        var eventArgs = new MqttApplicationMessageReceivedEventArgs(
+            _client?.Options?.ClientId ?? "SimulatedClient", // Use actual ClientId if available, else fallback
+            message,
+            null, // ProcessingContext, not strictly needed for this simulation path
+            null  // PacketInspectorContext, not strictly needed
+            );
+
+        // Trigger the same handler as real messages
+        // Use Task.Run to simulate the background thread execution like MQTTnet does
+        _ = Task.Run(() => HandleIncomingMessageAsync(eventArgs));
+    }
+
+    // Extracted message handling logic
+    private Task HandleIncomingMessageAsync(MqttApplicationMessageReceivedEventArgs e)
+    {
+        // Store message in buffer
+        var topic = e.ApplicationMessage.Topic;
+        var buffer = _topicBuffers.GetOrAdd(topic, _ => new TopicRingBuffer(DefaultMaxTopicBufferSize));
+        buffer.AddMessage(e.ApplicationMessage);
+
+        // Notify external subscribers (e.g., UI)
+        MessageReceived?.Invoke(this, e);
+
+        // MQTTnet expects a Task return, Task.CompletedTask is appropriate for sync handling
+        return Task.CompletedTask;
     }
 
     // Optional: Implement IDisposable or IAsyncDisposable if needed
