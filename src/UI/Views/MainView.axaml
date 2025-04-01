@@ -44,15 +44,20 @@
           <Grid Grid.Row="0" Grid.Column="0" ColumnDefinitions="Auto,*" DockPanel.Dock="Left" >
               <!-- Left Panel: Topic List -->
               <Border Grid.Column="0" BorderBrush="Gray" BorderThickness="0,0,1,0" MinWidth="250">
-                  <ListBox ItemsSource="{Binding Topics}"
-                           SelectedItem="{Binding SelectedTopic, Mode=TwoWay}"
-                           Margin="5">
-                      <ListBox.ItemTemplate>
-                          <DataTemplate x:DataType="vm:TopicViewModel">
-                              <TextBlock Text="{Binding Name}" />
-                          </DataTemplate>
-                      </ListBox.ItemTemplate>
-                  </ListBox>
+                  <TreeView ItemsSource="{Binding TopicTreeNodes}"
+                            SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
+                            Margin="5">
+                      <TreeView.ItemTemplate>
+                          <TreeDataTemplate  DataType="{x:Type vm:NodeViewModel}" ItemsSource="{Binding Children}">
+                              <StackPanel Orientation="Horizontal" Spacing="5">
+                                  <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                  <Border Background="Gray" CornerRadius="3" Padding="3,1">
+                                      <TextBlock Text="{Binding MessageCount}" FontSize="10" Foreground="White" VerticalAlignment="Center"/>
+                                  </Border>
+                              </StackPanel>
+                          </TreeDataTemplate >
+                      </TreeView.ItemTemplate>
+                  </TreeView>
               </Border>
  
               <!-- Right Panel: Split View for History and Details -->

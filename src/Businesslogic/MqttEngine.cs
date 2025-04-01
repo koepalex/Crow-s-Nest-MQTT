@@ -44,7 +44,10 @@ public class MqttEngine
             // Optional: Wait a bit before starting reconnect attempts
             await Task.Delay(TimeSpan.FromSeconds(5));
             // Start reconnect attempts (fire and forget or manage the task)
-            _ = Task.Run(ReconnectAsync); // Use Task.Run to avoid blocking the handler
+            if (e.Reason != MqttClientDisconnectReason.NormalDisconnection)
+            {
+                _ = Task.Run(ReconnectAsync); // Use Task.Run to avoid blocking the handler
+            }
         });
 
         _client.ConnectedAsync += args =>
@@ -139,7 +142,6 @@ public class MqttEngine
 
         return builder.Build();
     }
-
 
     public async Task ConnectAsync()
     {

@@ -64,11 +64,17 @@ public class MainViewModel : ReactiveViewModel
         set => this.RaiseAndSetIfChanged(ref _commandText, value);
     }
 
-    private TopicViewModel? _selectedTopic;
-    public TopicViewModel? SelectedTopic
+    // Replaced SelectedTopic with SelectedNode for the TreeView
+    private NodeViewModel? _selectedNode;
+    public NodeViewModel? SelectedNode
     {
-        get => _selectedTopic;
-        set => this.RaiseAndSetIfChanged(ref _selectedTopic, value);
+        get => _selectedNode;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _selectedNode, value);
+            // Load history when a node is selected
+            LoadMessageHistory(_selectedNode?.FullPath); // Pass full path if NodeViewModel has it, or reconstruct
+        }
     }
 
     private MessageViewModel? _selectedMessage;
@@ -107,7 +113,8 @@ public class MainViewModel : ReactiveViewModel
     }
 
     // --- Collections ---
-    public ObservableCollection<TopicViewModel> Topics { get; } = new();
+    // Replaced Topics with TopicTreeNodes for the TreeView
+    public ObservableCollection<NodeViewModel> TopicTreeNodes { get; } = new();
     public ObservableCollection<MessageViewModel> MessageHistory { get; } = new();
 
     // --- Commands ---
@@ -159,10 +166,7 @@ public class MainViewModel : ReactiveViewModel
 
         // --- Property Change Reactions ---
 
-        // When SelectedTopic changes, update the MessageHistory
-        this.WhenAnyValue(x => x.SelectedTopic)
-            .ObserveOn(RxApp.MainThreadScheduler) // Ensure execution on UI thread
-            .Subscribe(selected => LoadMessageHistory(selected));
+        // Removed reaction to SelectedTopic, handled in SelectedNode setter now
 
         // When SelectedMessage changes, update the MessageDetails
         this.WhenAnyValue(x => x.SelectedMessage)
@@ -212,21 +216,13 @@ public class MainViewModel : ReactiveViewModel
         Dispatcher.UIThread.Post(() =>
         {
             var topic = e.ApplicationMessage.Topic;
-            var topicVm = Topics.FirstOrDefault(t => t.Name == topic);
+            UpdateOrCreateNode(topic); // Update tree structure and counts
 
-            // Add topic to list if it's new
-            if (topicVm == null)
+            // Add message to history if the received topic matches the selected node's path
+            // Assumes NodeViewModel has a FullPath property or similar
+            if (SelectedNode != null && topic.StartsWith(SelectedNode.FullPath)) // Or exact match depending on desired behavior
             {
-                topicVm = new TopicViewModel { Name = topic };
-                Topics.Add(topicVm);
-                // TODO: Consider sorting Topics collection
-            }
-            // TODO: Increment message count on topicVm if implemented
-
-            // Add message to history if it matches the selected topic
-            if (SelectedTopic != null && SelectedTopic.Name == topic)
-            {
-                AddMessageToHistory(e.ApplicationMessage);
+                 AddMessageToHistory(e.ApplicationMessage);
             }
         });
     }
@@ -238,23 +234,22 @@ public class MainViewModel : ReactiveViewModel
         var bufferedTopics = _mqttEngine.GetBufferedTopics();
         foreach (var topicName in bufferedTopics)
         {
-            if (!Topics.Any(t => t.Name == topicName))
-            {
-                Topics.Add(new TopicViewModel { Name = topicName });
-            }
+            UpdateOrCreateNode(topicName, incrementCount: false); // Populate tree without incrementing count initially
         }
-        // TODO: Consider sorting
     }
 
 
-    private void LoadMessageHistory(TopicViewModel? topicVm)
+    // Updated LoadMessageHistory to accept topic path string
+    private void LoadMessageHistory(string? topicPath)
     {
         MessageHistory.Clear();
         SelectedMessage = null; // Clear message selection when topic changes
 
-        if (topicVm == null) return;
+        if (string.IsNullOrEmpty(topicPath)) return;
 
-        var messages = _mqttEngine.GetMessagesForTopic(topicVm.Name);
+        // Get messages for the specific path or potentially include sub-topics
+        // This might require adjustments in MqttEngine or filtering here
+        var messages = _mqttEngine.GetMessagesForTopic(topicPath); // Assuming GetMessagesForTopic works with exact path
         if (messages != null)
         {
             foreach (var msg in messages)
@@ -424,18 +419,20 @@ public class MainViewModel : ReactiveViewModel
      private void ClearHistory()
     {
         Console.WriteLine("Clear history command executed.");
-        if (SelectedTopic != null)
+        // Update ClearHistory to potentially use SelectedNode if needed,
+        // or clear based on a different criteria. For now, clearing based on selected node path.
+        if (SelectedNode != null)
         {
-             // Optionally clear buffer in engine too? For now, just UI history.
-             // _mqttEngine.ClearBufferForTopic(SelectedTopic.Name);
+             // Optionally clear buffer in engine too?
+             // _mqttEngine.ClearBufferForTopic(SelectedNode.FullPath); // Assuming FullPath exists
              MessageHistory.Clear();
              SelectedMessage = null;
-             MessageDetails = "History cleared.";
+             MessageDetails = $"History cleared for {SelectedNode.FullPath}.";
         }
-        // Or clear all buffers?
-        // _mqttEngine.ClearAllBuffers();
-        // Topics.Clear();
-        // MessageHistory.Clear();
+        else
+        {
+             MessageDetails = "Select a topic node to clear its history.";
+        }
     }
 
     private void TogglePause()
@@ -452,4 +449,53 @@ public class MainViewModel : ReactiveViewModel
     }
 
     // TODO: Add methods for other commands (ExecuteCommandText, etc.)
+
+    // --- Helper Methods for TreeView ---
+
+    private void UpdateOrCreateNode(string topic, bool incrementCount = true)
+    {
+        var segments = topic.Split('/');
+        ObservableCollection<NodeViewModel> currentLevel = TopicTreeNodes;
+        NodeViewModel? parentNode = null; // Keep track of parent for path building
+
+        string currentPath = ""; // Build path as we traverse
+
+        for (int i = 0; i < segments.Length; i++)
+        {
+            var segment = segments[i];
+            currentPath = i == 0 ? segment : $"{currentPath}/{segment}"; // Update path
+
+            var existingNode = currentLevel.FirstOrDefault(n => n.Name == segment);
+
+            if (existingNode == null)
+            {
+                existingNode = new NodeViewModel(segment) { Parent = parentNode, FullPath = currentPath }; // Assign parent and path
+                // TODO: Consider sorting currentLevel before adding
+                currentLevel.Add(existingNode);
+                // Sort the current level after adding a new node
+                var sortedLevel = new ObservableCollection<NodeViewModel>(currentLevel.OrderBy(n => n.Name));
+                currentLevel.Clear(); // Clear and re-add is one way to handle sorting ObservableCollection in place
+                foreach(var node in sortedLevel) currentLevel.Add(node);
+
+            }
+
+            // Increment count for the current node and all its parents
+            if (incrementCount)
+            {
+                 existingNode.MessageCount++;
+                 // Optionally increment parent counts as well if desired
+                 // var tempParent = parentNode;
+                 // while(tempParent != null)
+                 // {
+                 //     tempParent.MessageCount++;
+                 //     tempParent = tempParent.Parent;
+                 // }
+            }
+
+
+            // Move to the next level
+            parentNode = existingNode; // Current node becomes parent for the next iteration
+            currentLevel = existingNode.Children;
+        }
+    }
 }
