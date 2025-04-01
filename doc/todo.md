@@ -13,7 +13,7 @@ A comprehensive list of tasks derived from the specification. Use this document 
   - [ ] Set up build scripts and CI/CD pipelines for Windows, Linux, and macOS.
 
 - [ ] **Dependencies & Tooling**  
-  - [ ] Add MQTTnet for MQTT v5 support.
+  - [x] Add MQTTnet for MQTT v5 support.
   - [ ] Add JSON parsing library (System.Text.Json or Newtonsoft.Json).
   - [ ] Integrate OpenTelemetry for logging and metrics.
   - [ ] Set up SQLite/DuckDB integration (optional persistence).
@@ -24,14 +24,14 @@ A comprehensive list of tasks derived from the specification. Use this document 
 ## 2. MQTT Client & Connection
 
 - [ ] **Core MQTT Engine**  
-  - [ ] Implement MQTT v5 connect/disconnect using MQTTnet.
+  - [x] Implement MQTT v5 connect/disconnect using MQTTnet.
   - [ ] Support basic settings (broker hostname, port).
   - [ ] Support advanced settings: client ID, keepalive, session timeout, clean session vs. session expiry.
   - [ ] Automatically reconnect on failure.
   - [ ] Capture and expose detailed error info (reason string, error code).
 
 - [ ] **Subscription & Message Handling**  
-  - [ ] Subscribe to `#` with QoS 1.
+  - [x] Subscribe to `#` with QoS 1.
   - [ ] Handle message callbacks and propagate events to the UI.
   - [ ] Expose events for new messages, errors, and connection status changes.
 
@@ -40,9 +40,9 @@ A comprehensive list of tasks derived from the specification. Use this document 
 ## 3. Data Storage & Ring Buffer
 
 - [ ] **In-Memory Ring Buffer**  
-  - [ ] Implement a ring buffer for each topic.
-  - [ ] Set a configurable maximum size (default 10MB per topic).
-  - [ ] Automatically remove oldest messages when the buffer is full.
+  - [x] Implement a ring buffer for each topic.
+  - [x] Set a configurable maximum size (default 10MB per topic).
+  - [x] Automatically remove oldest messages when the buffer is full.
   - [ ] Track and display memory usage for each topic in the UI.
 
 - [ ] **Optional Persistent Storage**  
@@ -183,8 +183,8 @@ A comprehensive list of tasks derived from the specification. Use this document 
   - [ ] Validate proper subscription to `#` and message reception.
 
 - [ ] **Ring Buffer Functionality**  
-  - [ ] Test insertion, overflow handling, and memory tracking.
-  - [ ] Validate correct removal of oldest messages when limits are exceeded.
+  - [x] Test insertion, overflow handling, and memory tracking.
+  - [x] Validate correct removal of oldest messages when limits are exceeded.
 
 - [ ] **Command Parsing and Execution**  
   - [ ] Test colon-prefixed commands and auto-completion.

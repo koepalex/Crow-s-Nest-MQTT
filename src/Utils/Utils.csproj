@@ -3,4 +3,8 @@
     <TargetFramework>$(LibTargetFramework)</TargetFramework>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MQTTnet" Version="5.0.1.1416" />
+  </ItemGroup>
 </Project>

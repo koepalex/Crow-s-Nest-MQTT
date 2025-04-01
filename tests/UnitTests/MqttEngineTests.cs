@@ -24,8 +24,11 @@ namespace CrowsNestMqtt.Tests
 
             engine.MessageReceived += (sender, args) =>
             {
-                receivedArgs = args;
-                messageReceivedEvent.Set();
+                if (args.ApplicationMessage.Topic == "test/topic") 
+                {
+                    receivedArgs = args;
+                    messageReceivedEvent.Set();
+                }
             };
 
             await engine.ConnectAsync();
