@@ -257,41 +257,6 @@ public class MqttEngine
         LogMessage?.Invoke(this, "Reconnection attempts stopped.");
     }
 
-    /// <summary>
-    /// Injects a simulated message into the engine for testing or demo purposes.
-    /// </summary>
-    /// <param name="topic">The topic of the simulated message.</param>
-    /// <param name="payload">The payload of the simulated message (as a string).</param>
-    /// <param name="qos">The Quality of Service level.</param>
-    /// <param name="retain">The retain flag.</param>
-    public void InjectMessage(
-        string topic,
-        string payload,
-        MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtMostOnce,
-        bool retain = false)
-    {
-        LogMessage?.Invoke(this, $"Injecting simulated message on topic '{topic}'");
-
-        var message = new MqttApplicationMessageBuilder()
-            .WithTopic(topic)
-            .WithPayload(payload) // Assumes UTF-8 string payload
-            .WithQualityOfServiceLevel(qos)
-            .WithRetainFlag(retain)
-            // Add other properties if needed for simulation
-            .Build();
-
-        // Manually create the event args
-        var eventArgs = new MqttApplicationMessageReceivedEventArgs(
-            _client?.Options?.ClientId ?? "SimulatedClient", // Use actual ClientId if available, else fallback
-            message,
-            null, // ProcessingContext, not strictly needed for this simulation path
-            null  // PacketInspectorContext, not strictly needed
-            );
-
-        // Trigger the same handler as real messages
-        // Use Task.Run to simulate the background thread execution like MQTTnet does
-        _ = Task.Run(() => HandleIncomingMessageAsync(eventArgs));
-    }
 
     // Extracted message handling logic
     private Task HandleIncomingMessageAsync(MqttApplicationMessageReceivedEventArgs e)

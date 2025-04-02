@@ -121,7 +121,6 @@ public class MainViewModel : ReactiveViewModel
     // --- Commands ---
     public ReactiveCommand<Unit, Unit> ConnectCommand { get; }
     public ReactiveCommand<Unit, Unit> DisconnectCommand { get; }
-    public ReactiveCommand<Unit, Unit> SimulateMessageCommand { get; }
     public ReactiveCommand<Unit, Unit> ClearHistoryCommand { get; }
     public ReactiveCommand<Unit, Unit> PauseResumeCommand { get; }
     public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; } // Added Settings Command
@@ -160,7 +159,6 @@ public class MainViewModel : ReactiveViewModel
         ConnectCommand = ReactiveCommand.CreateFromTask(ConnectAsync); // Connect uses current settings via MqttEngine
         // ConnectCommand = ReactiveCommand.CreateFromTask(ConnectAsync, this.WhenAnyValue(x => x.IsConnected).Select(connected => !connected)); // Original with CanExecute
         DisconnectCommand = ReactiveCommand.CreateFromTask(DisconnectAsync, this.WhenAnyValue(x => x.IsConnected));
-        SimulateMessageCommand = ReactiveCommand.Create(SimulateMessage); // No async needed for simulation trigger
         ClearHistoryCommand = ReactiveCommand.Create(ClearHistory);
         PauseResumeCommand = ReactiveCommand.Create(TogglePause);
         OpenSettingsCommand = ReactiveCommand.Create(OpenSettings); // Initialize Settings Command
@@ -403,18 +401,6 @@ public class MainViewModel : ReactiveViewModel
     {
         Log.Information("Disconnect command executed.");
         await _mqttEngine.DisconnectAsync();
-    }
-
-    private void SimulateMessage()
-    {
-        Log.Debug("Simulate message command executed.");
-        // Example simulation
-        var random = new Random();
-        string topic = $"sim/device/{random.Next(1, 4)}";
-        string payload = $"{{\"value\": {random.Next(100, 1000)}, \"timestamp\": \"{DateTime.UtcNow:O}\"}}";
-
-        // Need to add InjectMessage method to MqttEngine
-        _mqttEngine.InjectMessage(topic, payload);
     }
 
      private void ClearHistory()
