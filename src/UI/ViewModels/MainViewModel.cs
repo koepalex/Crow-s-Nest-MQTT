@@ -308,7 +308,17 @@ public class MainViewModel : ReactiveViewModel
         sb.AppendLine($"Content Type: {msg.ContentType ?? "N/A"}");
         sb.AppendLine($"Payload Format: {msg.PayloadFormatIndicator}");
         sb.AppendLine($"Message Expiry Interval: {msg.MessageExpiryInterval}");
-        // ... add more properties as needed (CorrelationData, UserProperties etc.)
+        // ... add more properties as needed (CorrelationData etc.)
+
+        // Add User Properties if they exist
+        if (msg.UserProperties != null && msg.UserProperties.Count > 0)
+        {
+            sb.AppendLine("\n--- Userproperties ---");
+            foreach (var prop in msg.UserProperties)
+            {
+                sb.AppendLine($"{prop.Name}: {prop.Value}");
+            }
+        }
 
         sb.AppendLine("\n--- Payload ---");
         // Attempt to decode payload as UTF-8 text

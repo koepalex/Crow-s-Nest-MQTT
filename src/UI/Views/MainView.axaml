@@ -111,7 +111,11 @@
                   <!-- Top: Message Details -->
                   <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="0,0,0,1" Padding="5">
                       <ScrollViewer>
-                           <TextBlock Text="{Binding MessageDetails}" TextWrapping="Wrap" MinWidth="250"/>
+                            <!-- Use TextBox for selectable text -->
+                            <TextBox Text="{Binding MessageDetails}"
+                                     IsReadOnly="True"
+                                     AcceptsReturn="True" TextWrapping="Wrap"
+                                     BorderThickness="0" Background="Transparent" MinWidth="250"/>
                       </ScrollViewer>
                   </Border>
 

@@ -1,10 +1,6 @@
 using Avalonia;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.ReactiveUI;
 using Serilog;
-using System;
-using System.IO; // Required for Path
-using System.Threading.Tasks; // Required for TaskScheduler
 
 namespace CrowsNestMqtt.App;
 
@@ -48,7 +44,6 @@ class Program
     {
         return AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            // Removed .LogToTrace() as Serilog is now configured
             .UseReactiveUI();
     }
 
