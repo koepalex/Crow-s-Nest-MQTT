@@ -6,7 +6,7 @@ namespace CrowsNestMqtt.UI.ViewModels;
 /// <summary>
 /// Represents a node in the MQTT topic hierarchy TreeView.
 /// </summary>
-public class NodeViewModel : ReactiveViewModel
+public class NodeViewModel : ReactiveObject
 {
     private string _name = string.Empty;
     public string Name

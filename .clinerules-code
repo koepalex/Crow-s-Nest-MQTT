@@ -25,7 +25,7 @@
   - Use C#'s expressive syntax (e.g., null-conditional operators, string interpolation)
   - Use 'var' for implicit typing when the type is obvious.
   - Use .editorconfig to ensure a conformant coding style
-  - Use file scope namespaces for dotnet code
+  - Use file-scoped namespaces like `using mynamespace.subnamespace;`
   - Read default namespace from project file (csproj) and add relative folders to it
   - Use only one artifact (class, struct, enum, interface) per class
 

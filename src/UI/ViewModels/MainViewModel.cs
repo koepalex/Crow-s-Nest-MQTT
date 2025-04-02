@@ -16,39 +16,8 @@ namespace CrowsNestMqtt.UI.ViewModels;
 /// ViewModel for the main application window.
 /// Manages the different sections of the UI: Topic List, Message History, Message Details, and Command Bar.
 /// </summary>
-// Simple ViewModel for displaying a topic in the list
-public class TopicViewModel : ReactiveObject
-{
-    private string _name = string.Empty;
-    public string Name
-    {
-        get => _name;
-        set => this.RaiseAndSetIfChanged(ref _name, value);
-    }
 
-    private int _messageCount;
-    public int MessageCount
-    {
-        get => _messageCount;
-        set => this.RaiseAndSetIfChanged(ref _messageCount, value);
-    }
-
-    // Override ToString for simpler binding if needed, or use DisplayMemberPath
-    public override string ToString() => Name;
-}
-
-// Simple ViewModel for displaying a message in the history
-public class MessageViewModel : ReactiveObject
-{
-    public DateTime Timestamp { get; set; }
-    public string PayloadPreview { get; set; } = string.Empty;
-    public MqttApplicationMessage? FullMessage { get; set; } // Store the full message for details view
-
-    public string DisplayText => $"{Timestamp:HH:mm:ss.fff}: {PayloadPreview}";
-}
-
-
-public class MainViewModel : ReactiveViewModel
+public class MainViewModel : ReactiveObject
 {
     private readonly MqttEngine _mqttEngine;
     private Timer? _updateTimer;
@@ -106,7 +75,7 @@ public class MainViewModel : ReactiveViewModel
         set => this.RaiseAndSetIfChanged(ref _isPaused, value);
     }
 
-    private bool _isSettingsVisible = true; // Start with settings visible
+    private bool _isSettingsVisible = false;
     public bool IsSettingsVisible
     {
         get => _isSettingsVisible;
