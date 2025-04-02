@@ -1,4 +1,5 @@
 using MQTTnet;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -73,7 +74,7 @@ namespace CrowsNestMqtt.Utils
                 _messages.Clear();
                 _currentSizeInBytes = 0;
                 // Optionally throw an exception or log a warning.
-                Console.WriteLine($"Warning: Message for topic '{message.Topic}' ({bufferedMessage.Size} bytes) exceeds buffer limit ({_maxSizeInBytes} bytes) and cannot be added.");
+                Log.Warning("Message for topic '{Topic}' ({Size} bytes) exceeds buffer limit ({Limit} bytes) and cannot be added.", message.Topic, bufferedMessage.Size, _maxSizeInBytes);
                 return; // Or potentially add anyway after clearing? Design decision.
             }
 

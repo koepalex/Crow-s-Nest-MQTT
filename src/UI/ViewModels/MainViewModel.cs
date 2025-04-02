@@ -1,4 +1,5 @@
 using ReactiveUI;
+using Serilog; // Added Serilog
 using System.Collections.ObjectModel;
 using System.Threading;
 using System;
@@ -180,7 +181,7 @@ public class MainViewModel : ReactiveViewModel
     private void OnLogMessage(object? sender, string log)
     {
         // TODO: Implement proper logging (e.g., to a log panel or file)
-        Console.WriteLine($"[MQTT Engine]: {log}");
+        Log.Debug("[MQTT Engine]: {LogMessage}", log);
     }
 
     // --- MQTT Event Handlers ---
@@ -193,13 +194,13 @@ public class MainViewModel : ReactiveViewModel
             IsConnected = e.IsConnected;
             if (e.IsConnected)
             {
-                Console.WriteLine("Connected. Starting UI Timer.");
+                Log.Information("MQTT Client Connected. Starting UI Timer.");
                 StartTimer(TimeSpan.FromSeconds(1)); // Start timer with 1-second interval
                 LoadInitialTopics(); // Load any topics already buffered before connection event
             }
             else
             {
-                Console.WriteLine($"Disconnected. Stopping UI Timer. Error: {e.Error?.Message}");
+                Log.Warning(e.Error, "MQTT Client Disconnected. Stopping UI Timer."); // Removed Reason part, Error is logged if present
                 StopTimer();
                 // Optionally clear UI state or show disconnected status
                 // Topics.Clear(); // Decide if topics should clear on disconnect
@@ -335,7 +336,7 @@ public class MainViewModel : ReactiveViewModel
     public void StartTimer(TimeSpan interval)
     {
         StopTimer(); // Ensure previous timer is stopped
-        Console.WriteLine($"Starting UI update timer with interval {interval}.");
+        Log.Debug("Starting UI update timer with interval {Interval}.", interval);
         _updateTimer = new Timer(UpdateTick, null, interval, interval);
     }
 
@@ -345,7 +346,7 @@ public class MainViewModel : ReactiveViewModel
     /// </summary>
     public void StopTimer()
     {
-        Console.WriteLine("Stopping UI update timer.");
+        Log.Debug("Stopping UI update timer.");
         _updateTimer?.Dispose();
         _updateTimer = null;
     }
@@ -360,7 +361,7 @@ public class MainViewModel : ReactiveViewModel
         // This runs on a background thread pool thread.
         // Use Dispatcher for UI updates if needed.
         // Example: Refresh topic message counts if implemented in TopicViewModel
-        // Console.WriteLine("UI Update Tick"); // Can be noisy
+        // Log.Verbose("UI Update Tick"); // Can be noisy, use Verbose if needed
 
         // Example of dispatching:
         // Dispatcher.UIThread.Post(() =>
@@ -380,7 +381,7 @@ public class MainViewModel : ReactiveViewModel
 
     private async Task ConnectAsync()
     {
-        Console.WriteLine("Connect command executed.");
+        Log.Information("Connect command executed.");
         // Rebuild connection settings from ViewModel just before connecting
         // This ensures the latest UI values are used if changed since startup.
         var connectionSettings = new MqttConnectionSettings
@@ -400,13 +401,13 @@ public class MainViewModel : ReactiveViewModel
 
     private async Task DisconnectAsync()
     {
-        Console.WriteLine("Disconnect command executed.");
+        Log.Information("Disconnect command executed.");
         await _mqttEngine.DisconnectAsync();
     }
 
     private void SimulateMessage()
     {
-        Console.WriteLine("Simulate message command executed.");
+        Log.Debug("Simulate message command executed.");
         // Example simulation
         var random = new Random();
         string topic = $"sim/device/{random.Next(1, 4)}";
@@ -418,7 +419,7 @@ public class MainViewModel : ReactiveViewModel
 
      private void ClearHistory()
     {
-        Console.WriteLine("Clear history command executed.");
+        Log.Information("Clear history command executed.");
         // Update ClearHistory to potentially use SelectedNode if needed,
         // or clear based on a different criteria. For now, clearing based on selected node path.
         if (SelectedNode != null)
@@ -438,14 +439,14 @@ public class MainViewModel : ReactiveViewModel
     private void TogglePause()
     {
         IsPaused = !IsPaused;
-        Console.WriteLine($"UI Updates Paused: {IsPaused}");
+        Log.Information("UI Updates Paused: {IsPaused}", IsPaused);
         // Optionally update UI to show paused state
     }
 
     private void OpenSettings()
     {
         IsSettingsVisible = !IsSettingsVisible; // Toggle the visibility
-        Console.WriteLine($"Settings Visible: {IsSettingsVisible}");
+        Log.Information("Settings Visible: {IsSettingsVisible}", IsSettingsVisible);
     }
 
     // TODO: Add methods for other commands (ExecuteCommandText, etc.)

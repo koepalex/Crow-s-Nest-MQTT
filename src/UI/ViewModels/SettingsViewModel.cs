@@ -1,4 +1,5 @@
 using ReactiveUI;
+using Serilog;
 using System;
 using System.IO; // For Path, File, Directory
 using System.Reactive.Linq; // For Observable operators like Throttle
@@ -17,7 +18,9 @@ public class SettingsViewModel : ReactiveObject
         "CrowsNestMqtt", // Application-specific folder
         "settings.json");
 
+#pragma warning disable IDE0044 // Add readonly modifier
     private bool _isLoading = false; // Flag to prevent saving during initial load
+#pragma warning restore IDE0044 // Add readonly modifier
 
     public SettingsViewModel()
     {
@@ -95,18 +98,17 @@ public class SettingsViewModel : ReactiveObject
             if (directory != null && !Directory.Exists(directory))
             {
                 Directory.CreateDirectory(directory);
-                Console.WriteLine($"Created settings directory: {directory}");
+                Log.Information("Created settings directory: {Directory}", directory);
             }
 
             var options = new JsonSerializerOptions { WriteIndented = true };
             string json = JsonSerializer.Serialize(this, options);
             File.WriteAllText(_settingsFilePath, json);
-            Console.WriteLine($"Settings saved to {_settingsFilePath}");
+            Log.Information("Settings saved to {FilePath}", _settingsFilePath);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error saving settings: {ex.Message}");
-            // TODO: Log this error more formally
+            Log.Error(ex, "Error saving settings to {FilePath}", _settingsFilePath);
         }
     }
 
@@ -125,7 +127,7 @@ public class SettingsViewModel : ReactiveObject
     {
         if (!File.Exists(_settingsFilePath))
         {
-            Console.WriteLine($"Settings file not found at {_settingsFilePath}. Using defaults.");
+            Log.Warning("Settings file not found at {FilePath}. Using defaults.", _settingsFilePath);
             return; // Use default values if file doesn't exist
         }
 
@@ -145,13 +147,12 @@ public class SettingsViewModel : ReactiveObject
                 this.CleanSession = loadedData.CleanSession;
                 this.SessionExpiryIntervalSeconds = loadedData.SessionExpiryIntervalSeconds;
 
-                Console.WriteLine($"Settings loaded from {_settingsFilePath}");
+                Log.Information("Settings loaded from {FilePath}", _settingsFilePath);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading settings: {ex.Message}");
-            // TODO: Log this error more formally
+            Log.Error(ex, "Error loading settings from {FilePath}", _settingsFilePath);
             // Keep default values if loading fails
         }
     }
