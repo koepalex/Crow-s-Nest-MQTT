@@ -3,6 +3,8 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.ReactiveUI;
 using Serilog;
 using System;
+using System.IO; // Required for Path
+using System.Threading.Tasks; // Required for TaskScheduler
 
 namespace CrowsNestMqtt.App;
 
@@ -10,7 +12,7 @@ class Program
 {
     private static readonly string _settingsFilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "CrowsNestMqtt", 
+        "CrowsNestMqtt",
         "logs",
         "app-.log");
 
@@ -22,6 +24,10 @@ class Program
             .WriteTo.Console()
             .WriteTo.File(_settingsFilePath, rollingInterval: RollingInterval.Day)
             .CreateLogger();
+
+        // Register global exception handlers
+        AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+        TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
 
         try
         {
@@ -44,5 +50,24 @@ class Program
             .UsePlatformDetect()
             // Removed .LogToTrace() as Serilog is now configured
             .UseReactiveUI();
+    }
+
+    private static void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        Log.Error(e.Exception, "Unobserved task exception occurred.");
+        e.SetObserved(); // Mark the exception as observed to prevent process termination
+    }
+
+    private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        var ex = e.ExceptionObject as Exception;
+        Log.Fatal(ex, "Unhandled domain exception occurred. IsTerminating: {IsTerminating}", e.IsTerminating);
+        // Ensure logs are written before termination, especially if IsTerminating is true
+        if (e.IsTerminating)
+        {
+             Log.CloseAndFlush();
+        }
+        // Depending on the application's needs, you might want to exit explicitly
+        // if (e.IsTerminating) { Environment.Exit(1); }
     }
 }
