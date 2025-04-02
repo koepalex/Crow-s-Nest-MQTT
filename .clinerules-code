@@ -27,6 +27,7 @@
   - Use .editorconfig to ensure a conformant coding style
   - Use file scope namespaces for dotnet code
   - Read default namespace from project file (csproj) and add relative folders to it
+  - Use only one artifact (class, struct, enum, interface) per class
 
   ## Error Handling and Validation
   - Use exceptions for exceptional cases, not for control flow.
