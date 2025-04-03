@@ -17,6 +17,7 @@ public class MqttEngine
     private readonly IMqttClient _client;
     private MqttConnectionSettings _settings; // Store settings (removed readonly)
     private MqttClientOptions? _currentOptions; // Store the options used for the current/last connection attempt
+    private bool _connecting;
     private readonly ConcurrentDictionary<string, TopicRingBuffer> _topicBuffers; // Added buffer storage
     private const long DefaultMaxTopicBufferSize = 10 * 1024 * 1024; // 10 MB - Added default size
 
@@ -151,11 +152,20 @@ public class MqttEngine
             return;
         }
 
+        if (_connecting)
+        {
+            LogMessage?.Invoke(this, "Connecting already in progress.");
+            return;
+        }
+
         try
         {
+            Interlocked.Exchange(ref _connecting, true);
             _currentOptions = BuildMqttOptions(); // Build options just before connecting
             LogMessage?.Invoke(this, $"Attempting to connect to {_currentOptions.ChannelOptions} with ClientId '{_currentOptions.ClientId ?? "<generated>"}'. CleanSession={_currentOptions.CleanSession}, SessionExpiry={_currentOptions.SessionExpiryInterval}");
-            await _client.ConnectAsync(_currentOptions, CancellationToken.None);
+            var connectionResult = await _client.ConnectAsync(_currentOptions, CancellationToken.None);
+            LogMessage?.Invoke(this, $"connection result: {connectionResult.ReasonString}:{connectionResult.ResultCode}");
+            Interlocked.Exchange(ref _connecting, false);
             // Subscription is handled by the ConnectedAsync handler
         }
         catch (Exception ex)
@@ -180,6 +190,115 @@ public class MqttEngine
         LogMessage?.Invoke(this, "Disconnect requested by user.");
         _currentOptions = null; // Clear options on disconnect
         // State change is handled by the DisconnectedAsync handler
+    }
+
+    /// <summary>
+    /// Publishes a message to the specified topic.
+    /// </summary>
+    /// <param name="topic">The topic to publish to.</param>
+    /// <param name="payload">The message payload.</param>
+    /// <param name="retain">Whether the message should be retained.</param>
+    /// <param name="qos">The Quality of Service level.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task PublishAsync(string topic, string payload, bool retain = false, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtMostOnce)
+    {
+        if (!_client.IsConnected)
+        {
+            LogMessage?.Invoke(this, "Cannot publish: Client is not connected.");
+            // Optionally throw an exception or return a specific result
+            return;
+        }
+
+        var message = new MqttApplicationMessageBuilder()
+            .WithTopic(topic)
+            .WithPayload(payload)
+            .WithQualityOfServiceLevel(qos)
+            .WithRetainFlag(retain)
+            .Build();
+
+        try
+        {
+            var result = await _client.PublishAsync(message, CancellationToken.None);
+            if (result.ReasonCode != MqttClientPublishReasonCode.Success)
+            {
+                 LogMessage?.Invoke(this, $"Failed to publish to '{topic}'. Reason: {result.ReasonCode}");
+                 // Optionally throw or handle specific reason codes
+            }
+            else
+            {
+                LogMessage?.Invoke(this, $"Successfully published to '{topic}'.");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogMessage?.Invoke(this, $"Error publishing to '{topic}': {ex.Message}");
+            // Rethrow or handle exception as needed
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Subscribes the client to the specified topic filter.
+    /// </summary>
+    /// <param name="topicFilter">The topic filter to subscribe to.</param>
+    /// <param name="qos">The desired Quality of Service level.</param>
+    /// <returns>A task representing the asynchronous operation, containing the subscribe result.</returns>
+    public async Task<MqttClientSubscribeResult> SubscribeAsync(string topicFilter, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtLeastOnce)
+    {
+        if (!_client.IsConnected)
+        {
+            LogMessage?.Invoke(this, "Cannot subscribe: Client is not connected.");
+            // TODO: Store requested subscription to apply on connect?
+            throw new InvalidOperationException("Client is not connected.");
+        }
+
+        var subscribeOptions = new MqttClientSubscribeOptionsBuilder()
+            .WithTopicFilter(f => f.WithTopic(topicFilter).WithQualityOfServiceLevel(qos))
+            .Build();
+
+        try
+        {
+            var result = await _client.SubscribeAsync(subscribeOptions, CancellationToken.None);
+            LogMessage?.Invoke(this, $"Subscription request sent for '{topicFilter}'.");
+            // TODO: Handle result codes (Granted, Denied etc.) more granularly if needed
+            return result;
+        }
+        catch (Exception ex)
+        {
+            LogMessage?.Invoke(this, $"Error subscribing to '{topicFilter}': {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Unsubscribes the client from the specified topic filter.
+    /// </summary>
+    /// <param name="topicFilter">The topic filter to unsubscribe from.</param>
+    /// <returns>A task representing the asynchronous operation, containing the unsubscribe result.</returns>
+    public async Task<MqttClientUnsubscribeResult> UnsubscribeAsync(string topicFilter)
+    {
+        if (!_client.IsConnected)
+        {
+            LogMessage?.Invoke(this, "Cannot unsubscribe: Client is not connected.");
+            // TODO: Remove from stored requested subscriptions?
+            throw new InvalidOperationException("Client is not connected.");
+        }
+
+        var unsubscribeOptions = new MqttClientUnsubscribeOptionsBuilder()
+            .WithTopicFilter(topicFilter)
+            .Build();
+
+        try
+        {
+            var result = await _client.UnsubscribeAsync(unsubscribeOptions, CancellationToken.None);
+            LogMessage?.Invoke(this, $"Unsubscription request sent for '{topicFilter}'.");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            LogMessage?.Invoke(this, $"Error unsubscribing from '{topicFilter}': {ex.Message}");
+            throw;
+        }
     }
 
     /// <summary>
@@ -222,13 +341,11 @@ public class MqttEngine
     {
         // This method runs in a background task triggered by DisconnectedAsync
         LogMessage?.Invoke(this, "Starting reconnection attempts...");
+        int reconnectCount = 1;
         while (true) // Keep trying indefinitely (or add a max attempt limit)
         {
-             // Check if connection exists and is NOT connected. Exit if connected.
-             // Important: Check _client existence in case DisposeAsync was called.
-            if (_client == null || _client.IsConnected)
+            if ( _client.IsConnected)
             {
-                LogMessage?.Invoke(this, "Reconnect unnecessary or client disposed.");
                 break;
             }
 
@@ -240,14 +357,15 @@ public class MqttEngine
 
                 // If ConnectAsync succeeds, the Connected event fires and this loop should eventually exit.
                 // Add a small delay after a successful connection attempt check to prevent tight loop if IsConnected flag is slow.
-                await Task.Delay(TimeSpan.FromMilliseconds(100));
+                await Task.Delay(TimeSpan.FromMilliseconds(250 * reconnectCount));
+                reconnectCount++;
 
             }
             catch (Exception ex)
             {
                 // ConnectAsync should ideally handle its exceptions and raise events,
                 // but catch here as a fallback.
-                LogMessage?.Invoke(this, $"Reconnect attempt failed: {ex.Message}");
+                LogMessage?.Invoke(this, $"Reconnect attempt failed: {ex.Message}: reconnect attempt: {reconnectCount}");
                 // ConnectionStateChanged is handled within ConnectAsync or ConnectingFailedAsync
             }
 
@@ -272,23 +390,4 @@ public class MqttEngine
         // MQTTnet expects a Task return, Task.CompletedTask is appropriate for sync handling
         return Task.CompletedTask;
     }
-
-    // Optional: Implement IDisposable or IAsyncDisposable if needed
-    // public async ValueTask DisposeAsync()
-    // {
-    //     if (_client != null)
-    //     {
-    //         _client.ApplicationMessageReceivedAsync -= ... // Unsubscribe events
-    //         _client.DisconnectedAsync -= ...
-    //         _client.ConnectedAsync -= ...
-    //         _client.ConnectingFailedAsync -= ...
-    //         if (_client.IsConnected)
-    //         {
-    //             await DisconnectAsync();
-    //         }
-    //         _client.Dispose();
-    //     }
-    //     // Clear buffers?
-    //     _topicBuffers.Clear();
-    // }
 }

@@ -1,3 +1,5 @@
+using CrowsNestMqtt.Businesslogic.Configuration;
+
 using ReactiveUI;
 using Serilog;
 using System;
@@ -86,6 +88,28 @@ public class SettingsViewModel : ReactiveObject
      [JsonIgnore] // Don't serialize the derived uint? property
      public uint? SessionExpiryInterval => _sessionExpiryInterval; // Expose for engine
 
+    public SettingsData Into()
+    {
+        return new SettingsData(
+            Hostname,
+            Port,
+            ClientId,
+            KeepAliveIntervalSeconds,
+            CleanSession,
+            SessionExpiryIntervalSeconds
+        );
+    }
+
+    public void From(SettingsData settingsData)
+    {
+        Hostname = settingsData.Hostname;
+        Port = settingsData.Port;
+        ClientId = settingsData.ClientId;
+        KeepAliveIntervalSeconds = settingsData.KeepAliveIntervalSeconds;
+        CleanSession = settingsData.CleanSession;
+        SessionExpiryIntervalSeconds = settingsData.SessionExpiryIntervalSeconds;
+    }
+
     // --- Persistence Methods ---
 
     private void SaveSettings()
@@ -114,14 +138,7 @@ public class SettingsViewModel : ReactiveObject
 
     // Define a simple record to hold settings data for deserialization
     // This avoids recursive constructor calls during deserialization.
-    private record SettingsData(
-        string Hostname,
-        int Port,
-        string? ClientId,
-        int KeepAliveIntervalSeconds,
-        bool CleanSession,
-        uint? SessionExpiryIntervalSeconds
-    );
+    
 
     private void LoadSettings()
     {
@@ -140,12 +157,7 @@ public class SettingsViewModel : ReactiveObject
             if (loadedData != null)
             {
                 // Copy values from the loaded data to the current ViewModel instance
-                this.Hostname = loadedData.Hostname;
-                this.Port = loadedData.Port;
-                this.ClientId = loadedData.ClientId;
-                this.KeepAliveIntervalSeconds = loadedData.KeepAliveIntervalSeconds;
-                this.CleanSession = loadedData.CleanSession;
-                this.SessionExpiryIntervalSeconds = loadedData.SessionExpiryIntervalSeconds;
+                From(loadedData);
 
                 Log.Information("Settings loaded from {FilePath}", _settingsFilePath);
             }

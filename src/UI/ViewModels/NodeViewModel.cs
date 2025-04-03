@@ -45,11 +45,21 @@ public class NodeViewModel : ReactiveObject
     public string FullPath { get; set; } = string.Empty; // Simple property
 
     // Constructor
-    public NodeViewModel(string name)
+    public NodeViewModel(string name, NodeViewModel? parent = null) // Added optional parent parameter
     {
         _name = name; // Set initial name directly
+        Parent = parent; // Set the parent
     }
 
     // Parameterless constructor for XAML previewer/serializer if needed
-    public NodeViewModel() : this("Default Node") { }
+    public NodeViewModel() : this("Default Node", null) { } // Update parameterless constructor call
+
+    /// <summary>
+    /// Increments the message count for this node.
+    /// </summary>
+    public void IncrementMessageCount()
+    {
+        MessageCount++;
+        Parent?.IncrementMessageCount(); // Recursively increment parent's count
+    }
 }
