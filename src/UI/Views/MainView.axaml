@@ -115,13 +115,42 @@
               <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*,Auto,*">
 
                   <!-- Row 0: Message Details -->
-                  <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="0,0,0,1" Padding="5" MaxHeight="200"> <!-- Added MaxHeight -->
+                  <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="0,0,0,1" Padding="5" MaxHeight="250"> <!-- Increased MaxHeight -->
                       <ScrollViewer VerticalScrollBarVisibility="Auto">
-                          <!-- Use TextBox for selectable text -->
-                          <TextBox Text="{Binding MessageDetails}"
-                                   IsReadOnly="True"
-                                   AcceptsReturn="True" TextWrapping="Wrap"
-                                   BorderThickness="0" Background="Transparent" MinWidth="250"/>
+                          <!-- Use Grid with two columns for side-by-side DataGrids -->
+                          <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,*">
+                              <!-- Column 0: Metadata -->
+                              <TextBlock Grid.Row="0" Grid.Column="0" Text="Message Metadata" FontWeight="Bold"/>
+                              <DataGrid Grid.Row="1" Grid.Column="0" ItemsSource="{Binding MessageMetadata}"
+                                        AutoGenerateColumns="False"
+                                        IsReadOnly="True"
+                                        CanUserResizeColumns="True"
+                                        GridLinesVisibility="None"
+                                        BorderThickness="0"
+                                        Margin="0,0,5,0"> <!-- Add right margin for spacing -->
+                                  <DataGrid.Columns>
+                                      <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="Auto"/>
+                                      <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*"/>
+                                  </DataGrid.Columns>
+                              </DataGrid>
+
+                              <!-- Column 1: User Properties -->
+                              <TextBlock Grid.Row="0" Grid.Column="1" Text="User Properties" FontWeight="Bold" IsVisible="{Binding HasUserProperties}"/>
+                              <DataGrid Grid.Row="1" Grid.Column="1" ItemsSource="{Binding MessageUserProperties}"
+                                        AutoGenerateColumns="False"
+                                        IsReadOnly="True"
+                                        CanUserResizeColumns="True"
+                                        GridLinesVisibility="None"
+                                        BorderThickness="0"
+                                        IsVisible="{Binding HasUserProperties}"
+                                        Margin="5,0,0,0"
+                                        > <!-- Add left margin for spacing -->
+                                  <DataGrid.Columns>
+                                      <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="Auto"/>
+                                      <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*"/>
+                                  </DataGrid.Columns>
+                              </DataGrid>
+                          </Grid>
                       </ScrollViewer>
                   </Border>
 

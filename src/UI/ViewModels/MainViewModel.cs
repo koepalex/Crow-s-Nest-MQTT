@@ -28,7 +28,12 @@ using FuzzySharp; // Added for fuzzy search
 using MQTTnet;
 using CrowsNestMqtt.Businesslogic.Exporter; // Required for MqttApplicationMessage, MqttApplicationMessageReceivedEventArgs
 
+using MQTTnet.Protocol; // For MqttQualityOfServiceLevel
+
 namespace CrowsNestMqtt.UI.ViewModels;
+
+// Simple record for DataGrid items
+public record MetadataItem(string Key, string Value);
 
 /// <summary>
 /// ViewModel for the main application window.
@@ -86,11 +91,28 @@ public class MainViewModel : ReactiveObject
         set => this.RaiseAndSetIfChanged(ref _selectedMessage, value);
     }
 
-    private string _messageDetails = "Select a message to see details.";
-    public string MessageDetails
+    // Removed MessageDetails property, replaced by MessageMetadata and MessageUserProperties
+
+    // Properties for DataGrids
+    private ObservableCollection<MetadataItem> _messageMetadata = new();
+    public ObservableCollection<MetadataItem> MessageMetadata
     {
-        get => _messageDetails;
-        set => this.RaiseAndSetIfChanged(ref _messageDetails, value);
+        get => _messageMetadata;
+        set => this.RaiseAndSetIfChanged(ref _messageMetadata, value);
+    }
+
+    private ObservableCollection<MetadataItem> _messageUserProperties = new();
+    public ObservableCollection<MetadataItem> MessageUserProperties
+    {
+        get => _messageUserProperties;
+        set => this.RaiseAndSetIfChanged(ref _messageUserProperties, value);
+    }
+
+    private bool _hasUserProperties;
+    public bool HasUserProperties
+    {
+        get => _hasUserProperties;
+        set => this.RaiseAndSetIfChanged(ref _hasUserProperties, value);
     }
 
     private bool _isConnected;
@@ -364,30 +386,111 @@ public class MainViewModel : ReactiveObject
     // The DynamicData pipeline handles filtering based on SelectedNode.
     private void UpdateMessageDetails(MessageViewModel? messageVm)
     {
+        // Clear previous details
+        MessageMetadata.Clear();
+        MessageUserProperties.Clear();
+        HasUserProperties = false;
+        JsonViewer.LoadJson(string.Empty);
+        IsJsonViewerVisible = false;
+
         if (messageVm?.FullMessage == null)
         {
-            MessageDetails = "Select a message to see details.";
-            JsonViewer.LoadJson(string.Empty); // Clear JSON viewer content by loading empty string
-            IsJsonViewerVisible = false; // Hide JSON viewer
+            // Add a placeholder if needed, or leave grids empty
+            // MessageMetadata.Add(new MetadataItem("Status", "Select a message to see details."));
             return;
         }
 
         var msg = messageVm.FullMessage;
-        var exporter = new TextExporter();
-        (var content, var isPayloadValidUtf8, var payloadAsString)  = exporter.GenerateDetailedTextFromMessage(msg, messageVm.Timestamp);
+        var timestamp = messageVm.Timestamp; // Use the arrival timestamp from the ViewModel
+
+        // --- Populate Metadata ---
+        MessageMetadata.Add(new MetadataItem("Timestamp", timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff")));
+        MessageMetadata.Add(new MetadataItem("Topic", msg.Topic ?? "N/A"));
+        MessageMetadata.Add(new MetadataItem("QoS", msg.QualityOfServiceLevel.ToString()));
+        MessageMetadata.Add(new MetadataItem("Retain", msg.Retain.ToString()));
+        MessageMetadata.Add(new MetadataItem("Payload Format", msg.PayloadFormatIndicator.ToString()));
+        MessageMetadata.Add(new MetadataItem("Expiry (s)", msg.MessageExpiryInterval.ToString()));
+        MessageMetadata.Add(new MetadataItem("ContentType", msg.ContentType));
+        MessageMetadata.Add(new MetadataItem("Response Topic", msg.ResponseTopic));
+
         
-        IsJsonViewerVisible = isPayloadValidUtf8;
-        if (IsJsonViewerVisible)
+        if (msg.CorrelationData != null && msg.CorrelationData.Length > 0)
         {
-            JsonViewer.LoadJson(payloadAsString);
+            // Attempt to display correlation data as string, otherwise show byte count
+            string correlationDisplay;
+            try
+            {
+                correlationDisplay = Encoding.UTF8.GetString(msg.CorrelationData);
+            }
+            catch
+            {
+                correlationDisplay = $"[{msg.CorrelationData.Length} bytes]";
+            }
+            MessageMetadata.Add(new MetadataItem("Correlation Data", correlationDisplay));
+        }
+        // Add more metadata fields as needed...
+
+        // --- Populate User Properties ---
+        if (msg.UserProperties != null && msg.UserProperties.Any())
+        {
+            HasUserProperties = true;
+            foreach (var prop in msg.UserProperties)
+            {
+                MessageUserProperties.Add(new MetadataItem(prop.Name, prop.Value));
+            }
         }
         else
         {
-            StatusBarText = "Could not decode MQTT message payload as UTF-8";
-            JsonViewer.LoadJson(string.Empty);
+            HasUserProperties = false;
         }
 
-        MessageDetails = content;
+        // --- Handle Payload and JSON Viewer ---
+        string payloadAsString = string.Empty;
+        bool isPayloadValidUtf8 = false;
+        if (msg.Payload.Length > 0) // Check only Length, as ReadOnlySequence<byte> cannot be null
+        {
+            try
+            {
+                // Attempt to decode as UTF-8
+                payloadAsString = Encoding.UTF8.GetString(msg.Payload);
+                isPayloadValidUtf8 = true; // Assume valid if no exception
+            }
+            catch (DecoderFallbackException)
+            {
+                isPayloadValidUtf8 = false;
+                StatusBarText = "Payload is not valid UTF-8.";
+                Log.Warning("Could not decode MQTT message payload for topic '{Topic}' as UTF-8.", msg.Topic);
+            }
+            catch (Exception ex) // Catch other potential exceptions during decoding
+            {
+                isPayloadValidUtf8 = false;
+                StatusBarText = $"Error decoding payload: {ex.Message}";
+                Log.Error(ex, "Error decoding MQTT message payload for topic '{Topic}'.", msg.Topic);
+            }
+        }
+        else
+        {
+             payloadAsString = "[No Payload]";
+             isPayloadValidUtf8 = true; // Treat no payload as valid for JSON viewer (it will show nothing)
+        }
+
+        IsJsonViewerVisible = isPayloadValidUtf8;
+        if (IsJsonViewerVisible)
+        {
+            JsonViewer.LoadJson(payloadAsString); // LoadJson handles JSON parsing internally
+            if (!string.IsNullOrEmpty(JsonViewer.JsonParseError))
+            {
+                // If LoadJson resulted in an error, update status bar
+                 StatusBarText = $"JSON Parse Error: {JsonViewer.JsonParseError}";
+            }
+        }
+        else
+        {
+            // If not valid UTF-8, ensure JSON viewer is cleared and hidden
+            JsonViewer.LoadJson(string.Empty);
+            IsJsonViewerVisible = false;
+            // Status bar already set in the catch block or if payload was null/empty
+        }
     }
 
 
