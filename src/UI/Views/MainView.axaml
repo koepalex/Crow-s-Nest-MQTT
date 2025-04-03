@@ -175,7 +175,7 @@
           </Grid> <!-- End of Main Content Grid -->
 
           <Panel Grid.Row="0" Grid.Column="1" IsVisible="{Binding IsSettingsVisible}" Background="{DynamicResource ApplicationBackgroundBrush}">
-            <Grid ColumnDefinitions="Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="5">
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="5"> <!-- Added rows for General Settings header, Export Format, Export Path -->
                 <Grid.Styles>
                     <Style Selector="TextBlock">
                         <Setter Property="VerticalAlignment" Value="Center"/>
@@ -196,33 +196,47 @@
                         <Setter Property="Grid.Column" Value="0"/>
                     </Style>
                 </Grid.Styles>
+                <!-- Header -->
+                <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="MQTT Connectivity" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
 
                 <!-- Hostname -->
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Hostname:"/>
-                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Settings.Hostname, Mode=TwoWay}"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Hostname:"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Settings.Hostname, Mode=TwoWay}"/>
 
                 <!-- Port -->
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Port:"/>
-                <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding Settings.Port, Mode=TwoWay, StringFormat=N0}" ParsingNumberStyle="Integer" Minimum="1" Maximum="65535"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Port:"/>
+                <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding Settings.Port, Mode=TwoWay, StringFormat=N0}" ParsingNumberStyle="Integer" Minimum="1" Maximum="65535"/>
 
                 <!-- Client ID -->
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Client ID:"/>
-                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Settings.ClientId, Mode=TwoWay}" Watermark="(auto-generated)"/>
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Client ID:"/>
+                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Settings.ClientId, Mode=TwoWay}" Watermark="(auto-generated)"/>
 
                 <!-- Keep Alive -->
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Keep Alive (s):"/>
-                <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding Settings.KeepAliveIntervalSeconds, Mode=TwoWay, StringFormat=N0}"  ParsingNumberStyle="Integer" MinWidth="80" Minimum="0"/>
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Keep Alive (s):"/>
+                <NumericUpDown Grid.Row="4" Grid.Column="1" Value="{Binding Settings.KeepAliveIntervalSeconds, Mode=TwoWay, StringFormat=N0}"  ParsingNumberStyle="Integer" MinWidth="80" Minimum="0"/>
                 
                 <!-- Clean Session -->
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="Clean Session:"/>
-                <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding Settings.CleanSession, Mode=TwoWay}" Margin="10,0,0,0"/>
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Clean Session:"/>
+                <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding Settings.CleanSession, Mode=TwoWay}" Margin="10,0,0,0"/>
 
                 <!-- Session Expiry -->
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="Session Expiry (s):"/>
-                <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Vertical" Spacing="5">
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="Session Expiry (s):"/>
+                <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Vertical" Spacing="5">
                     <NumericUpDown Value="{Binding Settings.SessionExpiryIntervalSeconds, Mode=TwoWay}" MinWidth="120"  FormatString="N0" Minimum="0" Watermark="(infinite)"/>
                     <TextBlock Text="(0 = expires immediately, empty = infinite)" FontSize="10"/>
                 </StackPanel>
+
+                <!-- General Settings Header -->
+                <TextBlock Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" Text="General Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/> <!-- Added top margin -->
+
+                <!-- Export Format -->
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="Export Format:"/>
+                <ComboBox Grid.Row="8" Grid.Column="1" ItemsSource="{Binding Settings.ExportFormats}" SelectedItem="{Binding Settings.ExportFormat, Mode=TwoWay}" MinWidth="220" />
+
+                <!-- Export Path -->
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="Export Path:"/>
+                <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding Settings.ExportPath, Mode=TwoWay}" />
+
             </Grid>
         </Panel>
 

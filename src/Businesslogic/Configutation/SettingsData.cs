@@ -6,5 +6,7 @@ public  record SettingsData(
     string? ClientId,
     int KeepAliveIntervalSeconds,
     bool CleanSession,
-    uint? SessionExpiryIntervalSeconds
+    uint? SessionExpiryIntervalSeconds,
+    string? ExportFormat = null,
+    string? ExportPath = null
 );

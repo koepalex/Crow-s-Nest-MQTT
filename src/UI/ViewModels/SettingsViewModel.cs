@@ -3,7 +3,10 @@ using CrowsNestMqtt.Businesslogic.Configuration;
 using ReactiveUI;
 using Serilog;
 using System;
+using System.Collections.ObjectModel;
 using System.IO; // For Path, File, Directory
+using System.Net.Http.Headers;
+using System.Reactive; // For Unit
 using System.Reactive.Linq; // For Observable operators like Throttle
 using System.Text.Json; // For JSON serialization
 using System.Text.Json.Serialization; // For JsonIgnore
@@ -17,8 +20,16 @@ public class SettingsViewModel : ReactiveObject
 {
     private static readonly string _settingsFilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "CrowsNestMqtt", // Application-specific folder
+        "CrowsNestMqtt", 
         "settings.json");
+
+    private static readonly string _exportFolderPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "CrowsNestMqtt", 
+        "exports");
+
+    private readonly ReadOnlyObservableCollection<string> _formatEncodings;
+    public ReadOnlyObservableCollection<string> FormatEncodings => _formatEncodings;
 
 #pragma warning disable IDE0044 // Add readonly modifier
     private bool _isLoading = false; // Flag to prevent saving during initial load
@@ -31,16 +42,24 @@ public class SettingsViewModel : ReactiveObject
         _isLoading = false; // Clear flag after loading
 
         // Auto-save settings when properties change (with throttling)
-        this.WhenAnyValue(
-                x => x.Hostname,
-                x => x.Port,
-                x => x.ClientId,
-                x => x.KeepAliveIntervalSeconds,
-                x => x.CleanSession,
-                x => x.SessionExpiryIntervalSeconds)
+        // Auto-save settings when properties change (with throttling)
+        // Use CombineLatest for robustness with multiple properties
+        Observable.CombineLatest(
+                this.WhenAnyValue(x => x.Hostname),
+                this.WhenAnyValue(x => x.Port),
+                this.WhenAnyValue(x => x.ClientId),
+                this.WhenAnyValue(x => x.KeepAliveIntervalSeconds),
+                this.WhenAnyValue(x => x.CleanSession),
+                this.WhenAnyValue(x => x.SessionExpiryIntervalSeconds),
+                this.WhenAnyValue(x => x.ExportFormat),
+                this.WhenAnyValue(x => x.ExportPath),
+                (_, _, _, _, _, _, _, _) => Unit.Default) // Combine results, we only care about the trigger
             .Throttle(TimeSpan.FromMilliseconds(500)) // Wait 500ms after the last change
             .ObserveOn(RxApp.TaskpoolScheduler) // Perform save on a background thread
             .Subscribe(_ => SaveSettings());
+
+        _formatEncodings = new ReadOnlyObservableCollection<string>(new ObservableCollection<string>(["json", "txt"]));
+        ExportPath = _exportFolderPath;
     }
     private string _hostname = "localhost";
     public string Hostname
@@ -88,6 +107,19 @@ public class SettingsViewModel : ReactiveObject
      [JsonIgnore] // Don't serialize the derived uint? property
      public uint? SessionExpiryInterval => _sessionExpiryInterval; // Expose for engine
 
+   private string? _exportFormat; // Default to json
+   public string? ExportFormat
+   {
+       get => _exportFormat;
+       set => this.RaiseAndSetIfChanged(ref _exportFormat, value);
+   }
+
+   private string? _exportPath;
+   public string? ExportPath
+   {
+       get => _exportPath;
+       set => this.RaiseAndSetIfChanged(ref _exportPath, value);
+   }
     public SettingsData Into()
     {
         return new SettingsData(
@@ -96,7 +128,9 @@ public class SettingsViewModel : ReactiveObject
             ClientId,
             KeepAliveIntervalSeconds,
             CleanSession,
-            SessionExpiryIntervalSeconds
+            SessionExpiryIntervalSeconds,
+            ExportFormat, 
+            ExportPath    
         );
     }
 
@@ -108,6 +142,8 @@ public class SettingsViewModel : ReactiveObject
         KeepAliveIntervalSeconds = settingsData.KeepAliveIntervalSeconds;
         CleanSession = settingsData.CleanSession;
         SessionExpiryIntervalSeconds = settingsData.SessionExpiryIntervalSeconds;
+        ExportFormat = settingsData.ExportFormat; // Added
+        ExportPath = settingsData.ExportPath;       // Added
     }
 
     // --- Persistence Methods ---

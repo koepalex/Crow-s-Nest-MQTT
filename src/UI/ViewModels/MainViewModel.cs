@@ -274,9 +274,6 @@ public class MainViewModel : ReactiveObject
             .DistinctUntilChanged() // Only update if text actually changed
             .ObserveOn(RxApp.MainThreadScheduler) // Ensure UI update is on the correct thread
             .Subscribe(text => UpdateCommandSuggestions(text));
-
-        // Start connection attempt (Commented out to prevent auto-connect)
-        // ConnectCommand.Execute().Subscribe();
     }
 
     private void OnLogMessage(object? sender, string log)
@@ -618,92 +615,7 @@ public class MainViewModel : ReactiveObject
                          });
                     break;
 
-                case CommandType.Publish:
-                    if (command.Arguments.Count < 2)
-                    {
-                        StatusBarText = "Error: :pub requires at least two arguments: <topic> <payload>";
-                        Log.Warning("Invalid arguments for :pub command.");
-                        break;
-                    }
-                    string pubTopic = command.Arguments[0];
-                    string pubPayload = string.Join(" ", command.Arguments.Skip(1)); // Re-join payload parts
-                    StatusBarText = $"Publishing to '{pubTopic}'...";
-                    Log.Information("Executing :pub command: Topic='{Topic}', Payload='{Payload}'", pubTopic, pubPayload);
-                    // Assuming MqttEngine has a PublishAsync method
-                    _mqttEngine.PublishAsync(pubTopic, pubPayload).ContinueWith(task =>
-                    {
-                        Dispatcher.UIThread.Post(() => // Ensure UI update is on the correct thread
-                        {
-                            if (task.IsFaulted)
-                            {
-                                StatusBarText = $"Error publishing: {task.Exception?.InnerException?.Message}";
-                                Log.Error(task.Exception, "Error executing PublishAsync");
-                            }
-                            else
-                            {
-                                StatusBarText = $"Published to '{pubTopic}'.";
-                            }
-                        });
-                    });
-                    break;
-
-                case CommandType.Subscribe:
-                    if (command.Arguments.Count != 1)
-                    {
-                        StatusBarText = "Error: :sub requires exactly one argument: <topic_filter>";
-                        Log.Warning("Invalid arguments for :sub command.");
-                        break;
-                    }
-                    string subTopic = command.Arguments[0];
-                    StatusBarText = $"Subscribing to '{subTopic}'...";
-                    Log.Information("Executing :sub command: TopicFilter='{TopicFilter}'", subTopic);
-                    // Assuming MqttEngine has a SubscribeAsync method
-                    _mqttEngine.SubscribeAsync(subTopic).ContinueWith(task =>
-                    {
-                        Dispatcher.UIThread.Post(() => // Ensure UI update is on the correct thread
-                        {
-                            if (task.IsFaulted)
-                            {
-                                StatusBarText = $"Error subscribing: {task.Exception?.InnerException?.Message}";
-                                Log.Error(task.Exception, "Error executing SubscribeAsync");
-                            }
-                            else
-                            {
-                                StatusBarText = $"Subscribed to '{subTopic}'.";
-                            }
-                        });
-                    });
-                    break;
-
-                case CommandType.Unsubscribe:
-                    if (command.Arguments.Count != 1)
-                    {
-                        StatusBarText = "Error: :unsub requires exactly one argument: <topic_filter>";
-                        Log.Warning("Invalid arguments for :unsub command.");
-                        break;
-                    }
-                    string unsubTopic = command.Arguments[0];
-                    StatusBarText = $"Unsubscribing from '{unsubTopic}'...";
-                    Log.Information("Executing :unsub command: TopicFilter='{TopicFilter}'", unsubTopic);
-                    // Assuming MqttEngine has an UnsubscribeAsync method
-                    _mqttEngine.UnsubscribeAsync(unsubTopic).ContinueWith(task =>
-                    {
-                        Dispatcher.UIThread.Post(() => // Ensure UI update is on the correct thread
-                        {
-                            if (task.IsFaulted)
-                            {
-                                StatusBarText = $"Error unsubscribing: {task.Exception?.InnerException?.Message}";
-                                Log.Error(task.Exception, "Error executing UnsubscribeAsync");
-                            }
-                            else
-                            {
-                                StatusBarText = $"Unsubscribed from '{unsubTopic}'.";
-                            }
-                        });
-                    });
-                    break;
-
-                case CommandType.ClearMessages: // Renamed from Clear
+                case CommandType.Clear: 
                     StatusBarText = "Clearing history...";
                     ClearHistoryCommand.Execute().Subscribe(); // Execute the existing clear command
                     break;
@@ -754,6 +666,9 @@ public class MainViewModel : ReactiveObject
                         }
 
                         ClipboardText = sb.ToString();
+
+                        StatusBarText = "Updated system clipboard with selected message";
+                        Log.Information("Copy command executed.");
                     }
                     else
                     {
@@ -761,16 +676,27 @@ public class MainViewModel : ReactiveObject
                         Log.Information("Copy command executed but no message was selected.");
                     }
                     break; // Correct placement outside the if/else block
-case CommandType.Help:
-                // TODO: Implement a more sophisticated help system (e.g., show available commands)
-                StatusBarText = "Available commands: :connect, :disconnect, :pub, :sub, :unsub, :clear, :copy, :help"; // Added :copy
-                Log.Information("Displaying help information.");
-                break; // Break for Help case
-
-            default:
-                StatusBarText = $"Error: Unknown command type '{command.Type}'.";
-                Log.Warning("Unknown command type encountered: {CommandType}", command.Type);
-                break;
+                case CommandType.Help:
+                    // TODO: Implement a more sophisticated help system (e.g., show available commands)
+                    StatusBarText = "Available commands: :connect, :disconnect, :export, :filter, :copy, :clear, :help, :pause, :resume"; 
+                    Log.Information("Displaying help information.");
+                    break; 
+                case CommandType.Pause:
+                    TogglePause();
+                    break;
+                case CommandType.Resume:
+                    TogglePause();
+                    break;
+                case CommandType.Export:
+                    break;
+                case CommandType.Filter:
+                    break;
+                case CommandType.Search:
+                    break;
+                default:
+                    StatusBarText = $"Error: Unknown command type '{command.Type}'.";
+                    Log.Warning("Unknown command type encountered: {CommandType}", command.Type);
+                    break;
             }
         }
         catch (Exception ex)

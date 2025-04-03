@@ -11,24 +11,20 @@ public enum CommandType
     Connect,
     /// <summary> Disconnect from the current MQTT broker. </summary>
     Disconnect,
-    /// <summary> Publish a message to a topic. </summary>
-    Publish,
-    /// <summary> Subscribe to a topic filter. </summary>
-    Subscribe,
-    /// <summary> Unsubscribe from a topic filter. </summary>
-    Unsubscribe,
     /// <summary> Export messages to a file. </summary>
     Export,
     /// <summary> Filter messages based on a regex pattern. </summary>
     Filter,
     /// <summary> Clear all displayed messages. </summary>
-    ClearMessages,
+    Clear,
     /// <summary> Show diagnostic information. </summary>
-    ShowDiagnostics,
-    /// <summary> Display help information. </summary>
     Help,
     /// <summary> Copy selected messages to the clipboard. </summary>
     Copy,
+    /// <summary> Pause adding new messages. </summary>
+    Pause,
+    /// <summary> Resume adding new messages. </summary>
+    Resume,
     /// <summary> Represents an unrecognized or invalid command. </summary>
     Unknown
 }

@@ -76,14 +76,18 @@ public class CommandParserService : ICommandParserService
                 {
                     // Basic validation for format
                     string format = arguments[0].ToLowerInvariant();
-                    if (format != "json" && format != "csv") // Corrected '&&'
+                    if (format != "json" && format != "txt") 
                     {
-                        return CommandResult.Failure("Invalid format for :export. Expected 'json' or 'csv'.");
+                        return CommandResult.Failure("Invalid format for :export. Expected 'json' or 'txt'.");
                     }
                     // Argument 1 is filepath
                     return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Export, arguments));
                 }
-                return CommandResult.Failure("Invalid arguments for :export. Expected: :export <format:{json|csv}> <filepath>");
+                else if (!string.IsNullOrEmpty(settingsData.ExportPath) && (settingsData.ExportFormat == "json" || settingsData.ExportFormat == "txt"))
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Export, [settingsData.ExportFormat, settingsData.ExportPath]));
+                }
+                return CommandResult.Failure("Invalid arguments for :export. Expected: :export <format:{json|txt}> <filepath>");
 
             case "filter":
                 // TODO: Implement regex validation
@@ -95,19 +99,12 @@ public class CommandParserService : ICommandParserService
                 }
                 return CommandResult.Failure("Invalid arguments for :filter. Expected: :filter <regex_pattern>");
 
-            case "clear_messages":
+            case "clear":
                 if (arguments.Count == 0)
                 {
-                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.ClearMessages, arguments));
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Clear, arguments));
                 }
                 return CommandResult.Failure("Invalid arguments for :clear_messages. Expected: :clear_messages");
-
-            case "show_diagnostics":
-                 if (arguments.Count == 0)
-                {
-                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.ShowDiagnostics, arguments));
-                }
-                return CommandResult.Failure("Invalid arguments for :show_diagnostics. Expected: :show_diagnostics");
 
             case "help":
                 if (arguments.Count == 0)
@@ -115,6 +112,20 @@ public class CommandParserService : ICommandParserService
                     return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Help, arguments));
                 }
                 return CommandResult.Failure("Invalid arguments for :help. Expected: :help");
+
+            case "pause":
+                if (arguments.Count == 0)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Pause, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :pause. Expected: :pause");
+
+            case "resume":
+                if (arguments.Count == 0)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Resume, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :resume. Expected: :resume");
 
             case "copy":
                 if (arguments.Count == 0)
