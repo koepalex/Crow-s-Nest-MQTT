@@ -1,11 +1,16 @@
 using Avalonia; // Added for VisualTreeAttachmentEventArgs
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity; // Added for RoutedEventArgs
 using Avalonia.ReactiveUI; // If using ReactiveUI bindings in code-behind
 using Avalonia.Threading; // Added for Dispatcher
 using CrowsNestMqtt.UI.ViewModels; // Namespace for MainViewModel
+
+using ReactiveUI;
+
 using System.Collections.Specialized; // Added for INotifyCollectionChanged
-using System.ComponentModel; // Added for INotifyPropertyChanged (optional but good practice)
+using System.ComponentModel;
+using System.Reactive.Linq; // Added for INotifyPropertyChanged (optional but good practice)
 
 namespace CrowsNestMqtt.UI.Views;
 
@@ -41,6 +46,8 @@ public partial class MainView : UserControl
 
         // Subscribe to DataContext changes to hook/unhook event handlers
         this.DataContextChanged += OnDataContextChanged;
+
+       
     }
 
     /// <summary>
@@ -77,6 +84,22 @@ public partial class MainView : UserControl
             _observableHistory.CollectionChanged += FilteredMessageHistory_CollectionChanged;
             // Optional: Also listen for SelectedMessage changes if needed for other reasons
             // vm.PropertyChanged += ViewModel_PropertyChanged;
+
+             var viewModel = DataContext as MainViewModel;
+
+            viewModel?
+                .WhenAnyValue(x => x.ClipboardText)
+                .DistinctUntilChanged()
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .Subscribe (async clipboardText => {
+                    if (!string.IsNullOrWhiteSpace(clipboardText))
+                    {
+                        var clipboard = TopLevel.GetTopLevel(Parent as Visual)?.Clipboard;
+                        var dataObject = new DataObject();
+                        dataObject.Set(DataFormats.Text, clipboardText);
+                        await (clipboard?.SetDataObjectAsync(dataObject) ?? Task.CompletedTask);
+                    }
+                });
         }
     }
 

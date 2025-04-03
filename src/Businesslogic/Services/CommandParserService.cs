@@ -116,6 +116,13 @@ public class CommandParserService : ICommandParserService
                 }
                 return CommandResult.Failure("Invalid arguments for :help. Expected: :help");
 
+            case "copy":
+                if (arguments.Count == 0)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Copy, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :copy. Expected: :copy");
+
             default:
                 return CommandResult.Failure($"Unknown command: '{commandKeyword}'");
         }

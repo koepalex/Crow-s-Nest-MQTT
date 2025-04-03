@@ -165,7 +165,6 @@ public class MqttEngine
             LogMessage?.Invoke(this, $"Attempting to connect to {_currentOptions.ChannelOptions} with ClientId '{_currentOptions.ClientId ?? "<generated>"}'. CleanSession={_currentOptions.CleanSession}, SessionExpiry={_currentOptions.SessionExpiryInterval}");
             var connectionResult = await _client.ConnectAsync(_currentOptions, CancellationToken.None);
             LogMessage?.Invoke(this, $"connection result: {connectionResult.ReasonString}:{connectionResult.ResultCode}");
-            Interlocked.Exchange(ref _connecting, false);
             // Subscription is handled by the ConnectedAsync handler
         }
         catch (Exception ex)
@@ -175,6 +174,10 @@ public class MqttEngine
             ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, ex));
             // Reconnect logic will be triggered by DisconnectedAsync if the connection drops later
             // Or by ConnectingFailedAsync if the initial connection fails.
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _connecting, false);
         }
     }
 

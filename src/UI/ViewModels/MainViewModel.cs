@@ -1,3 +1,10 @@
+using Avalonia;
+using Avalonia.Input.Platform; // For IClipboard
+using Avalonia.Platform.Storage; // Potentially needed for other storage operations
+using Avalonia.Controls; // For TopLevel (if needed later)
+using Avalonia.VisualTree; // For GetVisualRoot (if needed later)
+using Avalonia.Interactivity; // For RoutedEventArgs (if needed later)
+using Avalonia.Threading; // Already present
 using ReactiveUI;
 using Serilog; // Added Serilog
 using System;
@@ -10,7 +17,7 @@ using System.Reactive.Linq; // Required for Select, ObserveOn, Throttle, Distinc
 using System.Text; // For Encoding and StringBuilder
 using System.Threading;
 using System.Threading.Tasks; // For Task
-using Avalonia.Threading; // Required for Dispatcher.UIThread
+// using Avalonia.Threading; // Removed duplicate - already on line 7
 // using Avalonia.Controls; // No longer needed for ItemsSourceView
 using CrowsNestMqtt.BusinessLogic; // Required for MqttEngine, MqttConnectionStateChangedEventArgs
 using CrowsNestMqtt.Businesslogic.Commands; // Added for command parsing
@@ -35,8 +42,8 @@ public class MainViewModel : ReactiveObject
     private readonly SourceList<MessageViewModel> _messageHistorySource = new(); // Backing source for DynamicData
     private readonly IDisposable _messageHistorySubscription; // To dispose the pipeline
     private readonly ReadOnlyObservableCollection<MessageViewModel> _filteredMessageHistory; // Field for the bound collection
-   private string _currentSearchTerm = string.Empty; // Backing field for search term
-   private readonly List<string> _availableCommands; // Added list of commands for suggestions
+    private string _currentSearchTerm = string.Empty; // Backing field for search term
+    private readonly List<string> _availableCommands; // Added list of commands for suggestions
 
     /// <summary>
     /// Gets or sets the current search term used for filtering message history.
@@ -111,16 +118,23 @@ public class MainViewModel : ReactiveObject
     {
         get => _statusBarText;
         set => this.RaiseAndSetIfChanged(ref _statusBarText, value);
-   }
+    }
 
-   // --- JSON Viewer ---
-   public JsonViewerViewModel JsonViewer { get; } // Added for JSON display
+    private string _clipboardText = "";
+    public string ClipboardText
+    {
+        get => _clipboardText;
+        set => this.RaiseAndSetIfChanged(ref _clipboardText, value);
+    }
 
-   private bool _isJsonViewerVisible = false; // Added backing field for visibility
-   public bool IsJsonViewerVisible // Added property for visibility binding
-   {
-       get => _isJsonViewerVisible;
-       set => this.RaiseAndSetIfChanged(ref _isJsonViewerVisible, value);
+    // --- JSON Viewer ---
+    public JsonViewerViewModel JsonViewer { get; } // Added for JSON display
+
+    private bool _isJsonViewerVisible = false; // Added backing field for visibility
+    public bool IsJsonViewerVisible // Added property for visibility binding
+    {
+        get => _isJsonViewerVisible;
+        set => this.RaiseAndSetIfChanged(ref _isJsonViewerVisible, value);
     }
 
     // --- Collections ---
@@ -130,22 +144,22 @@ public class MainViewModel : ReactiveObject
 
     // --- Views ---
     // Filtered collection bound to the UI
-   public ReadOnlyObservableCollection<MessageViewModel> FilteredMessageHistory { get; }
+    public ReadOnlyObservableCollection<MessageViewModel> FilteredMessageHistory { get; }
 
-   // --- Suggestions ---
-   private ObservableCollection<string> _commandSuggestions = new(); // Added for AutoCompleteBox
-   public ObservableCollection<string> CommandSuggestions
-   {
-       get => _commandSuggestions;
-       set => this.RaiseAndSetIfChanged(ref _commandSuggestions, value);
-   }
+    // --- Suggestions ---
+    private ObservableCollection<string> _commandSuggestions = new(); // Added for AutoCompleteBox
+    public ObservableCollection<string> CommandSuggestions
+    {
+        get => _commandSuggestions;
+        set => this.RaiseAndSetIfChanged(ref _commandSuggestions, value);
+    }
 
-   // --- Commands ---
-   public ReactiveCommand<Unit, Unit> ConnectCommand { get; }
-   public ReactiveCommand<Unit, Unit> DisconnectCommand { get; }
-   public ReactiveCommand<Unit, Unit> ClearHistoryCommand { get; }
-   public ReactiveCommand<Unit, Unit> PauseResumeCommand { get; }
-   public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; } // Added Settings Command
+    // --- Commands ---
+    public ReactiveCommand<Unit, Unit> ConnectCommand { get; }
+    public ReactiveCommand<Unit, Unit> DisconnectCommand { get; }
+    public ReactiveCommand<Unit, Unit> ClearHistoryCommand { get; }
+    public ReactiveCommand<Unit, Unit> PauseResumeCommand { get; }
+    public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; } // Added Settings Command
     public ReactiveCommand<Unit, Unit> SubmitInputCommand { get; } // Added for command/search input
 
 
@@ -158,18 +172,18 @@ public class MainViewModel : ReactiveObject
     {
         _commandParserService = commandParserService ?? throw new ArgumentNullException(nameof(commandParserService)); // Store injected service
         _syncContext = SynchronizationContext.Current; // Capture sync context
-       Settings = new SettingsViewModel(); // Instantiate settings
-       JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
+        Settings = new SettingsViewModel(); // Instantiate settings
+        JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
 
-       // Populate the list of available commands (assuming CommandType enum has all commands)
-       _availableCommands = Enum.GetNames(typeof(CommandType))
-                                .Select(name => ":" + name.ToLowerInvariant()) // Prefix with ':' and make lowercase
-                                .ToList();
+        // Populate the list of available commands (assuming CommandType enum has all commands)
+        _availableCommands = Enum.GetNames(typeof(CommandType))
+                                 .Select(name => ":" + name.ToLowerInvariant()) // Prefix with ':' and make lowercase
+                                 .ToList();
 
-       // --- DynamicData Pipeline for Message History Filtering ---
+        // --- DynamicData Pipeline for Message History Filtering ---
 
-       // Define the filter predicate based on the search term
-       // Define the filter predicate based on the search term AND the selected node
+        // Define the filter predicate based on the search term
+        // Define the filter predicate based on the search term AND the selected node
         var filterPredicate = this.WhenAnyValue(x => x.CurrentSearchTerm, x => x.SelectedNode)
             .Throttle(TimeSpan.FromMilliseconds(250), RxApp.MainThreadScheduler) // Debounce input
             .Select(tuple =>
@@ -195,7 +209,8 @@ public class MainViewModel : ReactiveObject
                     bool pass = topicMatch && searchTermMatch;
 
                     // Consolidated Debug logging just before returning the result
-                    if (msgTopic?.StartsWith("process-control-demo/data/process-control-simple-write-and-call") ?? false) {
+                    if (msgTopic?.StartsWith("process-control-demo/data/process-control-simple-write-and-call") ?? false)
+                    {
                         Log.Verbose("Filter Eval: Msg='{MsgTopic}' | Selected='{SelectedPath}' | Term='{SearchTerm}' | TopicMatch={TMatch} | SearchMatch={SMatch} | Result={Pass}",
                                     msgTopic ?? "N/A",
                                     selectedPath ?? "[None]",
@@ -253,22 +268,22 @@ public class MainViewModel : ReactiveObject
            .ObserveOn(RxApp.MainThreadScheduler)
            .Subscribe(selected => UpdateMessageDetails(selected));
 
-       // When CommandText changes, update the CommandSuggestions
-       this.WhenAnyValue(x => x.CommandText)
-           .Throttle(TimeSpan.FromMilliseconds(150), RxApp.MainThreadScheduler) // Small debounce
-           .DistinctUntilChanged() // Only update if text actually changed
-           .ObserveOn(RxApp.MainThreadScheduler) // Ensure UI update is on the correct thread
-           .Subscribe(text => UpdateCommandSuggestions(text));
+        // When CommandText changes, update the CommandSuggestions
+        this.WhenAnyValue(x => x.CommandText)
+            .Throttle(TimeSpan.FromMilliseconds(150), RxApp.MainThreadScheduler) // Small debounce
+            .DistinctUntilChanged() // Only update if text actually changed
+            .ObserveOn(RxApp.MainThreadScheduler) // Ensure UI update is on the correct thread
+            .Subscribe(text => UpdateCommandSuggestions(text));
 
-       // Start connection attempt (Commented out to prevent auto-connect)
-       // ConnectCommand.Execute().Subscribe();
-   }
+        // Start connection attempt (Commented out to prevent auto-connect)
+        // ConnectCommand.Execute().Subscribe();
+    }
 
-   private void OnLogMessage(object? sender, string log)
-   {
-       // TODO: Implement proper logging (e.g., to a log panel or file)
-       Log.Debug("[MQTT Engine]: {LogMessage}", log);
-   }
+    private void OnLogMessage(object? sender, string log)
+    {
+        // TODO: Implement proper logging (e.g., to a log panel or file)
+        Log.Debug("[MQTT Engine]: {LogMessage}", log);
+    }
 
     // --- MQTT Event Handlers ---
 
@@ -361,21 +376,20 @@ public class MainViewModel : ReactiveObject
 
         var msg = messageVm.FullMessage;
         var sb = new StringBuilder();
-        sb.AppendLine($"Timestamp: {messageVm.Timestamp:yyyy-MM-dd HH:mm:ss.fff}"); // Display arrival time
+        sb.AppendLine($"Timestamp: {messageVm.Timestamp:yyyy-MM-dd HH:mm:ss.fff}"); 
         sb.AppendLine($"Topic: {msg.Topic}");
+        sb.AppendLine($"Response Topic: {msg.ResponseTopic}");
         sb.AppendLine($"QoS: {msg.QualityOfServiceLevel}");
-        sb.AppendLine($"Retain: {msg.Retain}");
-        sb.AppendLine($"Dup: {msg.Dup}"); // MQTT v3 property
-        // V5 Properties (check if they exist)
-        sb.AppendLine($"Content Type: {msg.ContentType ?? "N/A"}");
-        sb.AppendLine($"Payload Format: {msg.PayloadFormatIndicator}");
         sb.AppendLine($"Message Expiry Interval: {msg.MessageExpiryInterval}");
-        // ... add more properties as needed (CorrelationData etc.)
+        sb.AppendLine($"Correlation Data: {msg.CorrelationData}");
+        sb.AppendLine($"Payload Format: {msg.PayloadFormatIndicator}");
+        sb.AppendLine($"Content Type: {msg.ContentType ?? "N/A"}");
+        sb.AppendLine($"Retain: {msg.Retain}");
 
         // Add User Properties if they exist
         if (msg.UserProperties != null && msg.UserProperties.Count > 0)
         {
-            sb.AppendLine("\n--- Userproperties ---");
+            sb.AppendLine("\n--- User Properties ---");
             foreach (var prop in msg.UserProperties)
             {
                 sb.AppendLine($"{prop.Name}: {prop.Value}");
@@ -384,7 +398,6 @@ public class MainViewModel : ReactiveObject
 
         sb.AppendLine("\n--- Payload ---");
         string payloadText = "[No Payload]"; // Default
-        bool isJsonParsedSuccessfully = false;
 
         // Attempt to decode payload as UTF-8 text
         try
@@ -396,29 +409,20 @@ public class MainViewModel : ReactiveObject
 
                 // Attempt to parse the decoded text as JSON using LoadJson
                 JsonViewer.LoadJson(payloadText);
-                isJsonParsedSuccessfully = !JsonViewer.HasParseError; // Check error state after loading
             }
             else
             {
                 sb.AppendLine(payloadText); // Append "[No Payload]"
                 JsonViewer.LoadJson(string.Empty); // Clear JSON viewer if no payload
-                isJsonParsedSuccessfully = false;
             }
         }
         catch (Exception ex) // Catch potential UTF-8 decoding errors
         {
             sb.AppendLine($"[Could not decode payload as UTF-8: {ex.Message}]");
             JsonViewer.LoadJson(string.Empty); // Clear viewer on decode error
-            // Optionally set a specific error message if JsonViewerViewModel had a dedicated method
-            // JsonViewer.SetDecodeError($"Payload decode error: {ex.Message}");
-            isJsonParsedSuccessfully = false; // Ensure viewer is hidden on decode error
         }
 
         MessageDetails = sb.ToString();
-        // Show viewer only if JSON was parsed without errors AND there was a payload
-        bool shouldBeVisible = isJsonParsedSuccessfully && msg.Payload.Length > 0;
-        Log.Debug("UpdateMessageDetails: isJsonParsedSuccessfully={Parsed}, HasPayload={HasPayload}, Setting IsJsonViewerVisible={Visible}", isJsonParsedSuccessfully, msg.Payload.Length > 0, shouldBeVisible); // Added logging
-        IsJsonViewerVisible = shouldBeVisible;
     }
 
 
@@ -479,23 +483,23 @@ public class MainViewModel : ReactiveObject
         await _mqttEngine.DisconnectAsync();
     }
 
-     private void ClearHistory()
+    private void ClearHistory()
     {
         Log.Information("Clear history command executed.");
         // Update ClearHistory to potentially use SelectedNode if needed,
         // or clear based on a different criteria. For now, clearing based on selected node path.
         if (SelectedNode != null)
         {
-             // Optionally clear buffer in engine too?
-             // _mqttEngine.ClearBufferForTopic(SelectedNode.FullPath);
-             _messageHistorySource.Clear(); // Clear the source list
-             // MessageHistory.Clear(); // Removed - _messageHistorySource.Clear() handles it
-             SelectedMessage = null;
-             StatusBarText = $"History cleared for {SelectedNode.FullPath}."; // Update status
+            // Optionally clear buffer in engine too?
+            // _mqttEngine.ClearBufferForTopic(SelectedNode.FullPath);
+            _messageHistorySource.Clear(); // Clear the source list
+                                           // MessageHistory.Clear(); // Removed - _messageHistorySource.Clear() handles it
+            SelectedMessage = null;
+            StatusBarText = $"History cleared for {SelectedNode.FullPath}."; // Update status
         }
         else
         {
-             StatusBarText = "Select a topic node to clear its history."; // Update status
+            StatusBarText = "Select a topic node to clear its history."; // Update status
         }
     }
 
@@ -518,10 +522,11 @@ public class MainViewModel : ReactiveObject
 
         if (string.IsNullOrWhiteSpace(currentInput))
         {
-             // If user submits empty text, clear the filter
+            // If user submits empty text, clear the filter
             CurrentSearchTerm = string.Empty; // Use property setter
             Log.Information("Clearing search filter due to empty input.");
-            Dispatcher.UIThread.Post(() => {
+            Dispatcher.UIThread.Post(() =>
+            {
                 // No need to refresh, DynamicData handles updates
                 StatusBarText = "Filter cleared.";
             });
@@ -595,7 +600,8 @@ public class MainViewModel : ReactiveObject
                     StatusBarText = $"Attempting to connect to {host}:{port}...";
                     ConnectCommand.Execute().Subscribe(
                         _ => StatusBarText = $"Successfully initiated connection to {host}:{port}.", // Success here means command executed, not necessarily connected yet
-                        ex => {
+                        ex =>
+                        {
                             StatusBarText = $"Error initiating connection: {ex.Message}";
                             Log.Error(ex, "Error executing ConnectCommand");
                         });
@@ -605,7 +611,8 @@ public class MainViewModel : ReactiveObject
                     StatusBarText = "Disconnecting...";
                     DisconnectCommand.Execute().Subscribe(
                          _ => StatusBarText = "Successfully initiated disconnection.",
-                         ex => {
+                         ex =>
+                         {
                              StatusBarText = $"Error initiating disconnection: {ex.Message}";
                              Log.Error(ex, "Error executing DisconnectCommand");
                          });
@@ -641,7 +648,7 @@ public class MainViewModel : ReactiveObject
                     break;
 
                 case CommandType.Subscribe:
-                     if (command.Arguments.Count != 1)
+                    if (command.Arguments.Count != 1)
                     {
                         StatusBarText = "Error: :sub requires exactly one argument: <topic_filter>";
                         Log.Warning("Invalid arguments for :sub command.");
@@ -653,23 +660,23 @@ public class MainViewModel : ReactiveObject
                     // Assuming MqttEngine has a SubscribeAsync method
                     _mqttEngine.SubscribeAsync(subTopic).ContinueWith(task =>
                     {
-                         Dispatcher.UIThread.Post(() => // Ensure UI update is on the correct thread
-                         {
-                             if (task.IsFaulted)
-                             {
-                                 StatusBarText = $"Error subscribing: {task.Exception?.InnerException?.Message}";
-                                 Log.Error(task.Exception, "Error executing SubscribeAsync");
-                             }
-                             else
-                             {
-                                 StatusBarText = $"Subscribed to '{subTopic}'.";
-                             }
-                         });
+                        Dispatcher.UIThread.Post(() => // Ensure UI update is on the correct thread
+                        {
+                            if (task.IsFaulted)
+                            {
+                                StatusBarText = $"Error subscribing: {task.Exception?.InnerException?.Message}";
+                                Log.Error(task.Exception, "Error executing SubscribeAsync");
+                            }
+                            else
+                            {
+                                StatusBarText = $"Subscribed to '{subTopic}'.";
+                            }
+                        });
                     });
                     break;
 
                 case CommandType.Unsubscribe:
-                     if (command.Arguments.Count != 1)
+                    if (command.Arguments.Count != 1)
                     {
                         StatusBarText = "Error: :unsub requires exactly one argument: <topic_filter>";
                         Log.Warning("Invalid arguments for :unsub command.");
@@ -678,21 +685,21 @@ public class MainViewModel : ReactiveObject
                     string unsubTopic = command.Arguments[0];
                     StatusBarText = $"Unsubscribing from '{unsubTopic}'...";
                     Log.Information("Executing :unsub command: TopicFilter='{TopicFilter}'", unsubTopic);
-                     // Assuming MqttEngine has an UnsubscribeAsync method
+                    // Assuming MqttEngine has an UnsubscribeAsync method
                     _mqttEngine.UnsubscribeAsync(unsubTopic).ContinueWith(task =>
                     {
-                         Dispatcher.UIThread.Post(() => // Ensure UI update is on the correct thread
-                         {
-                             if (task.IsFaulted)
-                             {
-                                 StatusBarText = $"Error unsubscribing: {task.Exception?.InnerException?.Message}";
-                                 Log.Error(task.Exception, "Error executing UnsubscribeAsync");
-                             }
-                             else
-                             {
-                                 StatusBarText = $"Unsubscribed from '{unsubTopic}'.";
-                             }
-                         });
+                        Dispatcher.UIThread.Post(() => // Ensure UI update is on the correct thread
+                        {
+                            if (task.IsFaulted)
+                            {
+                                StatusBarText = $"Error unsubscribing: {task.Exception?.InnerException?.Message}";
+                                Log.Error(task.Exception, "Error executing UnsubscribeAsync");
+                            }
+                            else
+                            {
+                                StatusBarText = $"Unsubscribed from '{unsubTopic}'.";
+                            }
+                        });
                     });
                     break;
 
@@ -700,17 +707,70 @@ public class MainViewModel : ReactiveObject
                     StatusBarText = "Clearing history...";
                     ClearHistoryCommand.Execute().Subscribe(); // Execute the existing clear command
                     break;
+                case CommandType.Copy:
+                    if (SelectedMessage?.FullMessage != null)
+                    {
+                        var msg = SelectedMessage.FullMessage;
+                        var sb = new StringBuilder();
+                        sb.AppendLine($"Timestamp: {SelectedMessage.Timestamp:yyyy-MM-dd HH:mm:ss.fff}"); 
+                        sb.AppendLine($"Topic: {msg.Topic}");
+                        sb.AppendLine($"Response Topic: {msg.ResponseTopic}");
+                        sb.AppendLine($"QoS: {msg.QualityOfServiceLevel}");
+                        sb.AppendLine($"Message Expiry Interval: {msg.MessageExpiryInterval}");
+                        sb.AppendLine($"Correlation Data: {msg.CorrelationData}");
+                        sb.AppendLine($"Payload Format: {msg.PayloadFormatIndicator}");
+                        sb.AppendLine($"Content Type: {msg.ContentType ?? "N/A"}");
+                        sb.AppendLine($"Retain: {msg.Retain}");
 
-                case CommandType.Help:
-                    // TODO: Implement a more sophisticated help system (e.g., show available commands)
-                    StatusBarText = "Available commands: :connect, :disconnect, :pub, :sub, :unsub, :clear, :help";
-                    Log.Information("Displaying help information.");
-                    break;
+                        // Add User Properties if they exist
+                        if (msg.UserProperties != null && msg.UserProperties.Count > 0)
+                        {
+                            sb.AppendLine("\n--- User Properties ---");
+                            foreach (var prop in msg.UserProperties)
+                            {
+                                sb.AppendLine($"{prop.Name}: {prop.Value}");
+                            }
+                        }
 
-                default:
-                    StatusBarText = $"Error: Unknown command type '{command.Type}'.";
-                    Log.Warning("Unknown command type encountered: {CommandType}", command.Type);
-                    break;
+                        sb.AppendLine("\n--- Payload ---");
+                        string payloadText = "[No Payload]"; 
+
+                        // Attempt to decode payload as UTF-8 text
+                        try
+                        {
+                            if (msg.Payload.Length > 0)
+                            {
+                                payloadText = Encoding.UTF8.GetString(msg.Payload); // Use overload for ReadOnlySequence<byte>
+                                sb.AppendLine(payloadText);
+                            }
+                            else
+                            {
+                                sb.AppendLine(payloadText); // Append "[No Payload]"
+                            }
+                        }
+                        catch (Exception ex) // Catch potential UTF-8 decoding errors
+                        {
+                            sb.AppendLine($"[Could not decode payload as UTF-8: {ex.Message}]");
+                        }
+
+                        ClipboardText = sb.ToString();
+                    }
+                    else
+                    {
+                        StatusBarText = "No message selected to copy.";
+                        Log.Information("Copy command executed but no message was selected.");
+                    }
+                    break; // Correct placement outside the if/else block
+case CommandType.Help:
+                // TODO: Implement a more sophisticated help system (e.g., show available commands)
+                StatusBarText = "Available commands: :connect, :disconnect, :pub, :sub, :unsub, :clear, :copy, :help"; // Added :copy
+                Log.Information("Displaying help information.");
+                break; // Break for Help case
+
+            default:
+                StatusBarText = $"Error: Unknown command type '{command.Type}'.";
+                Log.Warning("Unknown command type encountered: {CommandType}", command.Type);
+                break;
             }
         }
         catch (Exception ex)
@@ -773,33 +833,33 @@ public class MainViewModel : ReactiveObject
             currentLevel = existingNode.Children;
             parentNode = existingNode; // Update parent for the next iteration
         }
-   }
+    }
 
-// --- Suggestion Logic ---
+    // --- Suggestion Logic ---
 
-/// <summary>
-/// Updates the CommandSuggestions collection based on the current CommandText.
-/// </summary>
-/// <param name="currentText">The current text in the command input box.</param>
-private void UpdateCommandSuggestions(string? currentText)
-{
-   CommandSuggestions.Clear(); // Clear previous suggestions
+    /// <summary>
+    /// Updates the CommandSuggestions collection based on the current CommandText.
+    /// </summary>
+    /// <param name="currentText">The current text in the command input box.</param>
+    private void UpdateCommandSuggestions(string? currentText)
+    {
+        CommandSuggestions.Clear(); // Clear previous suggestions
 
-   if (string.IsNullOrWhiteSpace(currentText) || !currentText.StartsWith(":"))
-   {
-       // If text is empty or doesn't start with ':', show no suggestions
-       return;
-   }
+        if (string.IsNullOrWhiteSpace(currentText) || !currentText.StartsWith(":"))
+        {
+            // If text is empty or doesn't start with ':', show no suggestions
+            return;
+        }
 
-   // Filter available commands based on the input (case-insensitive)
-   var matchingCommands = _availableCommands
-       .Where(cmd => cmd.StartsWith(currentText, StringComparison.OrdinalIgnoreCase))
-       .OrderBy(cmd => cmd); // Optional: Sort suggestions alphabetically
+        // Filter available commands based on the input (case-insensitive)
+        var matchingCommands = _availableCommands
+            .Where(cmd => cmd.StartsWith(currentText, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(cmd => cmd); // Optional: Sort suggestions alphabetically
 
-   foreach (var cmd in matchingCommands)
-   {
-       CommandSuggestions.Add(cmd);
-   }
-   Log.Verbose("Updated command suggestions for '{InputText}'. Found {Count} matches.", currentText, CommandSuggestions.Count);
-}
+        foreach (var cmd in matchingCommands)
+        {
+            CommandSuggestions.Add(cmd);
+        }
+        Log.Verbose("Updated command suggestions for '{InputText}'. Found {Count} matches.", currentText, CommandSuggestions.Count);
+    }
 }

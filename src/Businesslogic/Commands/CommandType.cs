@@ -27,6 +27,8 @@ public enum CommandType
     ShowDiagnostics,
     /// <summary> Display help information. </summary>
     Help,
+    /// <summary> Copy selected messages to the clipboard. </summary>
+    Copy,
     /// <summary> Represents an unrecognized or invalid command. </summary>
     Unknown
 }
