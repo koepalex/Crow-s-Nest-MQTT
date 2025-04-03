@@ -18,7 +18,7 @@ public interface IMessageExporter
     /// <param name="msg">The MQTT application message.</param>
     /// <param name="receivedTime">The timestamp when the message was received.</param>
     /// <returns>A string containing the detailed message information.</returns>
-    string GenerateDetailedTextFromMessage(MqttApplicationMessage msg, DateTime receivedTime);
+    (string content, bool isPayloadValidUtf8, string payloadAsString) GenerateDetailedTextFromMessage(MqttApplicationMessage msg, DateTime receivedTime);
 
     /// <summary>
     /// Exports the detailed representation of an MQTT message to a file.

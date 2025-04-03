@@ -32,24 +32,31 @@ public class JsonExporter : IMessageExporter
     private record MqttUserPropertyDto(string Name, string Value);
 
 
-    public string GenerateDetailedTextFromMessage(MqttApplicationMessage msg, DateTime receivedTime)
+    public (string content, bool isPayloadValidUtf8, string payloadAsString) GenerateDetailedTextFromMessage(MqttApplicationMessage msg, DateTime receivedTime)
     {
-        string json = string.Empty;
+        string jsonContent = string.Empty;
+        string payloadAsString = "[No Payload]"; // Default value
+        bool isPayloadValidUtf8 = false; // Default value
         try
         {
             // Decode payload
-            string? payloadString = null;
-            if (msg.Payload.Length > 0) // Removed the incorrect null check
+            if (msg.Payload.Length > 0)
             {
                 try
                 {
-                    payloadString = Encoding.UTF8.GetString(msg.Payload);
+                    payloadAsString = Encoding.UTF8.GetString(msg.Payload);
+                    isPayloadValidUtf8 = true;
                 }
                 catch (Exception decodeEx)
                 {
-                    Log.Warning(decodeEx, "Could not decode payload as UTF-8 for JSON export (Topic: {Topic}). Exporting as null.", msg.Topic);
-                    // Optionally represent as Base64 or similar if UTF-8 fails? For now, null.
+                    payloadAsString = $"[Could not decode payload as UTF-8: {decodeEx.Message}]";
+                    isPayloadValidUtf8 = false;
+                    Log.Warning(decodeEx, "Could not decode payload as UTF-8 for JSON export (Topic: {Topic}). Representing as error string.", msg.Topic);
                 }
+            }
+            else
+            {
+                isPayloadValidUtf8 = true; // Empty payload is valid UTF-8
             }
 
             // Create DTO
@@ -65,7 +72,7 @@ public class JsonExporter : IMessageExporter
                 PayloadFormatIndicator = msg.PayloadFormatIndicator,
                 ContentType = msg.ContentType,
                 UserProperties = msg.UserProperties?.Select(up => new MqttUserPropertyDto(up.Name, up.Value)).ToList(),
-                Payload = payloadString
+                Payload = isPayloadValidUtf8 ? payloadAsString : null // Only include valid UTF-8 payload in JSON DTO, otherwise null
             };
 
             var options = new JsonSerializerOptions
@@ -73,21 +80,22 @@ public class JsonExporter : IMessageExporter
                 WriteIndented = true,
                 Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
             };
-            json = JsonSerializer.Serialize(dto, options);
+            jsonContent = JsonSerializer.Serialize(dto, options);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Error generating JSON from MQTT message DTO (Topic: {Topic})", msg.Topic);
-            json = string.Empty; // Ensure empty string on error
+            jsonContent = string.Empty; // Ensure empty string on error
+            // Keep payloadAsString and isPayloadValidUtf8 as they were before the serialization error
         }
-        return json;
+        return (jsonContent, isPayloadValidUtf8, payloadAsString);
     }
 
     public string? ExportToFile(MqttApplicationMessage msg, DateTime receivedTime, string exportFolderPath)
     {
         try
         {
-            string jsonContent = GenerateDetailedTextFromMessage(msg, receivedTime);
+            var (jsonContent, _, _) = GenerateDetailedTextFromMessage(msg, receivedTime); // Discard bool and payload string
             if (string.IsNullOrEmpty(jsonContent))
             {
                 Log.Warning("Skipping export for message due to empty content (topic: {Topic})", msg.Topic);
