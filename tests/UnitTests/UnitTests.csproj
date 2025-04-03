@@ -18,7 +18,7 @@
     <PackageReference Include="MQTTnet" Version="5.0.1.1416" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\MQTTEngine\MQTTEngine.csproj" />
+    <ProjectReference Include="..\..\src\Businesslogic\Businesslogic.csproj" />
     <ProjectReference Include="..\..\src\MainApp\CrowsNestMqtt.App.csproj" />
     <ProjectReference Include="..\..\src\Utils\Utils.csproj" />
     <ProjectReference Include="..\..\src\UI\UI.csproj" />

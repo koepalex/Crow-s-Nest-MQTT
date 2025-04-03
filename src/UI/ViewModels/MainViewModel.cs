@@ -27,7 +27,9 @@ using DynamicData.Binding; // Added for Bind()
 using FuzzySharp; // Added for fuzzy search
 using MQTTnet;
 using CrowsNestMqtt.Businesslogic.Exporter; // Required for MqttApplicationMessage, MqttApplicationMessageReceivedEventArgs
-
+using SharpHook; // Added SharpHook
+using SharpHook.Native; // Added SharpHook Native for KeyCode and ModifierMask
+using SharpHook.Reactive; // Added SharpHook Reactive
 using MQTTnet.Protocol; // For MqttQualityOfServiceLevel
 
 namespace CrowsNestMqtt.UI.ViewModels;
@@ -39,7 +41,7 @@ public record MetadataItem(string Key, string Value);
 /// ViewModel for the main application window.
 /// Manages the different sections of the UI: Topic List, Message History, Message Details, and Command Bar.
 /// </summary>
-public class MainViewModel : ReactiveObject
+public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposable
 {
     private readonly MqttEngine _mqttEngine;
     private readonly ICommandParserService _commandParserService; // Added command parser service
@@ -50,6 +52,9 @@ public class MainViewModel : ReactiveObject
     private readonly ReadOnlyObservableCollection<MessageViewModel> _filteredMessageHistory; // Field for the bound collection
     private string _currentSearchTerm = string.Empty; // Backing field for search term
     private readonly List<string> _availableCommands; // Added list of commands for suggestions
+    private readonly IReactiveGlobalHook _globalHook; // Added SharpHook global hook
+    private readonly IDisposable _globalHookSubscription; // Added subscription for the hook
+    private bool _disposedValue; // For IDisposable pattern
 
     /// <summary>
     /// Gets or sets the current search term used for filtering message history.
@@ -184,6 +189,7 @@ public class MainViewModel : ReactiveObject
     public ReactiveCommand<Unit, Unit> PauseResumeCommand { get; }
     public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; } // Added Settings Command
     public ReactiveCommand<Unit, Unit> SubmitInputCommand { get; } // Added for command/search input
+    public ReactiveCommand<Unit, Unit> FocusCommandBarCommand { get; } // Added command to trigger focus
 
 
     /// <summary>
@@ -283,21 +289,50 @@ public class MainViewModel : ReactiveObject
         PauseResumeCommand = ReactiveCommand.Create(TogglePause);
         OpenSettingsCommand = ReactiveCommand.Create(OpenSettings); // Initialize Settings Command
         SubmitInputCommand = ReactiveCommand.Create(ExecuteSubmitInput, this.WhenAnyValue(x => x.CommandText).Select(txt => !string.IsNullOrWhiteSpace(txt))); // Enable only when text exists
-
-        // --- Property Change Reactions ---
-
-        // When SelectedMessage changes, update the MessageDetails
-        this.WhenAnyValue(x => x.SelectedMessage)
-           .ObserveOn(RxApp.MainThreadScheduler)
-           .Subscribe(selected => UpdateMessageDetails(selected));
-
-        // When CommandText changes, update the CommandSuggestions
-        this.WhenAnyValue(x => x.CommandText)
-            .Throttle(TimeSpan.FromMilliseconds(150), RxApp.MainThreadScheduler) // Small debounce
-            .DistinctUntilChanged() // Only update if text actually changed
-            .ObserveOn(RxApp.MainThreadScheduler) // Ensure UI update is on the correct thread
-            .Subscribe(text => UpdateCommandSuggestions(text));
-    }
+        FocusCommandBarCommand = ReactiveCommand.Create(() => { Log.Debug("FocusCommandBarCommand executed by global hook."); /* Actual focus happens in View code-behind */ });
+    
+            // --- Property Change Reactions ---
+    
+            // When SelectedMessage changes, update the MessageDetails
+            this.WhenAnyValue(x => x.SelectedMessage)
+               .ObserveOn(RxApp.MainThreadScheduler)
+               .Subscribe(selected => UpdateMessageDetails(selected));
+    
+            // When CommandText changes, update the CommandSuggestions
+            this.WhenAnyValue(x => x.CommandText)
+                .Throttle(TimeSpan.FromMilliseconds(150), RxApp.MainThreadScheduler) // Small debounce
+                .DistinctUntilChanged() // Only update if text actually changed
+                .ObserveOn(RxApp.MainThreadScheduler) // Ensure UI update is on the correct thread
+                .Subscribe(text => UpdateCommandSuggestions(text));
+    
+            // --- Global Hook Setup ---
+            _globalHook = new SimpleReactiveGlobalHook();
+            _globalHookSubscription = _globalHook.KeyPressed
+                .Do(e => Log.Debug("SharpHook KeyPressed Received: Key={Key}, Modifiers={Modifiers}", e.Data.KeyCode, e.RawEvent.Mask)) // Log every key press
+                .Where(e =>
+                {
+                    // Check for either Left or Right Ctrl/Shift explicitly
+                    bool ctrl = e.RawEvent.Mask.HasFlag(ModifierMask.LeftCtrl) || e.RawEvent.Mask.HasFlag(ModifierMask.RightCtrl);
+                    bool shift = e.RawEvent.Mask.HasFlag(ModifierMask.LeftShift) || e.RawEvent.Mask.HasFlag(ModifierMask.RightShift);
+                    bool pKey = e.Data.KeyCode == KeyCode.VcP;
+                    bool match = ctrl && shift && pKey;
+                    if (match) Log.Debug("Ctrl+Shift+P MATCHED inside Where filter."); // Log specifically on match
+                    // else Log.Verbose("Keypress did not match Ctrl+Shift+P: Ctrl={Ctrl}, Shift={Shift}, Key={Key}", ctrl, shift, e.Data.KeyCode); // Optional: Log non-matches verbosely
+                    return match;
+                })
+                .ObserveOn(RxApp.MainThreadScheduler) // Ensure command execution is on the UI thread
+                .Do(_ => Log.Debug("Ctrl+Shift+P detected by SharpHook pipeline (after Where filter).")) // Changed log message slightly
+                .Select(_ => Unit.Default) // We don't need the event args anymore
+                .InvokeCommand(FocusCommandBarCommand); // Invoke the focus command
+    
+            // Start the hook asynchronously
+            _globalHook.RunAsync().Subscribe(
+                _ => { }, // OnNext (not used)
+                ex => Log.Error(ex, "Error during Global Hook execution (RunAsync OnError)"), // Log errors during hook runtime
+                () => Log.Information("Global Hook stopped.") // OnCompleted
+            );
+            Log.Information("SharpHook Global Hook RunAsync called."); // Log that startup was attempted
+        }
 
     private void OnLogMessage(object? sender, string log)
     {
@@ -881,5 +916,51 @@ public class MainViewModel : ReactiveObject
             CommandSuggestions.Add(cmd);
         }
         Log.Verbose("Updated command suggestions for '{InputText}'. Found {Count} matches.", currentText, CommandSuggestions.Count);
+    }
+
+    // --- IDisposable Implementation ---
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposedValue)
+        {
+            if (disposing)
+            {
+                // Dispose managed state (managed objects).
+                Log.Debug("Disposing MainViewModel resources...");
+                StopTimer();
+                _messageHistorySubscription?.Dispose();
+                _globalHookSubscription?.Dispose(); // Dispose hook subscription
+                _globalHook?.Dispose(); // Dispose the hook itself
+                // _mqttEngine?.Dispose(); // MqttEngine does not seem to be IDisposable
+                // Dispose other managed resources like commands if necessary
+                ConnectCommand?.Dispose();
+                DisconnectCommand?.Dispose();
+                ClearHistoryCommand?.Dispose();
+                PauseResumeCommand?.Dispose();
+                OpenSettingsCommand?.Dispose();
+                SubmitInputCommand?.Dispose();
+                FocusCommandBarCommand?.Dispose();
+            }
+
+            // Free unmanaged resources (unmanaged objects) and override finalizer
+            // Set large fields to null
+            _disposedValue = true;
+            Log.Debug("MainViewModel disposed.");
+        }
+    }
+
+    // // Override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+    // ~MainViewModel()
+    // {
+    //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+    //     Dispose(disposing: false);
+    // }
+
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
     }
 }

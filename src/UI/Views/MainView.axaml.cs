@@ -11,7 +11,7 @@ using ReactiveUI;
 using System.Collections.Specialized; // Added for INotifyCollectionChanged
 using System.ComponentModel;
 using System.Reactive.Linq; // Added for INotifyPropertyChanged (optional but good practice)
-
+using System; // Added for IDisposable
 namespace CrowsNestMqtt.UI.Views;
 
 /// <summary>
@@ -20,6 +20,7 @@ namespace CrowsNestMqtt.UI.Views;
 public partial class MainView : UserControl
 {
     private INotifyCollectionChanged? _observableHistory;
+    private IDisposable? _focusCommandSubscription; // Added for focus command
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainView"/> class.
@@ -70,13 +71,13 @@ public partial class MainView : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        UnsubscribeFromHistoryChanges();
+        UnsubscribeFromViewModel(); // Call combined unsubscribe method
         this.DataContextChanged -= OnDataContextChanged; // Unsubscribe from DataContext changes
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
-        UnsubscribeFromHistoryChanges(); // Unsubscribe from the old context first
+        UnsubscribeFromViewModel(); // Unsubscribe from the old context first
 
         if (DataContext is MainViewModel vm && vm.FilteredMessageHistory is INotifyCollectionChanged observable)
         {
@@ -100,16 +101,33 @@ public partial class MainView : UserControl
                         await (clipboard?.SetDataObjectAsync(dataObject) ?? Task.CompletedTask);
                     }
                 });
+
+            // Subscribe to the FocusCommandBarCommand
+            _focusCommandSubscription = viewModel?.FocusCommandBarCommand
+                .ObserveOn(RxApp.MainThreadScheduler) // Ensure focus happens on UI thread
+                .Subscribe(_ =>
+                {
+                    CommandAutoCompleteBox?.Focus(); // Focus the control
+                    // Optionally select all text?
+                    // CommandAutoCompleteBox?.SelectAll();
+                });
         }
     }
 
-    private void UnsubscribeFromHistoryChanges()
+    // Renamed and expanded to handle all ViewModel subscriptions
+    private void UnsubscribeFromViewModel()
     {
+        // Unsubscribe from history collection changes
         if (_observableHistory != null)
         {
             _observableHistory.CollectionChanged -= FilteredMessageHistory_CollectionChanged;
             _observableHistory = null;
         }
+
+        // Dispose focus command subscription
+        _focusCommandSubscription?.Dispose();
+        _focusCommandSubscription = null;
+
         // Optional: Unsubscribe from PropertyChanged if you subscribed
         // if (DataContext is MainViewModel oldVm)
         // {

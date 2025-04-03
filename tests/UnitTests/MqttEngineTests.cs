@@ -15,9 +15,17 @@ namespace CrowsNestMqtt.Tests
         public async Task MqttEngine_Should_Receive_Published_Message()
         {
             // Arrange
-            string brokerHost = "localhost";
-            int brokerPort = 11883;
-            var engine = new MqttEngine(brokerHost, brokerPort);
+            string brokerHost = "localhost"; // Assuming a local broker for testing
+            int brokerPort = 1883; // Default MQTT port
+            var connectionSettings = new MqttConnectionSettings
+            {
+                Hostname = brokerHost,
+                Port = brokerPort,
+                // Add other necessary default settings for the test if needed
+                ClientId = $"test-client-{Guid.NewGuid()}",
+                CleanSession = true
+            };
+            var engine = new MqttEngine(connectionSettings);
 
             MqttApplicationMessageReceivedEventArgs? receivedArgs = null;
             var messageReceivedEvent = new ManualResetEventSlim(false);
@@ -37,7 +45,7 @@ namespace CrowsNestMqtt.Tests
             var factory = new MqttClientFactory();
             var publisher = factory.CreateMqttClient();
             var publisherOptions = new MqttClientOptionsBuilder()
-                .WithTcpServer(brokerHost, brokerPort, System.Net.Sockets.AddressFamily.InterNetwork)
+                .WithTcpServer(brokerHost, brokerPort) // Removed AddressFamily, let MQTTnet handle defaults
                 .WithCleanSession(true)
                 .Build();
 
