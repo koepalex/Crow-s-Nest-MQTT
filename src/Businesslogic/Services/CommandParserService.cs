@@ -83,9 +83,11 @@ public class CommandParserService : ICommandParserService
                     // Argument 1 is filepath
                     return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Export, arguments));
                 }
-                else if (!string.IsNullOrEmpty(settingsData.ExportPath) && (settingsData.ExportFormat == "json" || settingsData.ExportFormat == "txt"))
+                else if (!string.IsNullOrEmpty(settingsData.ExportPath) && (settingsData.ExportFormat == Exporter.ExportTypes.Json || settingsData.ExportFormat == Exporter.ExportTypes.Text))
                 {
-                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Export, [settingsData.ExportFormat, settingsData.ExportPath]));
+#pragma warning disable CS8601 // Possible null reference assignment.
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Export, [settingsData.ExportFormat!.ToString(), settingsData.ExportPath]));
+#pragma warning restore CS8601 // Possible null reference assignment.
                 }
                 return CommandResult.Failure("Invalid arguments for :export. Expected: :export <format:{json|txt}> <filepath>");
 

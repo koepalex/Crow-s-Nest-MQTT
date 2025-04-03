@@ -25,7 +25,8 @@ using CrowsNestMqtt.Businesslogic.Services; // Added for command parsing
 using DynamicData; // Added for SourceList and reactive filtering
 using DynamicData.Binding; // Added for Bind()
 using FuzzySharp; // Added for fuzzy search
-using MQTTnet; // Required for MqttApplicationMessage, MqttApplicationMessageReceivedEventArgs
+using MQTTnet;
+using CrowsNestMqtt.Businesslogic.Exporter; // Required for MqttApplicationMessage, MqttApplicationMessageReceivedEventArgs
 
 namespace CrowsNestMqtt.UI.ViewModels;
 
@@ -406,17 +407,20 @@ public class MainViewModel : ReactiveObject
 
                 // Attempt to parse the decoded text as JSON using LoadJson
                 JsonViewer.LoadJson(payloadText);
+                IsJsonViewerVisible = true; // Show the viewer area
             }
             else
             {
                 sb.AppendLine(payloadText); // Append "[No Payload]"
                 JsonViewer.LoadJson(string.Empty); // Clear JSON viewer if no payload
+                IsJsonViewerVisible = false; // Hide viewer if no payload
             }
         }
         catch (Exception ex) // Catch potential UTF-8 decoding errors
         {
             sb.AppendLine($"[Could not decode payload as UTF-8: {ex.Message}]");
             JsonViewer.LoadJson(string.Empty); // Clear viewer on decode error
+            IsJsonViewerVisible = false; // Hide viewer on decode error
         }
 
         MessageDetails = sb.ToString();
@@ -623,49 +627,9 @@ public class MainViewModel : ReactiveObject
                     if (SelectedMessage?.FullMessage != null)
                     {
                         var msg = SelectedMessage.FullMessage;
-                        var sb = new StringBuilder();
-                        sb.AppendLine($"Timestamp: {SelectedMessage.Timestamp:yyyy-MM-dd HH:mm:ss.fff}"); 
-                        sb.AppendLine($"Topic: {msg.Topic}");
-                        sb.AppendLine($"Response Topic: {msg.ResponseTopic}");
-                        sb.AppendLine($"QoS: {msg.QualityOfServiceLevel}");
-                        sb.AppendLine($"Message Expiry Interval: {msg.MessageExpiryInterval}");
-                        sb.AppendLine($"Correlation Data: {msg.CorrelationData}");
-                        sb.AppendLine($"Payload Format: {msg.PayloadFormatIndicator}");
-                        sb.AppendLine($"Content Type: {msg.ContentType ?? "N/A"}");
-                        sb.AppendLine($"Retain: {msg.Retain}");
+                        var textExporter = new TextExporter();
 
-                        // Add User Properties if they exist
-                        if (msg.UserProperties != null && msg.UserProperties.Count > 0)
-                        {
-                            sb.AppendLine("\n--- User Properties ---");
-                            foreach (var prop in msg.UserProperties)
-                            {
-                                sb.AppendLine($"{prop.Name}: {prop.Value}");
-                            }
-                        }
-
-                        sb.AppendLine("\n--- Payload ---");
-                        string payloadText = "[No Payload]"; 
-
-                        // Attempt to decode payload as UTF-8 text
-                        try
-                        {
-                            if (msg.Payload.Length > 0)
-                            {
-                                payloadText = Encoding.UTF8.GetString(msg.Payload); // Use overload for ReadOnlySequence<byte>
-                                sb.AppendLine(payloadText);
-                            }
-                            else
-                            {
-                                sb.AppendLine(payloadText); // Append "[No Payload]"
-                            }
-                        }
-                        catch (Exception ex) // Catch potential UTF-8 decoding errors
-                        {
-                            sb.AppendLine($"[Could not decode payload as UTF-8: {ex.Message}]");
-                        }
-
-                        ClipboardText = sb.ToString();
+                        ClipboardText = textExporter.GenerateDetailedTextFromMessage(msg, SelectedMessage.Timestamp);
 
                         StatusBarText = "Updated system clipboard with selected message";
                         Log.Information("Copy command executed.");
@@ -688,6 +652,64 @@ public class MainViewModel : ReactiveObject
                     TogglePause();
                     break;
                 case CommandType.Export:
+                    // Expected arguments: :export <format> <folder_path> [message_index] (index optional for now)
+                    // Example: :export json C:\temp\mqtt_exports
+                    // Example: :export text /home/user/mqtt_logs
+                    if (SelectedMessage?.FullMessage == null)
+                    {
+                        StatusBarText = "Error: No message selected to export.";
+                        Log.Warning("Export command failed: No message selected.");
+                        break;
+                    }
+
+                    if (command.Arguments.Count < 2)
+                    {
+                        StatusBarText = "Error: :export requires at least 2 arguments: <format> <folder_path>";
+                        Log.Warning("Invalid arguments for :export command. Expected format and folder path.");
+                        break;
+                    }
+
+                    string format = command.Arguments[0].ToLowerInvariant();
+                    string folderPath = command.Arguments[1];
+
+                    IMessageExporter? exporter = null;
+                    if (format == "json")
+                    {
+                        exporter = new JsonExporter();
+                    }
+                    else if (format == "text")
+                    {
+                        exporter = new TextExporter();
+                    }
+                    else
+                    {
+                        StatusBarText = $"Error: Invalid export format '{format}'. Use 'json' or 'text'.";
+                        Log.Warning("Invalid export format specified: {Format}", format);
+                        break;
+                    }
+
+                    try
+                    {
+                        // Use the timestamp from the ViewModel as it represents arrival time
+                        string? exportedFilePath = exporter.ExportToFile(SelectedMessage.FullMessage, SelectedMessage.Timestamp, folderPath);
+
+                        if (exportedFilePath != null)
+                        {
+                            StatusBarText = $"Successfully exported message to: {exportedFilePath}";
+                            ClipboardText = exportedFilePath;
+                            Log.Information("Export command successful. File: {FilePath}", exportedFilePath);
+                        }
+                        else
+                        {
+                            // ExportToFile logs warnings/errors internally, just provide general feedback
+                            StatusBarText = "Export failed or was skipped. Check logs for details.";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        StatusBarText = $"Error during export: {ex.Message}";
+                        Log.Error(ex, "Exception during export command execution.");
+                    }
                     break;
                 case CommandType.Filter:
                     break;

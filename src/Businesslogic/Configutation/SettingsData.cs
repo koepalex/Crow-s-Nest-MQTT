@@ -1,3 +1,5 @@
+using CrowsNestMqtt.Businesslogic.Exporter; // Added for ExportTypes
+
 namespace CrowsNestMqtt.Businesslogic.Configuration;
 
 public  record SettingsData(
@@ -7,6 +9,6 @@ public  record SettingsData(
     int KeepAliveIntervalSeconds,
     bool CleanSession,
     uint? SessionExpiryIntervalSeconds,
-    string? ExportFormat = null,
+    ExportTypes? ExportFormat = null, // Changed type to ExportTypes?
     string? ExportPath = null
 );

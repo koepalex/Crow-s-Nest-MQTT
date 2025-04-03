@@ -231,7 +231,7 @@
 
                 <!-- Export Format -->
                 <TextBlock Grid.Row="8" Grid.Column="0" Text="Export Format:"/>
-                <ComboBox Grid.Row="8" Grid.Column="1" ItemsSource="{Binding Settings.ExportFormats}" SelectedItem="{Binding Settings.ExportFormat, Mode=TwoWay}" MinWidth="220" />
+                <ComboBox Grid.Row="8" Grid.Column="1" ItemsSource="{Binding Settings.AvailableExportTypes}" SelectedItem="{Binding Settings.ExportFormat, Mode=TwoWay}" MinWidth="220" />
 
                 <!-- Export Path -->
                 <TextBlock Grid.Row="9" Grid.Column="0" Text="Export Path:"/>

@@ -1,5 +1,5 @@
 using CrowsNestMqtt.Businesslogic.Configuration;
-
+using CrowsNestMqtt.Businesslogic.Exporter; // Added for ExportTypes
 using ReactiveUI;
 using Serilog;
 using System;
@@ -28,8 +28,9 @@ public class SettingsViewModel : ReactiveObject
         "CrowsNestMqtt", 
         "exports");
 
-    private readonly ReadOnlyObservableCollection<string> _formatEncodings;
-    public ReadOnlyObservableCollection<string> FormatEncodings => _formatEncodings;
+    // Renamed _formatEncodings to _availableExportTypes for clarity
+    private readonly ReadOnlyObservableCollection<ExportTypes> _availableExportTypes;
+    public ReadOnlyObservableCollection<ExportTypes> AvailableExportTypes => _availableExportTypes; // Changed type and name
 
 #pragma warning disable IDE0044 // Add readonly modifier
     private bool _isLoading = false; // Flag to prevent saving during initial load
@@ -58,7 +59,9 @@ public class SettingsViewModel : ReactiveObject
             .ObserveOn(RxApp.TaskpoolScheduler) // Perform save on a background thread
             .Subscribe(_ => SaveSettings());
 
-        _formatEncodings = new ReadOnlyObservableCollection<string>(new ObservableCollection<string>(["json", "txt"]));
+        // Populate with enum values
+        _availableExportTypes = new ReadOnlyObservableCollection<ExportTypes>(
+            new ObservableCollection<ExportTypes>(Enum.GetValues(typeof(ExportTypes)).Cast<ExportTypes>()));
         ExportPath = _exportFolderPath;
     }
     private string _hostname = "localhost";
@@ -107,8 +110,8 @@ public class SettingsViewModel : ReactiveObject
      [JsonIgnore] // Don't serialize the derived uint? property
      public uint? SessionExpiryInterval => _sessionExpiryInterval; // Expose for engine
 
-   private string? _exportFormat; // Default to json
-   public string? ExportFormat
+   private ExportTypes? _exportFormat = ExportTypes.Json; // Changed type to ExportTypes? and set default
+   public ExportTypes? ExportFormat
    {
        get => _exportFormat;
        set => this.RaiseAndSetIfChanged(ref _exportFormat, value);
@@ -129,7 +132,7 @@ public class SettingsViewModel : ReactiveObject
             KeepAliveIntervalSeconds,
             CleanSession,
             SessionExpiryIntervalSeconds,
-            ExportFormat, 
+            ExportFormat, // Type is now ExportTypes?
             ExportPath    
         );
     }
@@ -142,7 +145,7 @@ public class SettingsViewModel : ReactiveObject
         KeepAliveIntervalSeconds = settingsData.KeepAliveIntervalSeconds;
         CleanSession = settingsData.CleanSession;
         SessionExpiryIntervalSeconds = settingsData.SessionExpiryIntervalSeconds;
-        ExportFormat = settingsData.ExportFormat; // Added
+        ExportFormat = settingsData.ExportFormat; // Type is now ExportTypes?
         ExportPath = settingsData.ExportPath;       // Added
     }
 
