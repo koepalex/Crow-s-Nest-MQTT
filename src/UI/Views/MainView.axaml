@@ -112,47 +112,42 @@
               <!-- Moved this Grid to Column 2 -->
               <!-- Right Panel: Details, JSON Viewer, and History -->
               <!-- Changed RowDefinitions: Details(Auto), Splitter(Auto), JsonViewer(*), Splitter(Auto), History(*) -->
-              <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*,Auto,*">
+              <Grid Grid.Column="2" RowDefinitions="*,Auto,*,Auto,*"> <!-- Changed first row to '*' -->
 
-                  <!-- Row 0: Message Details -->
-                  <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="0,0,0,1" Padding="5" MaxHeight="250"> <!-- Increased MaxHeight -->
-                      <ScrollViewer VerticalScrollBarVisibility="Auto">
-                          <!-- Use Grid with two columns for side-by-side DataGrids -->
-                          <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,*">
-                              <!-- Column 0: Metadata -->
-                              <TextBlock Grid.Row="0" Grid.Column="0" Text="Message Metadata" FontWeight="Bold"/>
-                              <DataGrid Grid.Row="1" Grid.Column="0" ItemsSource="{Binding MessageMetadata}"
-                                        AutoGenerateColumns="False"
-                                        IsReadOnly="True"
-                                        CanUserResizeColumns="True"
-                                        GridLinesVisibility="None"
-                                        BorderThickness="0"
-                                        Margin="0,0,5,0"> <!-- Add right margin for spacing -->
-                                  <DataGrid.Columns>
-                                      <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="Auto"/>
-                                      <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*"/>
-                                  </DataGrid.Columns>
-                              </DataGrid>
+                  <!-- Row 0: Message Details (Metadata & User Properties) -->
+                  <!-- Removed ScrollViewer and Border, Grid now expands within Row 0 -->
+                  <Grid Grid.Row="0" RowDefinitions="Auto,*" ColumnDefinitions="*,*" Margin="5"> <!-- Added Margin -->
+                      <!-- Column 0: Metadata -->
+                      <TextBlock Grid.Row="0" Grid.Column="0" Text="Message Metadata" FontWeight="Bold"/>
+                      <DataGrid Grid.Row="1" Grid.Column="0" ItemsSource="{Binding MessageMetadata}"
+                                AutoGenerateColumns="False"
+                                IsReadOnly="True"
+                                CanUserResizeColumns="True"
+                                GridLinesVisibility="None"
+                                BorderThickness="0"
+                                Margin="0,0,5,0"> <!-- Add right margin for spacing -->
+                          <DataGrid.Columns>
+                              <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="Auto"/>
+                              <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*"/>
+                          </DataGrid.Columns>
+                      </DataGrid>
 
-                              <!-- Column 1: User Properties -->
-                              <TextBlock Grid.Row="0" Grid.Column="1" Text="User Properties" FontWeight="Bold" IsVisible="{Binding HasUserProperties}"/>
-                              <DataGrid Grid.Row="1" Grid.Column="1" ItemsSource="{Binding MessageUserProperties}"
-                                        AutoGenerateColumns="False"
-                                        IsReadOnly="True"
-                                        CanUserResizeColumns="True"
-                                        GridLinesVisibility="None"
-                                        BorderThickness="0"
-                                        IsVisible="{Binding HasUserProperties}"
-                                        Margin="5,0,0,0"
-                                        > <!-- Add left margin for spacing -->
-                                  <DataGrid.Columns>
-                                      <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="Auto"/>
-                                      <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*"/>
-                                  </DataGrid.Columns>
-                              </DataGrid>
-                          </Grid>
-                      </ScrollViewer>
-                  </Border>
+                      <!-- Column 1: User Properties -->
+                      <TextBlock Grid.Row="0" Grid.Column="1" Text="User Properties" FontWeight="Bold" IsVisible="{Binding HasUserProperties}"/>
+                      <DataGrid Grid.Row="1" Grid.Column="1" ItemsSource="{Binding MessageUserProperties}"
+                                AutoGenerateColumns="False"
+                                IsReadOnly="True"
+                                CanUserResizeColumns="True"
+                                GridLinesVisibility="None"
+                                BorderThickness="0"
+                                IsVisible="{Binding HasUserProperties}"
+                                Margin="5,0,0,0"> <!-- Add left margin for spacing -->
+                          <DataGrid.Columns>
+                              <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="Auto"/>
+                              <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*"/>
+                          </DataGrid.Columns>
+                      </DataGrid>
+                  </Grid>
 
                   <!-- Row 1: Horizontal Grid Splitter -->
                   <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows"/>
