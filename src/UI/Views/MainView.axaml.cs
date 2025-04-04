@@ -21,6 +21,9 @@ public partial class MainView : UserControl
 {
     private INotifyCollectionChanged? _observableHistory;
     private IDisposable? _focusCommandSubscription; // Added for focus command
+    private IDisposable? _gotFocusSubscription; // Added for window focus tracking
+    private IDisposable? _lostFocusSubscription; // Added for window focus tracking
+    private Window? _parentWindow; // Added reference to the parent window
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainView"/> class.
@@ -59,8 +62,49 @@ public partial class MainView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        // Delay focus slightly to ensure the control is fully ready
-        Avalonia.Threading.Dispatcher.UIThread.Post(() => CommandAutoCompleteBox?.Focus(), DispatcherPriority.Loaded);
+
+        // --- Initial Focus & Window Focus Tracking ---
+        // Ensure DataContext is set and is the correct type
+        if (DataContext is MainViewModel viewModel)
+        {
+            // Delay initial focus slightly to ensure the control is fully ready
+            Dispatcher.UIThread.Post(() => CommandAutoCompleteBox?.Focus(), DispatcherPriority.Loaded);
+
+            // Get the top-level control (usually the Window) - more reliable here
+            _parentWindow = TopLevel.GetTopLevel(this) as Window;
+            if (_parentWindow != null)
+            {
+                // Set initial focus state
+                viewModel.IsWindowFocused = _parentWindow.IsFocused;
+                Serilog.Log.Debug("MainView Attached. Initial IsWindowFocused = {IsFocused}", viewModel.IsWindowFocused);
+
+                // Subscribe to focus events (unsubscribe handled in OnDetached/UnsubscribeFromViewModel)
+                _gotFocusSubscription = Observable.FromEventPattern<GotFocusEventArgs>(_parentWindow, nameof(Window.GotFocus))
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(_ =>
+                    {
+                        Serilog.Log.Debug("MainView GotFocus event fired. Setting IsWindowFocused = true.");
+                        viewModel.IsWindowFocused = true;
+                    });
+
+                _lostFocusSubscription = Observable.FromEventPattern<RoutedEventArgs>(_parentWindow, nameof(Window.LostFocus))
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(_ =>
+                    {
+                        Serilog.Log.Debug("MainView LostFocus event fired. Setting IsWindowFocused = false.");
+                        viewModel.IsWindowFocused = false;
+                    });
+            }
+            else
+            {
+                Serilog.Log.Warning("Could not find parent window in MainView.OnAttachedToVisualTree to track focus.");
+            }
+        }
+        else
+        {
+             Serilog.Log.Warning("DataContext not ready or not MainViewModel in MainView.OnAttachedToVisualTree.");
+        }
+        // --- End Initial Focus & Window Focus Tracking ---
     }
 
     /// <summary>
@@ -71,46 +115,52 @@ public partial class MainView : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
+        // Focus subscriptions are cleaned up in UnsubscribeFromViewModel which is called below
         UnsubscribeFromViewModel(); // Call combined unsubscribe method
         this.DataContextChanged -= OnDataContextChanged; // Unsubscribe from DataContext changes
+        base.OnDetachedFromVisualTree(e); // Call base method last
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         UnsubscribeFromViewModel(); // Unsubscribe from the old context first
 
-        if (DataContext is MainViewModel vm && vm.FilteredMessageHistory is INotifyCollectionChanged observable)
+        if (DataContext is MainViewModel vm) // Check if DataContext is the correct type
         {
-            _observableHistory = observable;
-            _observableHistory.CollectionChanged += FilteredMessageHistory_CollectionChanged;
-            // Optional: Also listen for SelectedMessage changes if needed for other reasons
-            // vm.PropertyChanged += ViewModel_PropertyChanged;
+            // Subscribe to FilteredMessageHistory collection changes if it exists
+            if (vm.FilteredMessageHistory is INotifyCollectionChanged observable)
+            {
+                _observableHistory = observable;
+                _observableHistory.CollectionChanged += FilteredMessageHistory_CollectionChanged;
+            }
 
-             var viewModel = DataContext as MainViewModel;
-
-            viewModel?
-                .WhenAnyValue(x => x.ClipboardText)
-                .DistinctUntilChanged()
-                .ObserveOn(RxApp.MainThreadScheduler)
-                .Subscribe (async clipboardText => {
-                    if (!string.IsNullOrWhiteSpace(clipboardText))
-                    {
-                        var clipboard = TopLevel.GetTopLevel(Parent as Visual)?.Clipboard;
-                        var dataObject = new DataObject();
-                        dataObject.Set(DataFormats.Text, clipboardText);
-                        await (clipboard?.SetDataObjectAsync(dataObject) ?? Task.CompletedTask);
-                    }
-                });
+            // Subscribe to ClipboardText changes
+            vm.WhenAnyValue(x => x.ClipboardText)
+              .DistinctUntilChanged()
+              .ObserveOn(RxApp.MainThreadScheduler)
+              .Subscribe(async clipboardText =>
+              {
+                  if (!string.IsNullOrWhiteSpace(clipboardText))
+                  {
+                      var clipboard = TopLevel.GetTopLevel(this)?.Clipboard; // Use 'this' directly
+                      if (clipboard != null)
+                      {
+                          var dataObject = new DataObject();
+                          dataObject.Set(DataFormats.Text, clipboardText);
+                          await clipboard.SetDataObjectAsync(dataObject);
+                      }
+                  }
+              }); // Note: Consider adding DisposeWith for this subscription if view model can change
 
             // Subscribe to the FocusCommandBarCommand
-            _focusCommandSubscription = viewModel?.FocusCommandBarCommand
+            _focusCommandSubscription = vm.FocusCommandBarCommand
                 .ObserveOn(RxApp.MainThreadScheduler) // Ensure focus happens on UI thread
                 .Subscribe(_ =>
                 {
                     CommandAutoCompleteBox?.Focus(); // Focus the control
-                    // Optionally select all text?
-                    // CommandAutoCompleteBox?.SelectAll();
                 });
+
+            // Focus tracking is now handled in OnAttachedToVisualTree
         }
     }
 
@@ -127,13 +177,19 @@ public partial class MainView : UserControl
         // Dispose focus command subscription
         _focusCommandSubscription?.Dispose();
         _focusCommandSubscription = null;
+// Dispose focus event subscriptions
+_gotFocusSubscription?.Dispose();
+_gotFocusSubscription = null;
+_lostFocusSubscription?.Dispose();
+_lostFocusSubscription = null;
+_parentWindow = null; // Clear window reference
 
-        // Optional: Unsubscribe from PropertyChanged if you subscribed
-        // if (DataContext is MainViewModel oldVm)
-        // {
-        //     oldVm.PropertyChanged -= ViewModel_PropertyChanged;
-        // }
-    }
+// Optional: Unsubscribe from PropertyChanged if you subscribed
+// if (DataContext is MainViewModel oldVm)
+// {
+//     oldVm.PropertyChanged -= ViewModel_PropertyChanged;
+// }
+}
 
     private void FilteredMessageHistory_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {

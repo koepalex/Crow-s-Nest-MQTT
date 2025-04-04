@@ -55,6 +55,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
     private readonly IReactiveGlobalHook _globalHook; // Added SharpHook global hook
     private readonly IDisposable _globalHookSubscription; // Added subscription for the hook
     private bool _disposedValue; // For IDisposable pattern
+    private bool _isWindowFocused; // Added to track window focus for global hook
 
     /// <summary>
     /// Gets or sets the current search term used for filtering message history.
@@ -191,6 +192,15 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
     public ReactiveCommand<Unit, Unit> SubmitInputCommand { get; } // Added for command/search input
     public ReactiveCommand<Unit, Unit> FocusCommandBarCommand { get; } // Added command to trigger focus
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the main application window currently has focus.
+    /// This is used to conditionally enable the global hotkey.
+    /// </summary>
+    public bool IsWindowFocused
+    {
+        get => _isWindowFocused;
+        set => this.RaiseAndSetIfChanged(ref _isWindowFocused, value);
+    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainViewModel"/> class.
@@ -308,16 +318,33 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             // --- Global Hook Setup ---
             _globalHook = new SimpleReactiveGlobalHook();
             _globalHookSubscription = _globalHook.KeyPressed
-                .Do(e => Log.Debug("SharpHook KeyPressed Received: Key={Key}, Modifiers={Modifiers}", e.Data.KeyCode, e.RawEvent.Mask)) // Log every key press
+                .Do(e => {}) 
                 .Where(e =>
                 {
                     // Check for either Left or Right Ctrl/Shift explicitly
                     bool ctrl = e.RawEvent.Mask.HasFlag(ModifierMask.LeftCtrl) || e.RawEvent.Mask.HasFlag(ModifierMask.RightCtrl);
                     bool shift = e.RawEvent.Mask.HasFlag(ModifierMask.LeftShift) || e.RawEvent.Mask.HasFlag(ModifierMask.RightShift);
                     bool pKey = e.Data.KeyCode == KeyCode.VcP;
-                    bool match = ctrl && shift && pKey;
-                    if (match) Log.Debug("Ctrl+Shift+P MATCHED inside Where filter."); // Log specifically on match
-                    // else Log.Verbose("Keypress did not match Ctrl+Shift+P: Ctrl={Ctrl}, Shift={Shift}, Key={Key}", ctrl, shift, e.Data.KeyCode); // Optional: Log non-matches verbosely
+
+                    // NEW: Check if the window is focused
+                    bool focused = IsWindowFocused;
+
+                    bool match = focused && ctrl && shift && pKey;
+
+                    // Log details for debugging
+                    if (match)
+                    {
+                        Log.Debug("Ctrl+Shift+P MATCHED inside Where filter (Window Focused: {IsFocused}).", focused);
+                    }
+                    else if (ctrl && shift && pKey) // Log if keys match but focus doesn't
+                    {
+                        Log.Verbose("Ctrl+Shift+P detected but window not focused. Hook suppressed.");
+                    }
+                    // else Log.Verbose("Keypress did not match Ctrl+Shift+P: Focused={Focused}, Ctrl={Ctrl}, Shift={Shift}, Key={Key}", focused, ctrl, shift, e.Data.KeyCode); // Optional: Log non-matches verbosely
+
+                    // Log the state being evaluated
+                    Log.Verbose("Global Hook Filter Check: Key={Key}, Modifiers={Modifiers}, IsWindowFocused={IsFocused}, Result={Match}", e.Data.KeyCode, e.RawEvent.Mask, focused, match);
+
                     return match;
                 })
                 .ObserveOn(RxApp.MainThreadScheduler) // Ensure command execution is on the UI thread
