@@ -12,10 +12,11 @@ using CrowsNestMqtt.Utils;
 
 namespace CrowsNestMqtt.BusinessLogic;
 
-public class MqttEngine
+public class MqttEngine : IDisposable
 {
     private readonly IMqttClient _client;
     private MqttConnectionSettings _settings; // Store settings (removed readonly)
+    private bool _isDisposing; // Flag to indicate disposal process
     private MqttClientOptions? _currentOptions; // Store the options used for the current/last connection attempt
     private bool _connecting;
     private readonly ConcurrentDictionary<string, TopicRingBuffer> _topicBuffers; // Added buffer storage
@@ -32,33 +33,10 @@ public class MqttEngine
         _client = factory.CreateMqttClient();
         _topicBuffers = new ConcurrentDictionary<string, TopicRingBuffer>();
 
-        _client.ApplicationMessageReceivedAsync += HandleIncomingMessageAsync; // Subscribe the handler method
-
-        // Removed ConnectingFailedAsync handler. Initial connection failures
-        // are caught in the ConnectAsync method's try-catch block.
-
-        _client.DisconnectedAsync += (async e =>
-        {
-            LogMessage?.Invoke(this, $"Disconnected: {e.ReasonString}. Reconnecting...");
-            ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, e.Exception));
-
-            // Optional: Wait a bit before starting reconnect attempts
-            await Task.Delay(TimeSpan.FromSeconds(5));
-            // Start reconnect attempts (fire and forget or manage the task)
-            if (e.Reason != MqttClientDisconnectReason.NormalDisconnection)
-            {
-                _ = Task.Run(ReconnectAsync); // Use Task.Run to avoid blocking the handler
-            }
-        });
-
-        _client.ConnectedAsync += args =>
-        {
-            LogMessage?.Invoke(this, "Connected successfully.");
-            ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(true, null));
-            // Resubscribe after connection
-             _ = Task.Run(SubscribeToTopicsAsync); // Fire and forget subscription task
-            return Task.CompletedTask;
-        };
+        // Subscribe using named handlers
+        _client.ApplicationMessageReceivedAsync += HandleIncomingMessageAsync;
+        _client.ConnectedAsync += OnClientConnected;
+        _client.DisconnectedAsync += OnClientDisconnected;
 
     }
 
@@ -74,8 +52,8 @@ public class MqttEngine
         // A disconnect/reconnect cycle is needed for changes to take effect.
     }
 
-    // Helper method for initial subscription and resubscription
-    private async Task SubscribeToTopicsAsync()
+    // Helper method for initial subscription and resubscription, now accepts CancellationToken
+    private async Task SubscribeToTopicsAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -85,7 +63,7 @@ public class MqttEngine
                      .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)) // QoS 1
                 .Build();
 
-            var result = await _client.SubscribeAsync(subscribeOptions, CancellationToken.None);
+            var result = await _client.SubscribeAsync(subscribeOptions, cancellationToken); // Pass the token
 
             foreach (var subResult in result.Items)
             {
@@ -144,7 +122,7 @@ public class MqttEngine
         return builder.Build();
     }
 
-    public async Task ConnectAsync()
+    public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
         if (_client.IsConnected)
         {
@@ -163,7 +141,7 @@ public class MqttEngine
             Interlocked.Exchange(ref _connecting, true);
             _currentOptions = BuildMqttOptions(); // Build options just before connecting
             LogMessage?.Invoke(this, $"Attempting to connect to {_currentOptions.ChannelOptions} with ClientId '{_currentOptions.ClientId ?? "<generated>"}'. CleanSession={_currentOptions.CleanSession}, SessionExpiry={_currentOptions.SessionExpiryInterval}");
-            var connectionResult = await _client.ConnectAsync(_currentOptions, CancellationToken.None);
+            var connectionResult = await _client.ConnectAsync(_currentOptions, cancellationToken);
             LogMessage?.Invoke(this, $"connection result: {connectionResult.ReasonString}:{connectionResult.ResultCode}");
             // Subscription is handled by the ConnectedAsync handler
         }
@@ -181,7 +159,7 @@ public class MqttEngine
         }
     }
 
-    public async Task DisconnectAsync()
+    public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
         if (!_client.IsConnected)
         {
@@ -189,7 +167,7 @@ public class MqttEngine
              return;
         }
         // Use default disconnect options (ReasonCode=NormalDisconnection, no UserProperties)
-        await _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build());
+        await _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build(), cancellationToken);
         LogMessage?.Invoke(this, "Disconnect requested by user.");
         _currentOptions = null; // Clear options on disconnect
         // State change is handled by the DisconnectedAsync handler
@@ -202,8 +180,9 @@ public class MqttEngine
     /// <param name="payload">The message payload.</param>
     /// <param name="retain">Whether the message should be retained.</param>
     /// <param name="qos">The Quality of Service level.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public async Task PublishAsync(string topic, string payload, bool retain = false, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtMostOnce)
+    public async Task PublishAsync(string topic, string payload, bool retain = false, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtMostOnce, CancellationToken cancellationToken = default)
     {
         if (!_client.IsConnected)
         {
@@ -221,7 +200,7 @@ public class MqttEngine
 
         try
         {
-            var result = await _client.PublishAsync(message, CancellationToken.None);
+            var result = await _client.PublishAsync(message, cancellationToken);
             if (result.ReasonCode != MqttClientPublishReasonCode.Success)
             {
                  LogMessage?.Invoke(this, $"Failed to publish to '{topic}'. Reason: {result.ReasonCode}");
@@ -245,8 +224,9 @@ public class MqttEngine
     /// </summary>
     /// <param name="topicFilter">The topic filter to subscribe to.</param>
     /// <param name="qos">The desired Quality of Service level.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation, containing the subscribe result.</returns>
-    public async Task<MqttClientSubscribeResult> SubscribeAsync(string topicFilter, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtLeastOnce)
+    public async Task<MqttClientSubscribeResult> SubscribeAsync(string topicFilter, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtLeastOnce, CancellationToken cancellationToken = default)
     {
         if (!_client.IsConnected)
         {
@@ -261,7 +241,7 @@ public class MqttEngine
 
         try
         {
-            var result = await _client.SubscribeAsync(subscribeOptions, CancellationToken.None);
+            var result = await _client.SubscribeAsync(subscribeOptions, cancellationToken);
             LogMessage?.Invoke(this, $"Subscription request sent for '{topicFilter}'.");
             // TODO: Handle result codes (Granted, Denied etc.) more granularly if needed
             return result;
@@ -277,8 +257,9 @@ public class MqttEngine
     /// Unsubscribes the client from the specified topic filter.
     /// </summary>
     /// <param name="topicFilter">The topic filter to unsubscribe from.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation, containing the unsubscribe result.</returns>
-    public async Task<MqttClientUnsubscribeResult> UnsubscribeAsync(string topicFilter)
+    public async Task<MqttClientUnsubscribeResult> UnsubscribeAsync(string topicFilter, CancellationToken cancellationToken = default)
     {
         if (!_client.IsConnected)
         {
@@ -293,7 +274,7 @@ public class MqttEngine
 
         try
         {
-            var result = await _client.UnsubscribeAsync(unsubscribeOptions, CancellationToken.None);
+            var result = await _client.UnsubscribeAsync(unsubscribeOptions, cancellationToken);
             LogMessage?.Invoke(this, $"Unsubscription request sent for '{topicFilter}'.");
             return result;
         }
@@ -345,18 +326,17 @@ public class MqttEngine
         // This method runs in a background task triggered by DisconnectedAsync
         LogMessage?.Invoke(this, "Starting reconnection attempts...");
         int reconnectCount = 1;
-        while (true) // Keep trying indefinitely (or add a max attempt limit)
+        while (!_isDisposing && !_client.IsConnected) // Keep trying until disposed or connected
         {
-            if ( _client.IsConnected)
-            {
-                break;
-            }
+            // Removed explicit check for _client.IsConnected as it's in the while condition
 
             try
             {
                 LogMessage?.Invoke(this, "Attempting to reconnect...");
                 // ConnectAsync now handles its own logging and state changes
-                await ConnectAsync();
+                // Pass CancellationToken.None here, as reconnect shouldn't be cancelled by the main shutdown token directly.
+                // The loop condition handles disposal cancellation.
+                await ConnectAsync(CancellationToken.None);
 
                 // If ConnectAsync succeeds, the Connected event fires and this loop should eventually exit.
                 // Add a small delay after a successful connection attempt check to prevent tight loop if IsConnected flag is slow.
@@ -373,7 +353,15 @@ public class MqttEngine
             }
 
             // Wait before the next attempt
-            await Task.Delay(TimeSpan.FromSeconds(5)); // Wait 5 seconds between attempts
+            // Wait before the next attempt, checking for disposal during the delay
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(Math.Min(30, 5 * reconnectCount)), CancellationToken.None); // Use CancellationToken.None for delay itself, loop condition handles disposal
+            } catch (TaskCanceledException)
+            {
+                 LogMessage?.Invoke(this, "Reconnect delay cancelled.");
+                 break; // Exit loop if delay is cancelled (though unlikely with CancellationToken.None)
+            }
         }
         LogMessage?.Invoke(this, "Reconnection attempts stopped.");
     }
@@ -393,4 +381,79 @@ public class MqttEngine
         // MQTTnet expects a Task return, Task.CompletedTask is appropriate for sync handling
         return Task.CompletedTask;
     }
-}
+    // --- IDisposable Implementation ---
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_isDisposing) return; // Already disposed
+
+        if (disposing)
+        {
+            LogMessage?.Invoke(this, "Disposing MqttEngine...");
+            _isDisposing = true; // Set flag early
+
+            // Unsubscribe from events to prevent issues during disposal
+            _client.ApplicationMessageReceivedAsync -= HandleIncomingMessageAsync;
+            _client.DisconnectedAsync -= OnClientDisconnected;
+            _client.ConnectedAsync -= OnClientConnected;
+
+            // Attempt graceful disconnect (synchronous wait)
+            if (_client.IsConnected)
+            {
+                try
+                {
+                    LogMessage?.Invoke(this, "Attempting final disconnect...");
+                    // Use a short timeout for the final disconnect attempt
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build(), cts.Token)
+                           .ConfigureAwait(false).GetAwaiter().GetResult();
+                    LogMessage?.Invoke(this, "Final disconnect completed.");
+                }
+                catch (Exception ex)
+                {
+                    LogMessage?.Invoke(this, $"Error during final disconnect: {ex.Message}");
+                }
+            }
+
+            // Dispose the MQTT client itself
+            _client?.Dispose();
+            LogMessage?.Invoke(this, "MqttEngine disposed.");
+        }
+    }
+
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    // Renamed event handlers to avoid conflicts with local variables if needed later
+    private Task OnClientConnected(MqttClientConnectedEventArgs args)
+    {
+        LogMessage?.Invoke(this, "Connected successfully.");
+        ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(true, null));
+        // Resubscribe after connection (use CancellationToken.None for internal task)
+        // Correct Task.Run syntax using lambda
+        _ = Task.Run(() => SubscribeToTopicsAsync(CancellationToken.None), CancellationToken.None);
+        return Task.CompletedTask;
+    }
+
+    private async Task OnClientDisconnected(MqttClientDisconnectedEventArgs e)
+    {
+        LogMessage?.Invoke(this, $"Disconnected: {e.ReasonString}.");
+        ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, e.Exception));
+
+        // Only attempt reconnect if not disposing and it wasn't a normal disconnect
+        if (!_isDisposing && e.Reason != MqttClientDisconnectReason.NormalDisconnection)
+        {
+             LogMessage?.Invoke(this, "Will attempt reconnection shortly...");
+             // Optional: Wait a bit before starting reconnect attempts
+             await Task.Delay(TimeSpan.FromSeconds(5));
+             // Start reconnect attempts if still not disposing
+             if (!_isDisposing)
+             {
+                 _ = Task.Run(ReconnectAsync); // Use Task.Run to avoid blocking the handler
+             }
+        }
+    }
+} // End of MqttEngine class

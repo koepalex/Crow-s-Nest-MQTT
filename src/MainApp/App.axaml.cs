@@ -6,7 +6,7 @@ using CrowsNestMqtt.UI.Views; // Assuming MainWindow is now in App namespace or 
 using CrowsNestMqtt.Businesslogic.Services;
 using Avalonia.Controls;
 using ReactiveUI; // Added for CommandParserService
-
+using System; // Added for IDisposable
 namespace CrowsNestMqtt.App;
 
 public partial class App : Application
@@ -26,7 +26,24 @@ public partial class App : Application
                 // Instantiate the service and inject it into the ViewModel
                 DataContext = new MainViewModel(new CommandParserService())
             };
+
+            // Subscribe to the ShutdownRequested event to dispose the ViewModel
+            desktop.ShutdownRequested += OnShutdownRequested;
         }
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
+    {
+        if (sender is IClassicDesktopStyleApplicationLifetime desktop &&
+            desktop.MainWindow?.DataContext is IDisposable disposableViewModel)
+        {
+            Serilog.Log.Information("Shutdown requested. Disposing MainViewModel.");
+            disposableViewModel.Dispose();
+        }
+        else
+        {
+            Serilog.Log.Warning("Could not find MainViewModel to dispose during shutdown.");
+        }
     }
 }

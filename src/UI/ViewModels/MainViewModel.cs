@@ -56,6 +56,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
     private readonly IReactiveGlobalHook _globalHook; // Added SharpHook global hook
     private readonly IDisposable _globalHookSubscription; // Added subscription for the hook
     private bool _disposedValue; // For IDisposable pattern
+    private readonly CancellationTokenSource _cts = new(); // Added cancellation token source for graceful shutdown
     private bool _isWindowFocused; // Added to track window focus for global hook
 
     /// <summary>
@@ -617,7 +618,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
     private async Task DisconnectAsync()
     {
         Log.Information("Disconnect command executed.");
-        await _mqttEngine.DisconnectAsync();
+        await _mqttEngine.DisconnectAsync(_cts.Token); // Pass cancellation token
     }
 
     private void ClearHistory()
@@ -1026,11 +1027,19 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             {
                 // Dispose managed state (managed objects).
                 Log.Debug("Disposing MainViewModel resources...");
+                if (!_cts.IsCancellationRequested)
+                {
+                    Log.Debug("Requesting cancellation via CancellationTokenSource.");
+                    _cts.Cancel(); // Signal cancellation first
+                }
                 StopTimer();
                 _messageHistorySubscription?.Dispose();
                 _globalHookSubscription?.Dispose(); // Dispose hook subscription
                 _globalHook?.Dispose(); // Dispose the hook itself
-                // _mqttEngine?.Dispose(); // MqttEngine does not seem to be IDisposable
+                // MqttEngine's Dispose method now handles the final disconnect attempt.
+                // We rely on _cts.Cancel() being called first, then _mqttEngine.Dispose() below.
+                // Removed explicit synchronous DisconnectAsync call here.
+                _mqttEngine?.Dispose(); // Dispose the MqttEngine instance AFTER cancellation is signaled
                 // Dispose other managed resources like commands if necessary
                 ConnectCommand?.Dispose();
                 DisconnectCommand?.Dispose();
@@ -1041,7 +1050,8 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
                FocusCommandBarCommand?.Dispose();
                CopyPayloadCommand?.Dispose(); // Dispose the new command
                // Interactions don't typically need explicit disposal unless they hold heavy resources
-               }
+               _cts.Dispose(); // Dispose the CancellationTokenSource itself
+              }
 
             // Free unmanaged resources (unmanaged objects) and override finalizer
             // Set large fields to null
