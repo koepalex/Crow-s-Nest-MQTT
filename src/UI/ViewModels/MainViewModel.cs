@@ -1,11 +1,12 @@
 using Avalonia;
 using Avalonia.Input.Platform; // For IClipboard
 using Avalonia.Platform.Storage; // Potentially needed for other storage operations
-using Avalonia.Controls; // For TopLevel (if needed later)
-using Avalonia.VisualTree; // For GetVisualRoot (if needed later)
+using Avalonia.Controls; // For TopLevel
+using Avalonia.VisualTree; // For GetVisualRoot
 using Avalonia.Interactivity; // For RoutedEventArgs (if needed later)
 using Avalonia.Threading; // Already present
 using ReactiveUI;
+using ReactiveUI.Fody.Helpers; // For [Reactive] attribute if needed, but also for Interaction
 using Serilog; // Added Serilog
 using System;
 using System.Collections.Generic; // Added for List<string>
@@ -189,8 +190,12 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
     public ReactiveCommand<Unit, Unit> ClearHistoryCommand { get; }
     public ReactiveCommand<Unit, Unit> PauseResumeCommand { get; }
     public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; } // Added Settings Command
-    public ReactiveCommand<Unit, Unit> SubmitInputCommand { get; } // Added for command/search input
-    public ReactiveCommand<Unit, Unit> FocusCommandBarCommand { get; } // Added command to trigger focus
+   public ReactiveCommand<Unit, Unit> SubmitInputCommand { get; } // Added for command/search input
+  public ReactiveCommand<Unit, Unit> FocusCommandBarCommand { get; } // Added command to trigger focus
+  public ReactiveCommand<MessageViewModel, Unit> CopyPayloadCommand { get; } // Added command to copy payload
+
+  // Interaction for requesting clipboard copy from the View
+  public Interaction<string, Unit> CopyTextToClipboardInteraction { get; }
 
     /// <summary>
     /// Gets or sets a value indicating whether the main application window currently has focus.
@@ -212,7 +217,8 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         _commandParserService = commandParserService ?? throw new ArgumentNullException(nameof(commandParserService)); // Store injected service
         _syncContext = SynchronizationContext.Current; // Capture sync context
         Settings = new SettingsViewModel(); // Instantiate settings
-        JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
+       JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
+       CopyTextToClipboardInteraction = new Interaction<string, Unit>(); // Initialize the interaction
 
         // Populate the list of available commands (assuming CommandType enum has all commands)
         _availableCommands = Enum.GetNames(typeof(CommandType))
@@ -298,27 +304,28 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         ClearHistoryCommand = ReactiveCommand.Create(ClearHistory);
         PauseResumeCommand = ReactiveCommand.Create(TogglePause);
         OpenSettingsCommand = ReactiveCommand.Create(OpenSettings); // Initialize Settings Command
-        SubmitInputCommand = ReactiveCommand.Create(ExecuteSubmitInput, this.WhenAnyValue(x => x.CommandText).Select(txt => !string.IsNullOrWhiteSpace(txt))); // Enable only when text exists
-        FocusCommandBarCommand = ReactiveCommand.Create(() => { Log.Debug("FocusCommandBarCommand executed by global hook."); /* Actual focus happens in View code-behind */ });
-    
+       SubmitInputCommand = ReactiveCommand.Create(ExecuteSubmitInput, this.WhenAnyValue(x => x.CommandText).Select(txt => !string.IsNullOrWhiteSpace(txt))); // Enable only when text exists
+       FocusCommandBarCommand = ReactiveCommand.Create(() => { Log.Debug("FocusCommandBarCommand executed by global hook."); /* Actual focus happens in View code-behind */ });
+       CopyPayloadCommand = ReactiveCommand.CreateFromTask<MessageViewModel>(CopyPayloadToClipboardAsync); // Initialize copy payload command
+
             // --- Property Change Reactions ---
-    
+
             // When SelectedMessage changes, update the MessageDetails
             this.WhenAnyValue(x => x.SelectedMessage)
                .ObserveOn(RxApp.MainThreadScheduler)
                .Subscribe(selected => UpdateMessageDetails(selected));
-    
+
             // When CommandText changes, update the CommandSuggestions
             this.WhenAnyValue(x => x.CommandText)
                 .Throttle(TimeSpan.FromMilliseconds(150), RxApp.MainThreadScheduler) // Small debounce
                 .DistinctUntilChanged() // Only update if text actually changed
                 .ObserveOn(RxApp.MainThreadScheduler) // Ensure UI update is on the correct thread
                 .Subscribe(text => UpdateCommandSuggestions(text));
-    
+
             // --- Global Hook Setup ---
             _globalHook = new SimpleReactiveGlobalHook();
             _globalHookSubscription = _globalHook.KeyPressed
-                .Do(e => {}) 
+                .Do(e => {})
                 .Where(e =>
                 {
                     // Check for either Left or Right Ctrl/Shift explicitly
@@ -351,7 +358,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
                 .Do(_ => Log.Debug("Ctrl+Shift+P detected by SharpHook pipeline (after Where filter).")) // Changed log message slightly
                 .Select(_ => Unit.Default) // We don't need the event args anymore
                 .InvokeCommand(FocusCommandBarCommand); // Invoke the focus command
-    
+
             // Start the hook asynchronously
             _globalHook.RunAsync().Subscribe(
                 _ => { }, // OnNext (not used)
@@ -475,7 +482,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         MessageMetadata.Add(new MetadataItem("ContentType", msg.ContentType));
         MessageMetadata.Add(new MetadataItem("Response Topic", msg.ResponseTopic));
 
-        
+
         if (msg.CorrelationData != null && msg.CorrelationData.Length > 0)
         {
             // Attempt to display correlation data as string, otherwise show byte count
@@ -708,72 +715,20 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             switch (command.Type)
             {
                 case CommandType.Connect:
-                    if (command.Arguments.Count != 1)
-                    {
-                        StatusBarText = "Error: :connect requires exactly one argument: <server_address:port>";
-                        Log.Warning("Invalid arguments for :connect command.");
-                        break;
-                    }
-                    // Parse server:port
-                    var parts = command.Arguments[0].Split(':');
-                    if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || !int.TryParse(parts[1], out int port) || port < 1 || port > 65535)
-                    {
-                        StatusBarText = $"Error: Invalid format for :connect argument '{command.Arguments[0]}'. Expected: <server_address:port>";
-                        Log.Warning("Invalid format for :connect argument: {Argument}", command.Arguments[0]);
-                        break;
-                    }
-                    string host = parts[0];
-
-                    // Update settings before connecting
-                    Settings.Hostname = host;
-                    Settings.Port = port;
-                    StatusBarText = $"Attempting to connect to {host}:{port}...";
-                    ConnectCommand.Execute().Subscribe(
-                        _ => StatusBarText = $"Successfully initiated connection to {host}:{port}.", // Success here means command executed, not necessarily connected yet
-                        ex =>
-                        {
-                            StatusBarText = $"Error initiating connection: {ex.Message}";
-                            Log.Error(ex, "Error executing ConnectCommand");
-                        });
+                    ConnectToMqttBroker(command);
                     break;
-
                 case CommandType.Disconnect:
-                    StatusBarText = "Disconnecting...";
-                    DisconnectCommand.Execute().Subscribe(
-                         _ => StatusBarText = "Successfully initiated disconnection.",
-                         ex =>
-                         {
-                             StatusBarText = $"Error initiating disconnection: {ex.Message}";
-                             Log.Error(ex, "Error executing DisconnectCommand");
-                         });
+                    DisconnectFromMqttBroker();
                     break;
-
-                case CommandType.Clear: 
-                    StatusBarText = "Clearing history...";
-                    ClearHistoryCommand.Execute().Subscribe(); // Execute the existing clear command
+                case CommandType.Clear:
+                    ClearMessageHistory();
                     break;
                 case CommandType.Copy:
-                    if (SelectedMessage?.FullMessage != null)
-                    {
-                        var msg = SelectedMessage.FullMessage;
-                        var textExporter = new TextExporter();
-
-                        (ClipboardText,_,_) = textExporter.GenerateDetailedTextFromMessage(msg, SelectedMessage.Timestamp);
-
-                        StatusBarText = "Updated system clipboard with selected message";
-                        Log.Information("Copy command executed.");
-                    }
-                    else
-                    {
-                        StatusBarText = "No message selected to copy.";
-                        Log.Information("Copy command executed but no message was selected.");
-                    }
+                    CopySelectedMessageDetails();
                     break; // Correct placement outside the if/else block
                 case CommandType.Help:
-                    // TODO: Implement a more sophisticated help system (e.g., show available commands)
-                    StatusBarText = "Available commands: :connect, :disconnect, :export, :filter, :copy, :clear, :help, :pause, :resume"; 
-                    Log.Information("Displaying help information.");
-                    break; 
+                    DisplayHelpInformation();
+                    break;
                 case CommandType.Pause:
                     TogglePause();
                     break;
@@ -801,6 +756,81 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             StatusBarText = $"Error executing command: {ex.Message}";
             Log.Error(ex, "Exception during command dispatch for {CommandType}", command.Type);
         }
+    }
+
+    private void DisplayHelpInformation()
+    {
+        StatusBarText = "Available commands: :connect, :disconnect, :export, :filter, :copy, :clear, :help, :pause, :resume";
+        Log.Information("Displaying help information.");
+    }
+
+    private void ClearMessageHistory()
+    {
+        StatusBarText = "Clearing history...";
+        ClearHistoryCommand.Execute().Subscribe();
+    }
+
+    private void CopySelectedMessageDetails()
+    {
+        if (SelectedMessage?.FullMessage != null)
+        {
+            var msg = SelectedMessage.FullMessage;
+            var textExporter = new TextExporter();
+
+            (ClipboardText, _, _) = textExporter.GenerateDetailedTextFromMessage(msg, SelectedMessage.Timestamp);
+
+            StatusBarText = "Updated system clipboard with selected message";
+            Log.Information("Copy command executed.");
+        }
+        else
+        {
+            StatusBarText = "No message selected to copy.";
+            Log.Information("Copy command executed but no message was selected.");
+        }
+    }
+
+    private void DisconnectFromMqttBroker()
+    {
+        StatusBarText = "Disconnecting...";
+        DisconnectCommand.Execute().Subscribe(
+             _ => StatusBarText = "Successfully initiated disconnection.",
+             ex =>
+             {
+                 StatusBarText = $"Error initiating disconnection: {ex.Message}";
+                 Log.Error(ex, "Error executing DisconnectCommand");
+             });
+    }
+
+    private void ConnectToMqttBroker(ParsedCommand command)
+    {
+        if (command.Arguments.Count != 1)
+        {
+            StatusBarText = "Error: :connect requires exactly one argument: <server_address:port>";
+            Log.Warning("Invalid arguments for :connect command.");
+            return;
+        }
+        // Parse server:port
+        var parts = command.Arguments[0].Split(':');
+        if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || !int.TryParse(parts[1], out int port) || port < 1 || port > 65535)
+        {
+            StatusBarText = $"Error: Invalid format for :connect argument '{command.Arguments[0]}'. Expected: <server_address:port>";
+            Log.Warning("Invalid format for :connect argument: {Argument}", command.Arguments[0]);
+            return;
+        }
+        string host = parts[0];
+
+        // Update settings before connecting
+        Settings.Hostname = host;
+        Settings.Port = port;
+        StatusBarText = $"Attempting to connect to {host}:{port}...";
+        ConnectCommand.Execute().Subscribe(
+            _ => StatusBarText = $"Successfully initiated connection to {host}:{port}.", // Success here means command executed, not necessarily connected yet
+            ex =>
+            {
+                StatusBarText = $"Error initiating connection: {ex.Message}";
+                Log.Error(ex, "Error executing ConnectCommand");
+            });
+        return;
     }
 
     private void Export(ParsedCommand command)
@@ -942,7 +972,48 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         {
             CommandSuggestions.Add(cmd);
         }
-        Log.Verbose("Updated command suggestions for '{InputText}'. Found {Count} matches.", currentText, CommandSuggestions.Count);
+       Log.Verbose("Updated command suggestions for '{InputText}'. Found {Count} matches.", currentText, CommandSuggestions.Count);
+       }
+
+   // --- Helper Methods ---
+
+   /// <summary>
+    /// Copies the full payload of the given message to the system clipboard using an Interaction.
+    /// </summary>
+    /// <param name="messageVm">The view model of the message whose payload should be copied.</param>
+    private async Task CopyPayloadToClipboardAsync(MessageViewModel messageVm)
+    {
+        if (messageVm?.FullMessage?.Payload == null)
+        {
+            StatusBarText = "Cannot copy: Message or payload is missing.";
+            Log.Warning("CopyPayloadCommand failed: MessageViewModel or FullMessage or Payload was null.");
+            return;
+        }
+
+        string payloadString;
+        try
+        {
+            payloadString = Encoding.UTF8.GetString(messageVm.FullMessage.Payload);
+        }
+        catch (Exception ex)
+        {
+            StatusBarText = "Error decoding payload for clipboard.";
+            Log.Error(ex, "Failed to decode payload to UTF8 string for clipboard copy.");
+            return;
+        }
+
+        try
+        {
+            // Invoke the interaction to request the View to copy the text
+            await CopyTextToClipboardInteraction.Handle(payloadString);
+            StatusBarText = "Payload copied to clipboard."; // Assume success if Handle doesn't throw
+            Log.Information("CopyTextToClipboardInteraction handled for topic '{Topic}'.", messageVm.FullMessage.Topic);
+        }
+        catch (Exception ex) // Catch potential exceptions from the interaction handler
+        {
+            StatusBarText = $"Error copying to clipboard: {ex.Message}";
+            Log.Error(ex, "Exception occurred during CopyTextToClipboardInteraction handling.");
+        }
     }
 
     // --- IDisposable Implementation ---
@@ -967,8 +1038,10 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
                 PauseResumeCommand?.Dispose();
                 OpenSettingsCommand?.Dispose();
                 SubmitInputCommand?.Dispose();
-                FocusCommandBarCommand?.Dispose();
-            }
+               FocusCommandBarCommand?.Dispose();
+               CopyPayloadCommand?.Dispose(); // Dispose the new command
+               // Interactions don't typically need explicit disposal unless they hold heavy resources
+               }
 
             // Free unmanaged resources (unmanaged objects) and override finalizer
             // Set large fields to null
@@ -976,13 +1049,6 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             Log.Debug("MainViewModel disposed.");
         }
     }
-
-    // // Override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-    // ~MainViewModel()
-    // {
-    //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-    //     Dispose(disposing: false);
-    // }
 
     public void Dispose()
     {

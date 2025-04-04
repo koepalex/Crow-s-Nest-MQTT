@@ -77,7 +77,7 @@ public class TextExporter : IMessageExporter
 
             // Create a sanitized filename
             string sanitizedTopic = string.Join("_", msg.Topic.Split(Path.GetInvalidFileNameChars()));
-            string timestamp = receivedTime.ToString("yyyyMMdd_HHmmssfff");
+            string timestamp = receivedTime.ToString("yyyy-MM-dd HH:mm:ss.fff");
             string filename = $"{timestamp}_{sanitizedTopic}.txt"; // Use .txt extension
             string filePath = Path.Combine(exportFolderPath, filename);
 

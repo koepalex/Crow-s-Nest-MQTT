@@ -1,6 +1,7 @@
 using Avalonia; // Added for VisualTreeAttachmentEventArgs
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform; // Added for IClipboard
 using Avalonia.Interactivity; // Added for RoutedEventArgs
 using Avalonia.ReactiveUI; // If using ReactiveUI bindings in code-behind
 using Avalonia.Threading; // Added for Dispatcher
@@ -11,6 +12,7 @@ using ReactiveUI;
 using System.Collections.Specialized; // Added for INotifyCollectionChanged
 using System.ComponentModel;
 using System.Reactive.Linq; // Added for INotifyPropertyChanged (optional but good practice)
+using System.Reactive; // Added for Unit
 using System; // Added for IDisposable
 namespace CrowsNestMqtt.UI.Views;
 
@@ -21,9 +23,10 @@ public partial class MainView : UserControl
 {
     private INotifyCollectionChanged? _observableHistory;
     private IDisposable? _focusCommandSubscription; // Added for focus command
-    private IDisposable? _gotFocusSubscription; // Added for window focus tracking
-    private IDisposable? _lostFocusSubscription; // Added for window focus tracking
-    private Window? _parentWindow; // Added reference to the parent window
+   private IDisposable? _gotFocusSubscription; // Added for window focus tracking
+   private IDisposable? _lostFocusSubscription; // Added for window focus tracking
+   private IDisposable? _clipboardInteractionSubscription; // Added for clipboard interaction
+   private Window? _parentWindow; // Added reference to the parent window
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainView"/> class.
@@ -156,12 +159,40 @@ public partial class MainView : UserControl
             _focusCommandSubscription = vm.FocusCommandBarCommand
                 .ObserveOn(RxApp.MainThreadScheduler) // Ensure focus happens on UI thread
                 .Subscribe(_ =>
-                {
-                    CommandAutoCompleteBox?.Focus(); // Focus the control
-                });
+               {
+                   CommandAutoCompleteBox?.Focus(); // Focus the control
+               });
 
-            // Focus tracking is now handled in OnAttachedToVisualTree
-        }
+           // Subscribe to the CopyTextToClipboardInteraction
+           _clipboardInteractionSubscription = vm.CopyTextToClipboardInteraction.RegisterHandler(async interaction =>
+           {
+               var textToCopy = interaction.Input;
+               var topLevel = TopLevel.GetTopLevel(this);
+               var clipboard = topLevel?.Clipboard;
+
+               if (clipboard != null && textToCopy != null)
+               {
+                   try
+                   {
+                       await clipboard.SetTextAsync(textToCopy);
+                       interaction.SetOutput(Unit.Default); // Signal completion
+                       Serilog.Log.Debug("Successfully copied text to clipboard via interaction.");
+                   }
+                   catch (Exception clipEx)
+                   {
+                       Serilog.Log.Error(clipEx, "Failed to set clipboard text via interaction.");
+                       // Optionally signal failure: interaction.SetException(clipEx);
+                   }
+               }
+               else
+               {
+                   Serilog.Log.Warning("Clipboard service not available in MainView interaction handler.");
+                   // Optionally signal failure: interaction.SetException(new Exception("Clipboard not available."));
+               }
+           });
+
+           // Focus tracking is now handled in OnAttachedToVisualTree
+       }
     }
 
     // Renamed and expanded to handle all ViewModel subscriptions
@@ -182,6 +213,8 @@ _gotFocusSubscription?.Dispose();
 _gotFocusSubscription = null;
 _lostFocusSubscription?.Dispose();
 _lostFocusSubscription = null;
+_clipboardInteractionSubscription?.Dispose(); // Dispose clipboard interaction subscription
+_clipboardInteractionSubscription = null;
 _parentWindow = null; // Clear window reference
 
 // Optional: Unsubscribe from PropertyChanged if you subscribed
