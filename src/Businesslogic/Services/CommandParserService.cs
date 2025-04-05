@@ -138,6 +138,17 @@ public class CommandParserService : ICommandParserService
                 }
                 return CommandResult.Failure("Invalid arguments for :copy. Expected: :copy");
 
+            case "search":
+                // Allow zero arguments to clear the search
+                if (arguments.Count >= 0)
+                {
+                    // Join arguments if any, otherwise pass empty string to clear
+                    string searchTerm = arguments.Count > 0 ? string.Join(" ", arguments) : string.Empty;
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Search, new List<string> { searchTerm }));
+                }
+                // This part should not be reachable if Count >= 0 is allowed
+                return CommandResult.Failure("Invalid arguments for :search. Expected: :search [term]");
+
             default:
                 return CommandResult.Failure($"Unknown command: '{commandKeyword}'");
         }

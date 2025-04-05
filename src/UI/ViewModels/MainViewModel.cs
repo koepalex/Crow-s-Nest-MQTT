@@ -315,7 +315,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         ClearHistoryCommand = ReactiveCommand.Create(ClearHistory);
         PauseResumeCommand = ReactiveCommand.Create(TogglePause);
         OpenSettingsCommand = ReactiveCommand.Create(OpenSettings); // Initialize Settings Command
-       SubmitInputCommand = ReactiveCommand.Create(ExecuteSubmitInput, this.WhenAnyValue(x => x.CommandText).Select(txt => !string.IsNullOrWhiteSpace(txt))); // Enable only when text exists
+       SubmitInputCommand = ReactiveCommand.Create(ExecuteSubmitInput); // Allow execution even when text is empty (handled inside method)
        FocusCommandBarCommand = ReactiveCommand.Create(() => { Log.Debug("FocusCommandBarCommand executed by global hook."); /* Actual focus happens in View code-behind */ });
        CopyPayloadCommand = ReactiveCommand.CreateFromTask<MessageViewModel>(CopyPayloadToClipboardAsync); // Initialize copy payload command
 
@@ -666,6 +666,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
 
     private void ExecuteSubmitInput()
     {
+        Log.Debug("ExecuteSubmitInput triggered. CommandText: '{CommandText}'", CommandText); // Add logging
         string currentInput = CommandText ?? string.Empty; // Capture text before potential clear
 
         if (string.IsNullOrWhiteSpace(currentInput))
@@ -753,12 +754,18 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
                     Export(command);
                     break;
                 case CommandType.Filter:
+                    // Example (filter to MQTT paths containing "foo"): :filter foo 
+                    // Example (clear filter): :filter
                     ApplyTopicFilter(command.Arguments.FirstOrDefault()); // Pass the first argument as the filter
                     break;
                 case CommandType.Search:
-                    // Placeholder for future search implementation
-                    StatusBarText = "Search command not yet implemented.";
-                    Log.Information("Search command received but not implemented.");
+                    // Apply the search term from the command arguments
+                    string searchTerm = command.Arguments.FirstOrDefault() ?? string.Empty;
+                    CurrentSearchTerm = searchTerm; // Set the property, which triggers the filter
+                    StatusBarText = string.IsNullOrWhiteSpace(searchTerm) ? "Search cleared." : $"Search filter applied: '{searchTerm}'.";
+                    Log.Information("Search command executed. Term: '{SearchTerm}'", searchTerm);
+                    // Optionally clear the command text box after executing :search
+                    // CommandText = string.Empty;
                     break;
                 default:
                     StatusBarText = $"Error: Unknown command type '{command.Type}'.";
@@ -775,7 +782,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
 
     private void DisplayHelpInformation()
     {
-        StatusBarText = "Available commands: :connect, :disconnect, :export, :filter, :copy, :clear, :help, :pause, :resume";
+        StatusBarText = "Available commands: :connect, :disconnect, :export, :filter, :search, :copy, :clear, :help, :pause, :resume";
         Log.Information("Displaying help information.");
     }
 
