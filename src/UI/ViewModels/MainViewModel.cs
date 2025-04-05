@@ -233,7 +233,9 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
 
         // Populate the list of available commands (assuming CommandType enum has all commands)
         _availableCommands = Enum.GetNames(typeof(CommandType))
+                                 .Where(name => name != nameof(CommandType.Unknown)) // Exclude Unknown
                                  .Select(name => ":" + name.ToLowerInvariant()) // Prefix with ':' and make lowercase
+                                 .OrderBy(cmd => cmd) // Sort alphabetically
                                  .ToList();
 
         // --- DynamicData Pipeline for Message History Filtering ---
@@ -770,6 +772,9 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
                 case CommandType.Expand:
                     ExpandAllNodes();
                     break;
+                case CommandType.Collapse:
+                    CollapseAllNodes();
+                    break;
                 default:
                     StatusBarText = $"Error: Unknown command type '{command.Type}'.";
                     Log.Warning("Unknown command type encountered: {CommandType}", command.Type);
@@ -785,7 +790,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
 
     private void DisplayHelpInformation()
     {
-        StatusBarText = "Available commands: :connect, :disconnect, :export, :filter, :search, :copy, :clear, :help, :pause, :resume, :expand";
+        StatusBarText = "Available commands: :connect, :disconnect, :export, :filter, :search, :copy, :clear, :help, :pause, :resume, :expand, :collapse";
         Log.Information("Displaying help information.");
     }
 
@@ -1055,6 +1060,21 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             SetNodeExpandedRecursive(TopicTreeNodes, true);
             StatusBarText = "All topic nodes expanded.";
             Log.Debug("Finished setting IsExpanded=true on nodes via Dispatcher.");
+        });
+    }
+
+    /// <summary>
+    /// Collapses all nodes in the topic tree.
+    /// </summary>
+    private void CollapseAllNodes()
+    {
+        Log.Information("Collapse all nodes command executed.");
+        // Ensure the recursive update happens on the UI thread
+        Dispatcher.UIThread.Post(() =>
+        {
+            SetNodeExpandedRecursive(TopicTreeNodes, false);
+            StatusBarText = "All topic nodes collapsed.";
+            Log.Debug("Finished setting IsExpanded=false on nodes via Dispatcher.");
         });
     }
 

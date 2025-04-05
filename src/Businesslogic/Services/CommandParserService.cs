@@ -157,6 +157,13 @@ public class CommandParserService : ICommandParserService
                 }
                 return CommandResult.Failure("Invalid arguments for :expand. Expected: :expand");
 
+            case "collapse":
+                if (arguments.Count == 0)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Collapse, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :collapse. Expected: :collapse");
+
             default:
                 return CommandResult.Failure($"Unknown command: '{commandKeyword}'");
         }

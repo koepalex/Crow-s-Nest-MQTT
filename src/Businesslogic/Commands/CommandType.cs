@@ -27,6 +27,8 @@ public enum CommandType
     Resume,
     /// <summary> Expand all nodes in the topic tree. </summary>
     Expand,
+    /// <summary> Collapse all nodes in the topic tree. </summary>
+    Collapse,
     /// <summary> Represents an unrecognized or invalid command. </summary>
     Unknown
 }
