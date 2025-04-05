@@ -58,6 +58,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
     private bool _disposedValue; // For IDisposable pattern
     private readonly CancellationTokenSource _cts = new(); // Added cancellation token source for graceful shutdown
     private bool _isWindowFocused; // Added to track window focus for global hook
+    private bool _isTopicFilterActive; // Added to track if the topic filter is active
 
     /// <summary>
     /// Gets or sets the current search term used for filtering message history.
@@ -166,6 +167,15 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
     {
         get => _isJsonViewerVisible;
         set => this.RaiseAndSetIfChanged(ref _isJsonViewerVisible, value);
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether the topic tree filter is currently active.
+    /// </summary>
+    public bool IsTopicFilterActive
+    {
+        get => _isTopicFilterActive;
+        private set => this.RaiseAndSetIfChanged(ref _isTopicFilterActive, value); // Private setter
     }
 
     // --- Collections ---
@@ -743,8 +753,12 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
                     Export(command);
                     break;
                 case CommandType.Filter:
+                    ApplyTopicFilter(command.Arguments.FirstOrDefault()); // Pass the first argument as the filter
                     break;
                 case CommandType.Search:
+                    // Placeholder for future search implementation
+                    StatusBarText = "Search command not yet implemented.";
+                    Log.Information("Search command received but not implemented.");
                     break;
                 default:
                     StatusBarText = $"Error: Unknown command type '{command.Type}'.";
@@ -893,7 +907,78 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         }
     }
 
-    // FilterMessages method removed - filtering handled by DynamicData pipeline
+    /// <summary>
+    /// Applies a filter to the topic tree, showing only nodes where at least one path segment fuzzy matches the filter.
+    /// </summary>
+    /// <param name="filter">The filter string. If null or empty, clears the filter.</param>
+    private void ApplyTopicFilter(string? filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            // Clear filter: Make all nodes visible
+            int dummyMatchCount = 0; // Need a variable for the ref parameter
+            SetNodeVisibilityRecursive(TopicTreeNodes, isVisible: true, clearFilter: true, ref dummyMatchCount); // Pass the ref parameter
+            StatusBarText = "Topic filter cleared.";
+            IsTopicFilterActive = false; // Update filter state
+            Log.Information("Topic filter cleared.");
+            return;
+        }
+
+        Log.Information("Applying topic filter: '{Filter}'", filter);
+        int matchCount = 0;
+        SetNodeVisibilityRecursive(TopicTreeNodes, isVisible: false, clearFilter: false, ref matchCount, filter); // Start recursion (matchCount before optional filter)
+        StatusBarText = $"Topic filter applied: '{filter}'. Found {matchCount} matching node(s).";
+        IsTopicFilterActive = true; // Update filter state
+    }
+
+    /// <summary>
+    /// Recursively sets the IsVisible property on nodes based on a filter or clears the filter.
+    /// </summary>
+    /// <param name="nodes">The collection of nodes to process.</param>
+    /// <param name="isVisible">The initial visibility state to assume (used when clearing).</param>
+    /// <param name="clearFilter">If true, sets all nodes to visible.</param>
+    /// <param name="matchCount">Reference to the count of matching nodes.</param>
+    /// <param name="filter">The filter string (only used if clearFilter is false).</param>
+    /// <returns>True if any node in this branch (itself or descendants) is visible.</returns>
+    private bool SetNodeVisibilityRecursive(IEnumerable<NodeViewModel> nodes, bool isVisible, bool clearFilter, ref int matchCount, string? filter = null) // Reordered parameters
+    {
+        bool anyChildVisible = false;
+        foreach (var node in nodes)
+        {
+            bool nodeMatches = false;
+            if (!clearFilter && !string.IsNullOrEmpty(node.FullPath) && !string.IsNullOrEmpty(filter))
+            {
+                var segments = node.FullPath.Split('/');
+                // Check if any segment fuzzy matches the filter (e.g., partial ratio > 70)
+                nodeMatches = segments.Any(segment => !string.IsNullOrEmpty(segment) && Fuzz.PartialRatio(segment.ToLowerInvariant(), filter.ToLowerInvariant()) > 70);
+            }
+
+            // Recursively check children first. The result indicates if any child *became* visible.
+            bool childVisible = SetNodeVisibilityRecursive(node.Children, isVisible, clearFilter, ref matchCount, filter); // Updated call
+
+            // Determine visibility
+            if (clearFilter)
+            {
+                node.IsVisible = true; // Always visible when clearing
+                anyChildVisible = true; // If clearing, assume visibility propagates up
+            }
+            else
+            {
+                // Node is visible if it matches directly OR if any of its children are visible
+                node.IsVisible = nodeMatches || childVisible;
+                if (node.IsVisible)
+                {
+                    anyChildVisible = true; // Mark that at least one node at this level (or below) is visible
+                    if (nodeMatches) // Count if the node itself is a match
+                    {
+                        matchCount++;
+                    }
+                }
+            }
+        }
+        return anyChildVisible; // Return true if any node at this level or below is visible
+    }
+
 
     // --- Topic Tree Management ---
 

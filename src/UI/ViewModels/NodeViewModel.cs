@@ -27,9 +27,16 @@ public class NodeViewModel : ReactiveObject
     {
         get => _isExpanded;
         set => this.RaiseAndSetIfChanged(ref _isExpanded, value);
-    }
-
-    // Children collection for the tree structure
+       }
+      
+       private bool _isVisible = true; // Default to visible
+       public bool IsVisible
+       {
+        get => _isVisible;
+        set => this.RaiseAndSetIfChanged(ref _isVisible, value);
+       }
+      
+       // Children collection for the tree structure
     public ObservableCollection<NodeViewModel> Children { get; } = new();
 
     // --- Structural Properties ---

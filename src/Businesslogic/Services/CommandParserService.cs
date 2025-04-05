@@ -93,13 +93,15 @@ public class CommandParserService : ICommandParserService
 
             case "filter":
                 // TODO: Implement regex validation
-                if (arguments.Count >= 1) // Pattern is the rest of the input
+                if (arguments.Count >= 0) // Allow zero arguments for clearing the filter
                 {
-                    // Re-join arguments in case pattern contains spaces (handled by SplitArguments now)
-                    string pattern = string.Join(" ", arguments);
-                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Filter, new List<string> { pattern }));
+                	// If arguments exist, join them; otherwise, pass null/empty to indicate clearing
+                	string? pattern = arguments.Count > 0 ? string.Join(" ", arguments) : null;
+                	// Pass the pattern (or null) as the single argument
+                	return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Filter, pattern != null ? new List<string> { pattern } : new List<string>()));
                 }
-                return CommandResult.Failure("Invalid arguments for :filter. Expected: :filter <regex_pattern>");
+                // This part should technically not be reached if Count >= 0 is allowed, but keep for safety.
+                return CommandResult.Failure("Invalid arguments for :filter. Expected: :filter [pattern]");
 
             case "clear":
                 if (arguments.Count == 0)

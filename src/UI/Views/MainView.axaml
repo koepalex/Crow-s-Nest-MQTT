@@ -67,9 +67,10 @@
                 </PathIcon.Styles>
               </PathIcon>
               <TextBlock Text="{Binding IsPaused, StringFormat='Paused: {0}'}" VerticalAlignment="Center" Margin="5,0"/>
+              <TextBlock Text="(Filtered)" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Orange" FontStyle="Italic" IsVisible="{Binding IsTopicFilterActive}"/>
               <!-- Status Bar Text -->
               <TextBlock Text="{Binding StatusBarText}" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Gray" FontStyle="Italic"/>
-          </StackPanel>
+             </StackPanel>
 
           <!-- Right-aligned Settings button with Icon -->
           <Button Grid.Column="1" Command="{Binding OpenSettingsCommand}" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip.Tip="Settings">
@@ -98,6 +99,11 @@
                               </StackPanel>
                           </TreeDataTemplate >
                       </TreeView.ItemTemplate>
+                      <TreeView.Styles>
+                          <Style Selector="TreeViewItem">
+                              <Setter Property="IsVisible" Value="{Binding IsVisible}"/>
+                          </Style>
+                      </TreeView.Styles>
                   </TreeView>
               </Border>
 
