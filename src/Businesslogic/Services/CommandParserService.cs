@@ -111,11 +111,12 @@ public class CommandParserService : ICommandParserService
                 return CommandResult.Failure("Invalid arguments for :clear_messages. Expected: :clear_messages");
 
             case "help":
-                if (arguments.Count == 0)
+                // Allow 0 or 1 argument (:help or :help <command>)
+                if (arguments.Count <= 1)
                 {
                     return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Help, arguments));
                 }
-                return CommandResult.Failure("Invalid arguments for :help. Expected: :help");
+                return CommandResult.Failure("Invalid arguments for :help. Expected: :help [command_name]");
 
             case "pause":
                 if (arguments.Count == 0)

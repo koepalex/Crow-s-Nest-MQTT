@@ -741,7 +741,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
                     CopySelectedMessageDetails();
                     break; // Correct placement outside the if/else block
                 case CommandType.Help:
-                    DisplayHelpInformation();
+                    DisplayHelpInformation(command.Arguments.FirstOrDefault()); // Pass the potential command name
                     break;
                 case CommandType.Pause:
                     TogglePause();
@@ -788,10 +788,48 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         }
     }
 
-    private void DisplayHelpInformation()
+    // Dictionary to store command details (syntax and description)
+    private static readonly Dictionary<string, (string Syntax, string Description)> CommandHelpDetails = new()
     {
-        StatusBarText = "Available commands: :connect, :disconnect, :export, :filter, :search, :copy, :clear, :help, :pause, :resume, :expand, :collapse";
-        Log.Information("Displaying help information.");
+        { "connect", (":connect [<server:port>]", "Connects to the specified MQTT broker or the one from settings.") },
+        { "disconnect", (":disconnect", "Disconnects from the current MQTT broker.") },
+        { "export", (":export <json|txt> <filepath>", "Exports the current message history to a file.") },
+        { "filter", (":filter [pattern]", "Filters the topic tree by the given pattern. No pattern clears the filter.") },
+        { "search", (":search [term]", "Filters the message list by the given term. No term clears the search.") },
+        { "copy", (":copy", "Copies details of the selected message to the clipboard.") },
+        { "clear", (":clear", "Clears the message history view.") },
+        { "help", (":help [command]", "Shows general help or help for a specific command.") },
+        { "pause", (":pause", "Pauses receiving new messages in the UI.") },
+        { "resume", (":resume", "Resumes receiving new messages in the UI.") },
+        { "expand", (":expand", "Expands all nodes in the topic tree.") },
+        { "collapse", (":collapse", "Collapses all nodes in the topic tree.") }
+        // Add other commands here if needed
+    };
+
+    private void DisplayHelpInformation(string? commandName = null)
+    {
+        if (string.IsNullOrWhiteSpace(commandName))
+        {
+            // General help: List all commands
+            var availableCommands = string.Join(", ", CommandHelpDetails.Keys.Select(k => $":{k}"));
+            StatusBarText = $"Available commands: {availableCommands}. Type :help <command> for details.";
+            Log.Information("Displaying general help information.");
+        }
+        else
+        {
+            // Specific command help
+            var cleanCommandName = commandName.Trim().ToLowerInvariant().TrimStart(':'); // Clean up input
+            if (CommandHelpDetails.TryGetValue(cleanCommandName, out var details))
+            {
+                StatusBarText = $"Help for :{cleanCommandName}: {details.Syntax} - {details.Description}";
+                Log.Information("Displaying help for command: {CommandName}", cleanCommandName);
+            }
+            else
+            {
+                StatusBarText = $"Error: Unknown command '{commandName}'. Type :help for a list of commands.";
+                Log.Warning("Help requested for unknown command: {CommandName}", commandName);
+            }
+        }
     }
 
     private void ClearMessageHistory()
