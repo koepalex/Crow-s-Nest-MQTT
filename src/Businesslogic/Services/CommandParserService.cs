@@ -147,7 +147,15 @@ public class CommandParserService : ICommandParserService
                     return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Search, new List<string> { searchTerm }));
                 }
                 // This part should not be reachable if Count >= 0 is allowed
+                // This part should not be reachable if Count >= 0 is allowed
                 return CommandResult.Failure("Invalid arguments for :search. Expected: :search [term]");
+
+            case "expand":
+                if (arguments.Count == 0)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Expand, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :expand. Expected: :expand");
 
             default:
                 return CommandResult.Failure($"Unknown command: '{commandKeyword}'");

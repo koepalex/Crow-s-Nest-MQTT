@@ -25,6 +25,8 @@ public enum CommandType
     Pause,
     /// <summary> Resume adding new messages. </summary>
     Resume,
+    /// <summary> Expand all nodes in the topic tree. </summary>
+    Expand,
     /// <summary> Represents an unrecognized or invalid command. </summary>
     Unknown
 }

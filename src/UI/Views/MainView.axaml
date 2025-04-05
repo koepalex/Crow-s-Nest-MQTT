@@ -102,6 +102,7 @@
                       <TreeView.Styles>
                           <Style Selector="TreeViewItem">
                               <Setter Property="IsVisible" Value="{Binding IsVisible}"/>
+                              <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/> <!-- Add this binding -->
                           </Style>
                       </TreeView.Styles>
                   </TreeView>

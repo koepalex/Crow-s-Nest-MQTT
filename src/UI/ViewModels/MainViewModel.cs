@@ -767,6 +767,9 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
                     // Optionally clear the command text box after executing :search
                     // CommandText = string.Empty;
                     break;
+                case CommandType.Expand:
+                    ExpandAllNodes();
+                    break;
                 default:
                     StatusBarText = $"Error: Unknown command type '{command.Type}'.";
                     Log.Warning("Unknown command type encountered: {CommandType}", command.Type);
@@ -782,7 +785,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
 
     private void DisplayHelpInformation()
     {
-        StatusBarText = "Available commands: :connect, :disconnect, :export, :filter, :search, :copy, :clear, :help, :pause, :resume";
+        StatusBarText = "Available commands: :connect, :disconnect, :export, :filter, :search, :copy, :clear, :help, :pause, :resume, :expand";
         Log.Information("Displaying help information.");
     }
 
@@ -1037,6 +1040,38 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             // Move to the next level
             currentLevel = existingNode.Children;
             parentNode = existingNode; // Update parent for the next iteration
+        }
+    }
+
+    /// <summary>
+    /// Expands all nodes in the topic tree.
+    /// </summary>
+    private void ExpandAllNodes()
+    {
+        Log.Information("Expand all nodes command executed.");
+        // Ensure the recursive update happens on the UI thread
+        Dispatcher.UIThread.Post(() =>
+        {
+            SetNodeExpandedRecursive(TopicTreeNodes, true);
+            StatusBarText = "All topic nodes expanded.";
+            Log.Debug("Finished setting IsExpanded=true on nodes via Dispatcher.");
+        });
+    }
+
+    /// <summary>
+    /// Recursively sets the IsExpanded property on nodes.
+    /// </summary>
+    /// <param name="nodes">The collection of nodes to process.</param>
+    /// <param name="isExpanded">The desired expansion state.</param>
+    private void SetNodeExpandedRecursive(IEnumerable<NodeViewModel> nodes, bool isExpanded)
+    {
+        foreach (var node in nodes)
+        {
+            node.IsExpanded = isExpanded;
+            if (node.Children.Any()) // Only recurse if there are children
+            {
+                SetNodeExpandedRecursive(node.Children, isExpanded);
+            }
         }
     }
 
