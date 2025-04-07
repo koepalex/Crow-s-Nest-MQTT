@@ -1,0 +1,90 @@
+name: Build and Test
+
+# Triggers the workflow on push event to any branch, pull request to main,
+# or can be triggered manually
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            runtime: linux-x64
+          - os: windows-latest
+            runtime: win-x64
+          - os: macos-latest
+            runtime: osx-x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 9.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+
+    - name: Test with coverage
+      run: dotnet test --no-build --configuration Release --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=./TestResults/coverage/
+
+    - name: Generate coverage report
+      # Only generate report on one OS to avoid duplication
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        dotnet tool install -g dotnet-reportgenerator-globaltool
+        reportgenerator -reports:"./tests/**/coverage.cobertura.xml" -targetdir:"./TestResults/CoverageReport" -reporttypes:"Html;Cobertura;JsonSummary"
+
+    - name: Upload coverage report
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: code-coverage-report
+        path: ./TestResults/CoverageReport
+        if-no-files-found: warn
+
+    - name: Publish Code Coverage Summary
+      if: matrix.os == 'ubuntu-latest'
+      uses: irongut/CodeCoverageSummary@v1.3.0
+      with:
+        filename: ./TestResults/CoverageReport/Cobertura.xml
+        badge: true
+        fail_below_min: false
+        format: markdown
+        hide_branch_rate: false
+        hide_complexity: false
+        indicators: true
+        output: both
+        thresholds: '60 80'
+
+    - name: Add Coverage PR Comment
+      if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        recreate: true
+        path: code-coverage-results.md
+
+    - name: Publish
+      run: dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --runtime ${{ matrix.runtime }} --self-contained true -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: crowsnest-mqtt-${{ matrix.runtime }}
+        path: ./publish/${{ matrix.runtime }}
+        if-no-files-found: error
