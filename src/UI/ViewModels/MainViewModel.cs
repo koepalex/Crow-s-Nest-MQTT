@@ -18,6 +18,10 @@ using System.Reactive.Linq; // Required for Select, ObserveOn, Throttle, Distinc
 using System.Text; // For Encoding and StringBuilder
 using System.Threading;
 using System.Threading.Tasks; // For Task
+using AvaloniaEdit.Document; // Added for TextDocument
+using AvaloniaEdit.Highlighting; // Added for Syntax Highlighting
+using AvaloniaEdit.Highlighting.Xshd; // Added for Syntax Highlighting loading
+using System.Xml; // Added for XSHD loading
 // using Avalonia.Threading; // Removed duplicate - already on line 7
 // using Avalonia.Controls; // No longer needed for ItemsSourceView
 using CrowsNestMqtt.BusinessLogic; // Required for MqttEngine, MqttConnectionStateChangedEventArgs
@@ -166,8 +170,36 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
     public bool IsJsonViewerVisible // Added property for visibility binding
     {
         get => _isJsonViewerVisible;
-        set => this.RaiseAndSetIfChanged(ref _isJsonViewerVisible, value);
+        private set => this.RaiseAndSetIfChanged(ref _isJsonViewerVisible, value); // Make setter private
     }
+
+    private bool _isRawTextViewerVisible = false; // Added backing field for raw text view
+    public bool IsRawTextViewerVisible // Added property for raw text view visibility
+    {
+        get => _isRawTextViewerVisible;
+        private set => this.RaiseAndSetIfChanged(ref _isRawTextViewerVisible, value); // Make setter private
+    }
+
+    // Changed from string to TextDocument for binding
+    private TextDocument _rawPayloadDocument = new();
+    public TextDocument RawPayloadDocument
+    {
+        get => _rawPayloadDocument;
+        private set => this.RaiseAndSetIfChanged(ref _rawPayloadDocument, value);
+    }
+
+    private IHighlightingDefinition? _payloadSyntaxHighlighting; // Added backing field for syntax highlighting
+    public IHighlightingDefinition? PayloadSyntaxHighlighting // Added property for syntax highlighting binding
+    {
+        get => _payloadSyntaxHighlighting;
+        private set => this.RaiseAndSetIfChanged(ref _payloadSyntaxHighlighting, value); // Make setter private
+    }
+
+    // Computed property to show JSON parse error only when neither viewer is active but an error exists
+    public bool ShowJsonParseError => !IsJsonViewerVisible && !IsRawTextViewerVisible && !string.IsNullOrEmpty(JsonViewer.JsonParseError);
+
+    // Computed property to control the visibility of the splitter below the payload viewers
+    public bool IsAnyPayloadViewerVisible => IsJsonViewerVisible || IsRawTextViewerVisible;
 
     /// <summary>
     /// Gets a value indicating whether the topic tree filter is currently active.
@@ -231,12 +263,11 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
        JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
        CopyTextToClipboardInteraction = new Interaction<string, Unit>(); // Initialize the interaction
 
-        // Populate the list of available commands (assuming CommandType enum has all commands)
-        _availableCommands = Enum.GetNames(typeof(CommandType))
-                                 .Where(name => name != nameof(CommandType.Unknown)) // Exclude Unknown
-                                 .Select(name => ":" + name.ToLowerInvariant()) // Prefix with ':' and make lowercase
-                                 .OrderBy(cmd => cmd) // Sort alphabetically
-                                 .ToList();
+        // Populate the list of available commands (using the help dictionary keys)
+        _availableCommands = CommandHelpDetails.Keys
+                                  .Select(name => ":" + name.ToLowerInvariant()) // Prefix with ':'
+                                  .OrderBy(cmd => cmd) // Sort alphabetically
+                                  .ToList();
 
         // --- DynamicData Pipeline for Message History Filtering ---
 
@@ -472,8 +503,14 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         MessageMetadata.Clear();
         MessageUserProperties.Clear();
         HasUserProperties = false;
-        JsonViewer.LoadJson(string.Empty);
-        IsJsonViewerVisible = false;
+        JsonViewer.LoadJson(string.Empty); // Clear JSON viewer
+        IsJsonViewerVisible = false; // Hide JSON viewer
+        IsRawTextViewerVisible = false; // Hide Raw Text viewer
+        // Clear the document content instead of the string property
+        RawPayloadDocument.Text = string.Empty;
+        PayloadSyntaxHighlighting = null; // Clear syntax highlighting
+        this.RaisePropertyChanged(nameof(ShowJsonParseError)); // Notify computed property change
+        this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible)); // Notify computed property change
 
         if (messageVm?.FullMessage == null)
         {
@@ -556,23 +593,60 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
              isPayloadValidUtf8 = true; // Treat no payload as valid for JSON viewer (it will show nothing)
         }
 
-        IsJsonViewerVisible = isPayloadValidUtf8;
-        if (IsJsonViewerVisible)
+        // Set document text regardless of UTF-8 validity for the raw viewer
+        RawPayloadDocument.Text = isPayloadValidUtf8 ? payloadAsString : $"[Binary Data: {msg.Payload.Length} bytes]";
+
+        // Determine initial view state and syntax highlighting
+        if (isPayloadValidUtf8)
         {
-            JsonViewer.LoadJson(payloadAsString); // LoadJson handles JSON parsing internally
-            if (!string.IsNullOrEmpty(JsonViewer.JsonParseError))
+            JsonViewer.LoadJson(payloadAsString); // Attempt to load JSON
+            if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
             {
-                // If LoadJson resulted in an error, update status bar
-                 StatusBarText = $"JSON Parse Error: {JsonViewer.JsonParseError}";
+                // If valid JSON, show JSON viewer by default
+                IsJsonViewerVisible = true;
+                IsRawTextViewerVisible = false;
+                PayloadSyntaxHighlighting = HighlightingManager.Instance.GetDefinition("Json");
+            }
+            else
+            {
+                // If not valid JSON (but valid UTF-8), show Raw viewer by default
+                IsJsonViewerVisible = false;
+                IsRawTextViewerVisible = true;
+                // Try to guess highlighting based on content type or simple checks
+                PayloadSyntaxHighlighting = GuessSyntaxHighlighting(msg.ContentType, payloadAsString);
+                StatusBarText = $"Payload is not valid JSON. Showing raw view. {JsonViewer.JsonParseError}";
             }
         }
         else
         {
-            // If not valid UTF-8, ensure JSON viewer is cleared and hidden
-            JsonViewer.LoadJson(string.Empty);
+            // If not valid UTF-8, show Raw viewer with binary placeholder
             IsJsonViewerVisible = false;
-            // Status bar already set in the catch block or if payload was null/empty
+            IsRawTextViewerVisible = true;
+            PayloadSyntaxHighlighting = null; // No highlighting for binary placeholder
+            // Status bar already set in the catch block
         }
+        this.RaisePropertyChanged(nameof(ShowJsonParseError)); // Notify computed property change
+        this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible)); // Notify computed property change
+    }
+
+    // Helper to guess syntax highlighting
+    private IHighlightingDefinition? GuessSyntaxHighlighting(string? contentType, string payload)
+    {
+        if (contentType?.Contains("json", StringComparison.OrdinalIgnoreCase) == true)
+            return HighlightingManager.Instance.GetDefinition("Json");
+        if (contentType?.Contains("xml", StringComparison.OrdinalIgnoreCase) == true)
+            return HighlightingManager.Instance.GetDefinition("XML");
+        if (contentType?.Contains("html", StringComparison.OrdinalIgnoreCase) == true)
+            return HighlightingManager.Instance.GetDefinition("HTML");
+        if (contentType?.Contains("javascript", StringComparison.OrdinalIgnoreCase) == true)
+            return HighlightingManager.Instance.GetDefinition("JavaScript");
+
+        // Simple content-based guessing
+        var trimmedPayload = payload.TrimStart();
+        if (trimmedPayload.StartsWith("<")) return HighlightingManager.Instance.GetDefinition("XML"); // Could be XML or HTML
+        if (trimmedPayload.StartsWith("{") || trimmedPayload.StartsWith("[")) return HighlightingManager.Instance.GetDefinition("Json");
+
+        return null; // Default to no highlighting
     }
 
 
@@ -775,6 +849,12 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
                 case CommandType.Collapse:
                     CollapseAllNodes();
                     break;
+                case CommandType.ViewRaw:
+                    SwitchPayloadView(showRaw: true);
+                    break;
+                case CommandType.ViewJson:
+                    SwitchPayloadView(showRaw: false);
+                    break;
                 default:
                     StatusBarText = $"Error: Unknown command type '{command.Type}'.";
                     Log.Warning("Unknown command type encountered: {CommandType}", command.Type);
@@ -802,8 +882,8 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         { "pause", (":pause", "Pauses receiving new messages in the UI.") },
         { "resume", (":resume", "Resumes receiving new messages in the UI.") },
         { "expand", (":expand", "Expands all nodes in the topic tree.") },
-        { "collapse", (":collapse", "Collapses all nodes in the topic tree.") }
-        // Add other commands here if needed
+        { "collapse", (":collapse", "Collapses all nodes in the topic tree.") },
+        { "view", (":view <raw|json>", "Switches the payload view between raw text and JSON tree.") }
     };
 
     private void DisplayHelpInformation(string? commandName = null)
@@ -1159,7 +1239,49 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             CommandSuggestions.Add(cmd);
         }
        Log.Verbose("Updated command suggestions for '{InputText}'. Found {Count} matches.", currentText, CommandSuggestions.Count);
+   }
+
+   /// <summary>
+   /// Switches the active payload viewer between JSON and Raw Text.
+   /// </summary>
+   /// <param name="showRaw">True to show the raw text viewer, false to show the JSON viewer.</param>
+   private void SwitchPayloadView(bool showRaw)
+   {
+       if (SelectedMessage == null)
+       {
+           StatusBarText = "No message selected to view.";
+           return;
        }
+
+       if (showRaw)
+       {
+           IsRawTextViewerVisible = true;
+           IsJsonViewerVisible = false;
+           StatusBarText = "Switched to Raw Text view.";
+           Log.Information("Switched payload view to Raw Text.");
+       }
+       else
+       {
+           // Only switch to JSON view if the JSON was parsed correctly or payload was empty
+           if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
+           {
+               IsRawTextViewerVisible = false;
+               IsJsonViewerVisible = true;
+               StatusBarText = "Switched to JSON Tree view.";
+               Log.Information("Switched payload view to JSON Tree.");
+           }
+           else
+           {
+               StatusBarText = $"Cannot switch to JSON view: {JsonViewer.JsonParseError}";
+               Log.Warning("Attempted to switch to JSON view, but JSON parsing failed.");
+               // Keep the raw view visible in this case
+               IsRawTextViewerVisible = true;
+               IsJsonViewerVisible = false;
+           }
+       }
+       this.RaisePropertyChanged(nameof(ShowJsonParseError)); // Notify computed property change
+       this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible)); // Notify computed property change
+   }
 
    // --- Helper Methods ---
 

@@ -29,6 +29,10 @@ public enum CommandType
     Expand,
     /// <summary> Collapse all nodes in the topic tree. </summary>
     Collapse,
+    /// <summary> View the raw payload as text. </summary>
+    ViewRaw,
+    /// <summary> View the payload as a JSON tree. </summary>
+    ViewJson,
     /// <summary> Represents an unrecognized or invalid command. </summary>
     Unknown
 }

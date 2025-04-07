@@ -5,6 +5,8 @@
              xmlns:vm="using:CrowsNestMqtt.UI.ViewModels"
              xmlns:i="using:Avalonia.Xaml.Interactivity"
              xmlns:ia="using:Avalonia.Xaml.Interactions.Core"
+             xmlns:ae="using:AvaloniaEdit"
+             xmlns:aeControls="using:AvaloniaEdit.TextMate"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
              x:Class="CrowsNestMqtt.UI.Views.MainView"
              x:DataType="vm:MainViewModel">
@@ -160,36 +162,49 @@
                   <!-- Row 1: Horizontal Grid Splitter -->
                   <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows"/>
 
-                  <!-- Row 2: JSON Viewer Grid (Conditionally Visible) -->
-                  <!-- Removed intermediate Panel, moved IsVisible binding here -->
-                  <Grid Grid.Row="2" IsVisible="{Binding IsJsonViewerVisible}">
-                          <!-- Column 0: JSON TreeView -->
-                          <Border BorderBrush="Gray" BorderThickness="0,0,1,0" Padding="5">
-                              <TreeView ItemsSource="{Binding JsonViewer.RootNodes}" MinWidth="200">
-                                  <TreeView.Styles>
-                                      <!-- Allow items to stretch horizontally -->
-                                      <Style Selector="TreeViewItem">
-                                          <Setter Property="HorizontalAlignment" Value="Stretch"/>
-                                      </Style>
-                                  </TreeView.Styles>
-                                  <TreeView.ItemTemplate>
-                                      <TreeDataTemplate DataType="{x:Type vm:JsonNodeViewModel}" ItemsSource="{Binding Children}">
-                                          <!-- Grid is the root of the template, attach behavior here -->
-                                          <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Stretch">
-                                              <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="Bold" Margin="0,0,5,0"/>
-                                              <TextBlock Grid.Column="1" Text="{Binding ValueDisplay}" Foreground="{Binding ValueBrush}" HorizontalAlignment="Left"/>
-                                          </Grid>
-                                      </TreeDataTemplate>
-                                  </TreeView.ItemTemplate>
-                              </TreeView>
-                          </Border>
-                  </Grid>
-                  <!-- Display message if JSON viewer is hidden but should be visible (e.g., parse error) -->
-                  <TextBlock Grid.Row="2" Text="{Binding JsonViewer.JsonParseError}" Foreground="Red" Margin="10"
-                             IsVisible="{Binding !IsJsonViewerVisible}"/> <!-- Show error only when viewer is hidden -->
+                  <!-- Row 2: Payload Viewers Container -->
+                  <Panel Grid.Row="2" Margin="5,0,5,0">
+                      <!-- JSON Viewer (Conditionally Visible) -->
+                      <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsJsonViewerVisible}">
+                          <TreeView ItemsSource="{Binding JsonViewer.RootNodes}" MinWidth="200">
+                              <TreeView.Styles>
+                                  <Style Selector="TreeViewItem">
+                                      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                  </Style>
+                              </TreeView.Styles>
+                              <TreeView.ItemTemplate>
+                                  <TreeDataTemplate DataType="{x:Type vm:JsonNodeViewModel}" ItemsSource="{Binding Children}">
+                                      <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Stretch">
+                                          <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="Bold" Margin="0,0,5,0"/>
+                                          <TextBlock Grid.Column="1" Text="{Binding ValueDisplay}" Foreground="{Binding ValueBrush}" HorizontalAlignment="Left"/>
+                                      </Grid>
+                                  </TreeDataTemplate>
+                              </TreeView.ItemTemplate>
+                          </TreeView>
+                      </Border>
 
-                  <!-- Row 3: Horizontal Grid Splitter -->
-                  <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows" IsVisible="{Binding IsJsonViewerVisible}"/>
+                      <!-- Raw Text Viewer (Conditionally Visible) -->
+                      <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsRawTextViewerVisible}">
+                          <!-- Use AvaloniaEdit TextEditor -->
+                          <ae:TextEditor Name="RawPayloadEditor"
+                                         FontFamily="Consolas,Menlo,Monospace"
+                                         FontSize="12"
+                                         IsReadOnly="True"
+                                         ShowLineNumbers="True"
+                                         SyntaxHighlighting="{Binding PayloadSyntaxHighlighting}"
+                                         Document="{Binding RawPayloadDocument, Mode=OneWay}"
+                                         Padding="5"
+                                         Background="LightBlue"/>
+                      </Border>
+
+                      <!-- Display message if JSON viewer is hidden but should be visible (e.g., parse error) -->
+                      <!-- This TextBlock might overlap if both viewers are hidden but error exists. Consider placing it outside the Panel or adjusting logic -->
+                      <TextBlock Text="{Binding JsonViewer.JsonParseError}" Foreground="Red" Margin="10"
+                                 IsVisible="{Binding ShowJsonParseError}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                  </Panel>
+
+                  <!-- Row 3: Horizontal Grid Splitter (Visible if either viewer is visible) -->
+                  <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows" IsVisible="{Binding IsAnyPayloadViewerVisible}"/>
 
                   <!-- Row 4: Message History -->
                   <ListBox x:Name="MessageHistoryListBox" Grid.Row="4"

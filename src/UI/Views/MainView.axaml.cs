@@ -14,6 +14,7 @@ using System.ComponentModel;
 using System.Reactive.Linq; // Added for INotifyPropertyChanged (optional but good practice)
 using System.Reactive; // Added for Unit
 using System; // Added for IDisposable
+using AvaloniaEdit.Editing; // Added for Selection
 namespace CrowsNestMqtt.UI.Views;
 
 /// <summary>
@@ -26,7 +27,9 @@ public partial class MainView : UserControl
    private IDisposable? _gotFocusSubscription; // Added for window focus tracking
    private IDisposable? _lostFocusSubscription; // Added for window focus tracking
    private IDisposable? _clipboardInteractionSubscription; // Added for clipboard interaction
+   private IDisposable? _rawPayloadDocumentSubscription; // Added for tracking document changes
    private Window? _parentWindow; // Added reference to the parent window
+   private readonly AvaloniaEdit.TextEditor? _rawPayloadEditor; // Reference to the editor (now readonly)
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainView"/> class.
@@ -51,10 +54,16 @@ public partial class MainView : UserControl
         //     }
         // });
 
+        // Find the editor control after initialization happens in InitializeComponent()
+        _rawPayloadEditor = this.FindControl<AvaloniaEdit.TextEditor>("RawPayloadEditor");
+        if (_rawPayloadEditor == null)
+        {
+             Serilog.Log.Error("Could not find RawPayloadEditor control in MainView constructor.");
+             // Consider throwing an exception or handling this more robustly if the editor is critical
+        }
+
         // Subscribe to DataContext changes to hook/unhook event handlers
         this.DataContextChanged += OnDataContextChanged;
-
-       
     }
 
     /// <summary>
@@ -192,6 +201,20 @@ public partial class MainView : UserControl
            });
 
            // Focus tracking is now handled in OnAttachedToVisualTree
+
+           // Subscribe to RawPayloadDocument changes to clear selection when empty
+           _rawPayloadDocumentSubscription = vm.WhenAnyValue(x => x.RawPayloadDocument)
+               .ObserveOn(RxApp.MainThreadScheduler) // Ensure UI access is on the correct thread
+               .Subscribe(doc =>
+               {
+                   // Check if the editor and its TextArea are available
+                   if (_rawPayloadEditor?.TextArea != null && (doc == null || doc.TextLength == 0))
+                   {
+                       // Clear selection by creating an empty selection at the start
+                       _rawPayloadEditor.TextArea.Selection = Selection.Create(_rawPayloadEditor.TextArea, 0, 0);
+                       Serilog.Log.Debug("RawPayloadDocument changed and is empty. Cleared editor selection.");
+                   }
+               });
        }
     }
 
@@ -215,8 +238,10 @@ _lostFocusSubscription?.Dispose();
 _lostFocusSubscription = null;
 _clipboardInteractionSubscription?.Dispose(); // Dispose clipboard interaction subscription
 _clipboardInteractionSubscription = null;
+_rawPayloadDocumentSubscription?.Dispose(); // Dispose document subscription
+_rawPayloadDocumentSubscription = null;
 _parentWindow = null; // Clear window reference
-
+// _rawPayloadEditor reference is cleared implicitly when view is destroyed
 // Optional: Unsubscribe from PropertyChanged if you subscribed
 // if (DataContext is MainViewModel oldVm)
 // {

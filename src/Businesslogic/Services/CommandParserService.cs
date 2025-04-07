@@ -165,6 +165,21 @@ public class CommandParserService : ICommandParserService
                 }
                 return CommandResult.Failure("Invalid arguments for :collapse. Expected: :collapse");
 
+            case "view":
+                if (arguments.Count == 1)
+                {
+                    var viewType = arguments[0].ToLowerInvariant();
+                    if (viewType == "raw")
+                    {
+                        return CommandResult.SuccessCommand(new ParsedCommand(CommandType.ViewRaw, arguments));
+                    }
+                    else if (viewType == "json")
+                    {
+                        return CommandResult.SuccessCommand(new ParsedCommand(CommandType.ViewJson, arguments));
+                    }
+                }
+                return CommandResult.Failure("Invalid arguments for :view. Expected: :view <raw|json>");
+
             default:
                 return CommandResult.Failure($"Unknown command: '{commandKeyword}'");
         }
