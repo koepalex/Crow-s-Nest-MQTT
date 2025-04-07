@@ -81,10 +81,3 @@ jobs:
 
     - name: Publish
       run: dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --runtime ${{ matrix.runtime }} --self-contained true -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}
-
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: crowsnest-mqtt-${{ matrix.runtime }}
-        path: ./publish/${{ matrix.runtime }}
-        if-no-files-found: error
