@@ -1117,7 +1117,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             {
                 var segments = node.FullPath.Split('/');
                 // Check if any segment fuzzy matches the filter (e.g., partial ratio > 70)
-                nodeMatches = segments.Any(segment => !string.IsNullOrEmpty(segment) && Fuzz.PartialRatio(segment.ToLowerInvariant(), filter.ToLowerInvariant()) > 70);
+                nodeMatches = segments.Any(segment => !string.IsNullOrEmpty(segment) && Fuzz.PartialRatio(segment.ToLowerInvariant(), filter.ToLowerInvariant()) > 80); // Increased threshold
             }
 
             // Recursively check children first. The result indicates if any child *became* visible.

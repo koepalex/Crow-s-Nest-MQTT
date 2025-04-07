@@ -61,7 +61,19 @@ public JsonNodeViewModel? SelectedNode
         {
             // Use JsonDocument for efficient, read-only parsing
             using var jsonDoc = JsonDocument.Parse(jsonString);
-            PopulateNodes(jsonDoc.RootElement, RootNodes, "$"); // Start path at root '$'
+            if (jsonDoc.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                // Create a single root node for the array itself
+                var arrayRootNode = new JsonNodeViewModel("$", jsonDoc.RootElement, "$");
+                RootNodes.Add(arrayRootNode);
+                // Populate the children of this array node
+                PopulateNodes(jsonDoc.RootElement, arrayRootNode.Children, arrayRootNode.JsonPath);
+            }
+            else
+            {
+                // Original behavior for root objects or other types
+                PopulateNodes(jsonDoc.RootElement, RootNodes, "$"); // Start path at root '$'
+            }
         }
         catch (JsonException ex)
         {
