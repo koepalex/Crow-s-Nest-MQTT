@@ -7,6 +7,15 @@
     <Nullable>enable</Nullable>
     <RuntimeIdentifiers>$(TargetRuntimeIdentifiers)</RuntimeIdentifiers>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    
+    <!-- Global Tool Properties -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>crowsnest-mqtt</ToolCommandName>
+    <PackageId>CrowsNestMqtt.App</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Alexander Köpke</Authors>
+    <Description>A cross-platform MQTT client and visualizer for browsing MQTT topic hierarchies and message payloads</Description>
+    <PackageTags>mqtt;client;visualization;avalonia;cross-platform</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
