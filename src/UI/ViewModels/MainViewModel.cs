@@ -16,6 +16,8 @@ using System.Reactive; // Required for Unit
 using System.Reactive.Concurrency; // For RxApp.MainThreadScheduler
 using System.Reactive.Linq; // Required for Select, ObserveOn, Throttle, DistinctUntilChanged
 using System.Text; // For Encoding and StringBuilder
+using System.Text.Json; // Added for JSON formatting
+using System.Text.Json.Serialization; // Added for JSON formatting options
 using System.Threading;
 using System.Threading.Tasks; // For Task
 using AvaloniaEdit.Document; // Added for TextDocument
@@ -594,7 +596,39 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         }
 
         // Set document text regardless of UTF-8 validity for the raw viewer
-        RawPayloadDocument.Text = isPayloadValidUtf8 ? payloadAsString : $"[Binary Data: {msg.Payload.Length} bytes]";
+        if (isPayloadValidUtf8) {
+            // Try to format the JSON if it appears to be valid JSON
+            if (payloadAsString.Trim().StartsWith("{") || payloadAsString.Trim().StartsWith("[")) {
+                try {
+                    // Parse and format JSON with indentation
+                    var jsonDoc = JsonDocument.Parse(payloadAsString);
+                    var options = new JsonSerializerOptions {
+                        WriteIndented = true,
+                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                    };
+                    
+                    RawPayloadDocument.Text = JsonSerializer.Serialize(jsonDoc.RootElement, options);
+                    Log.Debug("Formatted JSON payload for raw text display");
+                }
+                catch (JsonException) {
+                    // If JSON parsing fails, just use the raw text
+                    RawPayloadDocument.Text = payloadAsString;
+                    Log.Verbose("Payload looks like JSON but could not be parsed, displaying as plain text");
+                }
+                catch (Exception ex) {
+                    // Handle any other formatting errors
+                    RawPayloadDocument.Text = payloadAsString;
+                    Log.Warning(ex, "Error formatting JSON payload");
+                }
+            }
+            else {
+                // Not JSON-like, use as is
+                RawPayloadDocument.Text = payloadAsString;
+            }
+        }
+        else {
+            RawPayloadDocument.Text = $"[Binary Data: {msg.Payload.Length} bytes]";
+        }
 
         // Determine initial view state and syntax highlighting
         if (isPayloadValidUtf8)
