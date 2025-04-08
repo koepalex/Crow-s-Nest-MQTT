@@ -1083,19 +1083,25 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         if (string.IsNullOrWhiteSpace(filter))
         {
             // Clear filter: Make all nodes visible
-            int dummyMatchCount = 0; // Need a variable for the ref parameter
-            SetNodeVisibilityRecursive(TopicTreeNodes, isVisible: true, clearFilter: true, ref dummyMatchCount); // Pass the ref parameter
-            StatusBarText = "Topic filter cleared.";
-            IsTopicFilterActive = false; // Update filter state
-            Log.Information("Topic filter cleared.");
+            Dispatcher.UIThread.Post(() => // Ensure UI update runs on UI thread
+            {
+                int dummyMatchCount = 0; // Need a variable for the ref parameter
+                SetNodeVisibilityRecursive(TopicTreeNodes, isVisible: true, clearFilter: true, ref dummyMatchCount); // Pass the ref parameter
+                StatusBarText = "Topic filter cleared.";
+                IsTopicFilterActive = false; // Update filter state
+                Log.Information("Topic filter cleared.");
+            });
             return;
         }
 
         Log.Information("Applying topic filter: '{Filter}'", filter);
-        int matchCount = 0;
-        SetNodeVisibilityRecursive(TopicTreeNodes, isVisible: false, clearFilter: false, ref matchCount, filter); // Start recursion (matchCount before optional filter)
-        StatusBarText = $"Topic filter applied: '{filter}'. Found {matchCount} matching node(s).";
-        IsTopicFilterActive = true; // Update filter state
+        Dispatcher.UIThread.Post(() => // Ensure UI update runs on UI thread
+        {
+            int matchCount = 0;
+            SetNodeVisibilityRecursive(TopicTreeNodes, isVisible: false, clearFilter: false, ref matchCount, filter); // Start recursion (matchCount before optional filter)
+            StatusBarText = $"Topic filter applied: '{filter}'. Found {matchCount} matching node(s).";
+            IsTopicFilterActive = true; // Update filter state
+        });
     }
 
     /// <summary>
@@ -1177,6 +1183,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             {
                 // Create new node
                 // Create new node
+                Log.Verbose("Creating new node '{Part}' under parent '{ParentName}' with path '{FullPath}'", part, parentNode?.Name ?? "[Root]", currentPath);
                 existingNode = new NodeViewModel(part, parentNode) { FullPath = currentPath }; // Pass parent and set full path
 
                 // Insert the new node in sorted order instead of rebuilding the collection
@@ -1186,6 +1193,10 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
                     insertIndex++;
                 }
                 currentLevel.Insert(insertIndex, existingNode);
+            }
+            else
+            {
+                Log.Verbose("Found existing node '{Part}' under parent '{ParentName}'", part, parentNode?.Name ?? "[Root]");
             }
 
             // Increment count only for the final node in the path if requested
