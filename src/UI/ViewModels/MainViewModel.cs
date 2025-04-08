@@ -476,12 +476,8 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             _messageHistorySource.Add(messageVm); // Add to the source list
             Log.Verbose("Added message for topic '{Topic}'. Source count: {Count}", topic, _messageHistorySource.Count); // Log source count
 
-            // Optional: Limit total history size in the source list
-            const int maxHistoryDisplay = 5000; // Consider a larger limit for the total buffer
-            while (_messageHistorySource.Count > maxHistoryDisplay)
-            {
-                _messageHistorySource.RemoveAt(0); // Remove oldest from the global buffer
-            }
+            // Removed artificial limit on _messageHistorySource.
+            // Memory is managed per-topic by TopicRingBuffer in MqttEngine.
         });
     }
 
