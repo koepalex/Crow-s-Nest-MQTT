@@ -26,9 +26,10 @@ using AvaloniaEdit.Highlighting.Xshd; // Added for Syntax Highlighting loading
 using System.Xml; // Added for XSHD loading
 // using Avalonia.Threading; // Removed duplicate - already on line 7
 // using Avalonia.Controls; // No longer needed for ItemsSourceView
-using CrowsNestMqtt.BusinessLogic; // Required for MqttEngine, MqttConnectionStateChangedEventArgs
+using CrowsNestMqtt.BusinessLogic; // Required for MqttEngine, MqttConnectionStateChangedEventArgs, IMqttService
 using CrowsNestMqtt.Businesslogic.Commands; // Added for command parsing
 using CrowsNestMqtt.Businesslogic.Services; // Added for command parsing
+using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using DynamicData; // Added for SourceList and reactive filtering
 using DynamicData.Binding; // Added for Bind()
 using FuzzySharp; // Added for fuzzy search
@@ -48,9 +49,9 @@ public record MetadataItem(string Key, string Value);
 /// ViewModel for the main application window.
 /// Manages the different sections of the UI: Topic List, Message History, Message Details, and Command Bar.
 /// </summary>
-public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposable
+public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // Implement IDisposable and IStatusBarService
 {
-    private readonly MqttEngine _mqttEngine;
+    private readonly IMqttService _mqttService; // Changed to interface
     private readonly ICommandParserService _commandParserService; // Added command parser service
     private Timer? _updateTimer;
     private readonly SynchronizationContext? _syncContext; // To post updates to the UI thread
@@ -287,8 +288,8 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
                 // Return the actual filter function
                 return (Func<MessageViewModel, bool>)(message =>
                 {
-                    string? msgTopic = message.FullMessage?.Topic; // Get topic safely
-
+                    // Use the Topic property directly from MessageViewModel
+                    string? msgTopic = message.Topic;
                     // Condition 1: Topic must match selected path (or no path selected)
                     bool topicMatch = selectedPath == null || msgTopic == selectedPath;
 
@@ -336,12 +337,12 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             // TODO: Map other settings like TLS, Credentials if added
         };
 
-        _mqttEngine = new MqttEngine(connectionSettings); // Pass connection settings
+         _mqttService = new MqttEngine(connectionSettings); // MqttEngine (IMqttService) is now injected
 
-        // Subscribe to MQTT Engine events
-        _mqttEngine.ConnectionStateChanged += OnConnectionStateChanged;
-        _mqttEngine.MessageReceived += OnMessageReceived;
-        _mqttEngine.LogMessage += OnLogMessage; // Optional: Log engine messages
+        // Subscribe to MQTT Service events
+        _mqttService.ConnectionStateChanged += OnConnectionStateChanged; // Assuming IMqttService exposes this
+        _mqttService.MessageReceived += OnMessageReceived;             // Assuming IMqttService exposes this
+        _mqttService.LogMessage += OnLogMessage;                     // Assuming IMqttService exposes this
 
         // --- Command Implementations ---
         // Rebuild connection settings before connecting if they might change after initial setup
@@ -443,14 +444,16 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         });
     }
 
-    private void OnMessageReceived(object? sender, MqttApplicationMessageReceivedEventArgs e)
+    // Updated signature to use new EventArgs
+    private void OnMessageReceived(object? sender, IdentifiedMqttApplicationMessageReceivedEventArgs e)
     {
         if (IsPaused) return; // Don't update UI if paused
 
         // Ensure UI updates happen on the UI thread
         Dispatcher.UIThread.Post(() =>
         {
-            var topic = e.ApplicationMessage.Topic;
+            var topic = e.Topic; // Use Topic from new EventArgs
+            var messageId = e.MessageId; // Get MessageId from new EventArgs
             UpdateOrCreateNode(topic); // Update tree structure and counts
 
             // Always add incoming messages to the source list. The DynamicData pipeline will filter it.
@@ -467,12 +470,14 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
                 preview = preview.Substring(0, maxPreviewLength) + "...";
             }
 
-            var messageVm = new MessageViewModel
-            {
-                Timestamp = DateTime.Now, // Use arrival time
-                PayloadPreview = preview.Replace(Environment.NewLine, " "), // Remove newlines for preview
-                FullMessage = e.ApplicationMessage // Store the original message
-            };
+            // Use the new constructor for MessageViewModel, passing required services
+            var messageVm = new MessageViewModel(
+                messageId,
+                topic,
+                DateTime.Now, // Use arrival time
+                preview.Replace(Environment.NewLine, " "), // Remove newlines for preview
+                _mqttService, // Pass the injected MQTT service
+                this); // Pass this MainViewModel as the IStatusBarService
             _messageHistorySource.Add(messageVm); // Add to the source list
             Log.Verbose("Added message for topic '{Topic}'. Source count: {Count}", topic, _messageHistorySource.Count); // Log source count
 
@@ -485,7 +490,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
 
     private void LoadInitialTopics()
     {
-        var bufferedTopics = _mqttEngine.GetBufferedTopics();
+        var bufferedTopics = _mqttService.GetBufferedTopics(); // Assuming IMqttService exposes this
         foreach (var topicName in bufferedTopics)
         {
             UpdateOrCreateNode(topicName, incrementCount: false); // Populate tree without incrementing count initially
@@ -510,18 +515,19 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         this.RaisePropertyChanged(nameof(ShowJsonParseError)); // Notify computed property change
         this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible)); // Notify computed property change
 
-        if (messageVm?.FullMessage == null)
+        var msg = messageVm?.GetFullMessage(); // Use the method
+        if (msg == null) // Check the result of the method call
         {
             // Add a placeholder if needed, or leave grids empty
             // MessageMetadata.Add(new MetadataItem("Status", "Select a message to see details."));
             return;
         }
 
-        var msg = messageVm.FullMessage;
-        var timestamp = messageVm.Timestamp; // Use the arrival timestamp from the ViewModel
+        // var msg = messageVm.GetFullMessage(); // Already fetched above
+        var timestamp = messageVm?.Timestamp; // Use null-forgiving operator as messageVm is guaranteed non-null here
 
         // --- Populate Metadata ---
-        MessageMetadata.Add(new MetadataItem("Timestamp", timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff")));
+        MessageMetadata.Add(new MetadataItem("Timestamp", timestamp?.ToString("yyyy-MM-dd HH:mm:ss.fff") ?? "unknown"));
         MessageMetadata.Add(new MetadataItem("Topic", msg.Topic ?? "N/A"));
         MessageMetadata.Add(new MetadataItem("QoS", msg.QualityOfServiceLevel.ToString()));
         MessageMetadata.Add(new MetadataItem("Retain", msg.Retain.ToString()));
@@ -548,10 +554,11 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         // Add more metadata fields as needed...
 
         // --- Populate User Properties ---
-        if (msg.UserProperties != null && msg.UserProperties.Any())
+        // User Properties - Add null check for msg and UserProperties
+        HasUserProperties = msg?.UserProperties?.Count > 0; // Use null-conditional access and Count
+        if (HasUserProperties && msg?.UserProperties != null) // Ensure UserProperties is not null before iterating
         {
-            HasUserProperties = true;
-            foreach (var prop in msg.UserProperties)
+            foreach (var prop in msg.UserProperties) // msg and UserProperties are checked above
             {
                 MessageUserProperties.Add(new MetadataItem(prop.Name, prop.Value));
             }
@@ -564,7 +571,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         // --- Handle Payload and JSON Viewer ---
         string payloadAsString = string.Empty;
         bool isPayloadValidUtf8 = false;
-        if (msg.Payload.Length > 0) // Check only Length, as ReadOnlySequence<byte> cannot be null
+        if (msg != null && msg.Payload.Length > 0) // Add explicit null check for msg to satisfy compiler
         {
             try
             {
@@ -623,7 +630,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             }
         }
         else {
-            RawPayloadDocument.Text = $"[Binary Data: {msg.Payload.Length} bytes]";
+            RawPayloadDocument.Text = $"[Binary Data: {msg?.Payload.Length ?? -1} bytes]";
         }
 
         // Determine initial view state and syntax highlighting
@@ -643,7 +650,7 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
                 IsJsonViewerVisible = false;
                 IsRawTextViewerVisible = true;
                 // Try to guess highlighting based on content type or simple checks
-                PayloadSyntaxHighlighting = GuessSyntaxHighlighting(msg.ContentType, payloadAsString);
+                PayloadSyntaxHighlighting = GuessSyntaxHighlighting(msg?.ContentType ?? string.Empty, payloadAsString);
                 StatusBarText = $"Payload is not valid JSON. Showing raw view. {JsonViewer.JsonParseError}";
             }
         }
@@ -727,14 +734,14 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             SessionExpiryInterval = Settings.SessionExpiryInterval
         };
         // Update the engine with the latest settings before connecting
-        _mqttEngine.UpdateSettings(connectionSettings);
-        await _mqttEngine.ConnectAsync(); // Now uses the updated settings
+        _mqttService.UpdateSettings(connectionSettings); // Use _mqttService
+        await _mqttService.ConnectAsync(); // Use _mqttService
     }
 
     private async Task DisconnectAsync()
     {
         Log.Information("Disconnect command executed.");
-        await _mqttEngine.DisconnectAsync(_cts.Token); // Pass cancellation token
+        await _mqttService.DisconnectAsync(_cts.Token); // Use _mqttService, Pass cancellation token
     }
 
     private void ClearHistory()
@@ -950,20 +957,28 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
 
     private void CopySelectedMessageDetails()
     {
-        if (SelectedMessage?.FullMessage != null)
+        var selectedMsgVm = SelectedMessage; // Cache the selected message VM
+        if (selectedMsgVm == null) // Check if VM itself is null first
         {
-            var msg = SelectedMessage.FullMessage;
+            StatusBarText = "No message selected to copy.";
+            Log.Information("Copy command executed but no message was selected.");
+            return; // Exit early
+        }
+
+        var msg = selectedMsgVm.GetFullMessage(); // Now call GetFullMessage on the non-null VM
+        if (msg != null) // Check result of GetFullMessage
+        {
             var textExporter = new TextExporter();
-
-            (ClipboardText, _, _) = textExporter.GenerateDetailedTextFromMessage(msg, SelectedMessage.Timestamp);
-
+            // Use the cached selectedMsgVm for Timestamp
+            (ClipboardText, _, _) = textExporter.GenerateDetailedTextFromMessage(msg, selectedMsgVm.Timestamp);
             StatusBarText = "Updated system clipboard with selected message";
             Log.Information("Copy command executed.");
         }
         else
         {
-            StatusBarText = "No message selected to copy.";
-            Log.Information("Copy command executed but no message was selected.");
+            // Handle case where GetFullMessage returned null (e.g., message expired from buffer)
+            StatusBarText = "Could not retrieve full message details to copy.";
+            Log.Warning("Copy command executed but failed to retrieve full message for {Topic} ID {MessageId}", selectedMsgVm.Topic, selectedMsgVm.MessageId);
         }
     }
 
@@ -1013,7 +1028,9 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
 
     private void Export(ParsedCommand command)
     {
-        if (SelectedMessage?.FullMessage == null)
+        var selectedMsgVm = SelectedMessage; // Cache locally
+        var fullMessage = selectedMsgVm?.GetFullMessage(); // Use method
+        if (fullMessage == null)
         {
             StatusBarText = "Error: No message selected to export.";
             Log.Warning("Export command failed: No message selected.");
@@ -1049,7 +1066,8 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         try
         {
             // Use the timestamp from the ViewModel as it represents arrival time
-            string? exportedFilePath = exporter.ExportToFile(SelectedMessage.FullMessage, SelectedMessage.Timestamp, folderPath);
+            // Use the fetched fullMessage and the cached selectedMsgVm for timestamp
+            string? exportedFilePath = exporter.ExportToFile(fullMessage, selectedMsgVm!.Timestamp, folderPath); // Use null-forgiving operator as selectedMsgVm is guaranteed non-null here
 
             if (exportedFilePath != null)
             {
@@ -1330,9 +1348,10 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
     /// Copies the full payload of the given message to the system clipboard using an Interaction.
     /// </summary>
     /// <param name="messageVm">The view model of the message whose payload should be copied.</param>
-    private async Task CopyPayloadToClipboardAsync(MessageViewModel messageVm)
+    private async Task CopyPayloadToClipboardAsync(MessageViewModel? messageVm) // Allow null VM
     {
-        if (messageVm?.FullMessage?.Payload == null)
+        var fullMessage = messageVm?.GetFullMessage(); // Use method
+        if (fullMessage?.Payload == null)
         {
             StatusBarText = "Cannot copy: Message or payload is missing.";
             Log.Warning("CopyPayloadCommand failed: MessageViewModel or FullMessage or Payload was null.");
@@ -1342,7 +1361,8 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         string payloadString;
         try
         {
-            payloadString = Encoding.UTF8.GetString(messageVm.FullMessage.Payload);
+            // Use the fetched fullMessage
+            payloadString = Encoding.UTF8.GetString(fullMessage.Payload);
         }
         catch (Exception ex)
         {
@@ -1356,7 +1376,8 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
             // Invoke the interaction to request the View to copy the text
             await CopyTextToClipboardInteraction.Handle(payloadString);
             StatusBarText = "Payload copied to clipboard."; // Assume success if Handle doesn't throw
-            Log.Information("CopyTextToClipboardInteraction handled for topic '{Topic}'.", messageVm.FullMessage.Topic);
+            // Use the fetched fullMessage for topic
+            Log.Information("CopyTextToClipboardInteraction handled for topic '{Topic}'.", fullMessage.Topic);
         }
         catch (Exception ex) // Catch potential exceptions from the interaction handler
         {
@@ -1387,7 +1408,11 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
                 // MqttEngine's Dispose method now handles the final disconnect attempt.
                 // We rely on _cts.Cancel() being called first, then _mqttEngine.Dispose() below.
                 // Removed explicit synchronous DisconnectAsync call here.
-                _mqttEngine?.Dispose(); // Dispose the MqttEngine instance AFTER cancellation is signaled
+                // Dispose the MqttService instance if it implements IDisposable
+                if (_mqttService is IDisposable disposableMqttService)
+                {
+                    disposableMqttService.Dispose();
+                }
                 // Dispose other managed resources like commands if necessary
                 ConnectCommand?.Dispose();
                 DisconnectCommand?.Dispose();
@@ -1414,4 +1439,43 @@ public class MainViewModel : ReactiveObject, IDisposable // Implement IDisposabl
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
-}
+
+    // --- IStatusBarService Implementation ---
+
+    private CancellationTokenSource? _statusClearCts;
+
+    /// <summary>
+    /// Shows a status message in the status bar, optionally clearing it after a duration.
+    /// </summary>
+    /// <param name="message">The message to display.</param>
+    /// <param name="duration">Optional duration after which the message will be cleared. If null, the message persists.</param>
+    public void ShowStatus(string message, TimeSpan? duration = null)
+    {
+        // Ensure execution on the UI thread
+        Dispatcher.UIThread.Post(() =>
+        {
+            StatusBarText = message;
+            Log.Debug("Status Bar Updated: {StatusMessage}", message);
+
+            // Cancel any previous timer
+            _statusClearCts?.Cancel();
+            _statusClearCts?.Dispose();
+            _statusClearCts = null;
+
+            if (duration.HasValue)
+            {
+                _statusClearCts = new CancellationTokenSource();
+                var token = _statusClearCts.Token;
+
+                Task.Delay(duration.Value, token).ContinueWith(t =>
+                {
+                    // Check if cancellation was requested or if the current text is still the one we set
+                    if (!t.IsCanceled && StatusBarText == message)
+                    {
+                        Dispatcher.UIThread.Post(() => StatusBarText = "Ready"); // Reset to default
+                    }
+                }, TaskScheduler.Default); // Continue on a background thread is fine, the action posts back to UI thread
+            }
+        });
+    }
+} // Closing brace for MainViewModel class moved here

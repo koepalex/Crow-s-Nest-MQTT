@@ -15,7 +15,26 @@ namespace CrowsNestMqtt.Utils;
 /// </summary>
 public class TopicRingBuffer
 {
+    // --- Private Nested Class for Buffered Message ---
+    private class BufferedMqttMessage
+    {
+        public Guid MessageId { get; }
+        public MqttApplicationMessage Message { get; }
+        public long Size { get; } // Cache the size
+
+        public BufferedMqttMessage(MqttApplicationMessage message, Guid messageId)
+        {
+            Message = message ?? throw new ArgumentNullException(nameof(message));
+            MessageId = messageId;
+            // Estimate size: Topic length + Payload length + some overhead
+            // This is a rough estimate; adjust if more accuracy is needed.
+            Size = (message.Topic?.Length ?? 0) * sizeof(char) + message.Payload.Length + 100; // Payload is ReadOnlySequence<byte> (struct), cannot be null
+        }
+    }
+    // -------------------------------------------------
+
     private readonly LinkedList<BufferedMqttMessage> _messages;
+    private readonly Dictionary<Guid, LinkedListNode<BufferedMqttMessage>> _messageIndex; // Added for fast lookup
     private readonly long _maxSizeInBytes;
     private long _currentSizeInBytes;
 
@@ -35,29 +54,33 @@ public class TopicRingBuffer
         }
         _maxSizeInBytes = maxSizeInBytes;
         _messages = new LinkedList<BufferedMqttMessage>();
+        _messageIndex = new Dictionary<Guid, LinkedListNode<BufferedMqttMessage>>(); // Initialize index
         _currentSizeInBytes = 0;
     }
 
     /// <summary>
-    /// Adds a new MQTT message to the buffer. If adding the message exceeds the
+    /// Adds a new MQTT message with its unique ID to the buffer. If adding the message exceeds the
     /// maximum size, the oldest messages are removed until there is enough space.
     /// </summary>
     /// <param name="message">The MQTT message to add.</param>
-    public void AddMessage(MqttApplicationMessage message)
+    /// <param name="messageId">The unique identifier for this message.</param>
+    public void AddMessage(MqttApplicationMessage message, Guid messageId) // Added messageId parameter
     {
-        var bufferedMessage = new BufferedMqttMessage(message);
+        // Prevent adding duplicates if somehow the same ID is generated (highly unlikely)
+        if (_messageIndex.ContainsKey(messageId))
+        {
+             Log.Warning("Attempted to add message with duplicate ID {MessageId} to topic buffer '{Topic}'. Ignoring.", messageId, message.Topic);
+             return;
+        }
 
-        // If even this single message is too large, we cannot add it.
-        // (Or alternatively, clear the entire buffer first if desired)
+        var bufferedMessage = new BufferedMqttMessage(message, messageId);
+
         if (bufferedMessage.Size > _maxSizeInBytes)
         {
-            // Log or handle this case? For now, we just won't add it.
-            // Consider clearing the buffer if one message can exceed the total limit.
-            _messages.Clear();
-            _currentSizeInBytes = 0;
-            // Optionally throw an exception or log a warning.
-            Log.Warning("Message for topic '{Topic}' ({Size} bytes) exceeds buffer limit ({Limit} bytes) and cannot be added.", message.Topic, bufferedMessage.Size, _maxSizeInBytes);
-            return; // Or potentially add anyway after clearing? Design decision.
+            Log.Warning("Message for topic '{Topic}' (ID: {MessageId}, Size: {Size} bytes) exceeds buffer limit ({Limit} bytes). Clearing buffer and adding.",
+                message.Topic, messageId, bufferedMessage.Size, _maxSizeInBytes);
+            Clear(); // Clear buffer if single message is too large
+            // Fall through to add the large message after clearing
         }
 
         // Remove oldest messages until there's space for the new one
@@ -66,10 +89,30 @@ public class TopicRingBuffer
             RemoveOldestMessage();
         }
 
-        // Add the new message
-        _messages.AddLast(bufferedMessage);
+        // Add the new message to the list and the index
+        var node = _messages.AddLast(bufferedMessage);
+        _messageIndex.Add(messageId, node); // Add to index
         _currentSizeInBytes += bufferedMessage.Size;
     }
+
+    /// <summary>
+    /// Attempts to retrieve a message by its unique identifier.
+    /// </summary>
+    /// <param name="messageId">The unique identifier of the message to retrieve.</param>
+    /// <param name="message">The retrieved message, or null if not found.</param>
+    /// <returns>True if the message was found, false otherwise.</returns>
+    public bool TryGetMessage(Guid messageId, out MqttApplicationMessage? message)
+    {
+        if (_messageIndex.TryGetValue(messageId, out var node))
+        {
+            message = node.Value.Message;
+            return true;
+        }
+
+        message = null;
+        return false;
+    }
+
 
     /// <summary>
     /// Retrieves all messages currently stored in the buffer, ordered from oldest to newest.
@@ -87,6 +130,7 @@ public class TopicRingBuffer
     public void Clear()
     {
         _messages.Clear();
+        _messageIndex.Clear(); // Clear the index too
         _currentSizeInBytes = 0;
     }
 
@@ -94,8 +138,9 @@ public class TopicRingBuffer
     {
         if (_messages.First != null)
         {
-            var oldestMessage = _messages.First.Value;
-            _currentSizeInBytes -= oldestMessage.Size;
+            var oldestBufferedMessage = _messages.First.Value;
+            _currentSizeInBytes -= oldestBufferedMessage.Size;
+            _messageIndex.Remove(oldestBufferedMessage.MessageId); // Remove from index
             _messages.RemoveFirst();
         }
     }

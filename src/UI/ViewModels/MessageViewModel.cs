@@ -1,14 +1,53 @@
+using System; // Required for Guid and DateTime
 using MQTTnet; // Required for MqttApplicationMessage
 using ReactiveUI;
+using CrowsNestMqtt.BusinessLogic; // Assuming IMqttService is here
+using CrowsNestMqtt.UI.Services; // Assuming IStatusBarService is here
 
 namespace CrowsNestMqtt.UI.ViewModels;
 
-// Simple ViewModel for displaying a message in the history
+// ViewModel for displaying a message summary in the history list
 public class MessageViewModel : ReactiveObject
 {
-    public DateTime Timestamp { get; set; }
-    public string PayloadPreview { get; set; } = string.Empty;
-    public MqttApplicationMessage? FullMessage { get; set; } // Store the full message for details view
+    private readonly IMqttService _mqttService;
+    private readonly IStatusBarService _statusBarService;
 
+    public Guid MessageId { get; }
+    public string Topic { get; }
+    public DateTime Timestamp { get; } // Keep the timestamp when the VM was created
+    public string PayloadPreview { get; } // Store the generated preview
+
+    // Display text remains the same, based on stored preview
     public string DisplayText => $"{Timestamp:HH:mm:ss.fff}: {PayloadPreview}";
+
+    // Constructor accepting necessary data and injected services
+    public MessageViewModel(
+        Guid messageId,
+        string topic,
+        DateTime timestamp,
+        string payloadPreview,
+        IMqttService mqttService,
+        IStatusBarService statusBarService)
+    {
+        MessageId = messageId;
+        Topic = topic ?? throw new ArgumentNullException(nameof(topic));
+        Timestamp = timestamp;
+        PayloadPreview = payloadPreview ?? string.Empty;
+        _mqttService = mqttService ?? throw new ArgumentNullException(nameof(mqttService));
+        _statusBarService = statusBarService ?? throw new ArgumentNullException(nameof(statusBarService));
+    }
+
+    // Method to be called when details are requested (e.g., on selection)
+    public MqttApplicationMessage? GetFullMessage()
+    {
+        if (_mqttService.TryGetMessage(Topic, MessageId, out var message))
+        {
+            return message;
+        }
+        else
+        {
+            _statusBarService.ShowStatus($"Message details for topic '{Topic}' (ID: {MessageId}) are no longer available in the buffer.");
+            return null;
+        }
+    }
 }
