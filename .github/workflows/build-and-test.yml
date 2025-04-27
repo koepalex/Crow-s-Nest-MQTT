@@ -32,7 +32,9 @@ jobs:
       run: dotnet build --no-restore --configuration Release
 
     - name: Test with coverage
-      run: dotnet test --no-build --configuration Release --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=./TestResults/coverage/    - name: Generate coverage report
+      run: dotnet test --no-build --configuration Release --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=./TestResults/coverage/
+    
+    - name: Generate coverage report
       run: |
         dotnet tool install -g dotnet-reportgenerator-globaltool
         reportgenerator -reports:"./tests/**/coverage.cobertura.xml" -targetdir:"./TestResults/CoverageReport" -reporttypes:"Html;Cobertura;JsonSummary"
@@ -43,7 +45,7 @@ jobs:
         name: code-coverage-report
         path: ./TestResults/CoverageReport
         if-no-files-found: warn    
-   - name: Publish Code Coverage Summary
+    - name: Publish Code Coverage Summary
       uses: irongut/CodeCoverageSummary@v1.3.0
       with:
         filename: ./TestResults/CoverageReport/Cobertura.xml
