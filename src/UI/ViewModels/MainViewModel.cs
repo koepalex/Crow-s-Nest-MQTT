@@ -1096,26 +1096,22 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     {
         if (string.IsNullOrWhiteSpace(filter))
         {
-            // Clear filter: Make all nodes visible
-            Dispatcher.UIThread.Post(() => // Ensure UI update runs on UI thread
-            {
-                int dummyMatchCount = 0; // Need a variable for the ref parameter
-                SetNodeVisibilityRecursive(TopicTreeNodes, isVisible: true, clearFilter: true, ref dummyMatchCount); // Pass the ref parameter
-                StatusBarText = "Topic filter cleared.";
-                IsTopicFilterActive = false; // Update filter state
-                Log.Information("Topic filter cleared.");
-            });
-            return;
+           // Clear filter: Make all nodes visible
+           // Update synchronously for testability and direct command feedback
+           int dummyMatchCount = 0; // Need a variable for the ref parameter
+           SetNodeVisibilityRecursive(TopicTreeNodes, isVisible: true, clearFilter: true, ref dummyMatchCount); // Pass the ref parameter
+           StatusBarText = "Topic filter cleared.";
+           IsTopicFilterActive = false; // Update filter state
+           Log.Information("Topic filter cleared.");
+           return;
         }
 
-        Log.Information("Applying topic filter: '{Filter}'", filter);
-        Dispatcher.UIThread.Post(() => // Ensure UI update runs on UI thread
-        {
-            int matchCount = 0;
-            SetNodeVisibilityRecursive(TopicTreeNodes, isVisible: false, clearFilter: false, ref matchCount, filter); // Start recursion (matchCount before optional filter)
-            StatusBarText = $"Topic filter applied: '{filter}'. Found {matchCount} matching node(s).";
-            IsTopicFilterActive = true; // Update filter state
-        });
+       Log.Information("Applying topic filter: '{Filter}'", filter);
+       // Update synchronously for testability and direct command feedback
+       int matchCount = 0;
+       SetNodeVisibilityRecursive(TopicTreeNodes, isVisible: false, clearFilter: false, ref matchCount, filter); // Start recursion (matchCount before optional filter)
+       StatusBarText = $"Topic filter applied: '{filter}'. Found {matchCount} matching node(s).";
+       IsTopicFilterActive = true; // Update filter state
     }
 
     /// <summary>

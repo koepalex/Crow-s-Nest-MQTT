@@ -15,14 +15,14 @@ namespace CrowsNestMqtt.Tests.ViewModels
 {
     public class MqttCommunicationTests
     {
-        private readonly ICommandParserService _commandParserService;
-        private readonly MqttEngine _mqttEngine;
+       private readonly ICommandParserService _commandParserService;
+       private readonly IMqttService _mqttServiceMock; // Changed to interface substitute
 
-        public MqttCommunicationTests()
-        {
-            _commandParserService = Substitute.For<ICommandParserService>();
-            _mqttEngine = Substitute.For<MqttEngine>(new MqttConnectionSettings());
-        }
+       public MqttCommunicationTests()
+       {
+           _commandParserService = Substitute.For<ICommandParserService>();
+           _mqttServiceMock = Substitute.For<IMqttService>(); // Substitute the interface
+       }
 
         [Fact]
         public void ConnectAsync_ShouldUpdateSettingsAndConnect()
@@ -30,17 +30,17 @@ namespace CrowsNestMqtt.Tests.ViewModels
             // Arrange
             var viewModel = new MainViewModel(_commandParserService);
             
-            // Use reflection to set the mocked MqttEngine
-            var fieldInfo = typeof(MainViewModel).GetField("_mqttEngine", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            fieldInfo?.SetValue(viewModel, _mqttEngine);
+           // Use reflection to set the mocked IMqttService
+           var fieldInfo = typeof(MainViewModel).GetField("_mqttService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); // Field name changed in MainViewModel
+           fieldInfo?.SetValue(viewModel, _mqttServiceMock);
 
-            // Act - use Subscribe() instead of await for ReactiveCommand
+           // Act - use Subscribe() instead of await for ReactiveCommand
             viewModel.ConnectCommand.Execute().Subscribe();
 
-            // Assert
-            // _mqttEngine.Received(1).UpdateSettings(Arg.Is<MqttConnectionSettings>(s => s != null)); // Cannot verify non-virtual method on class substitute
-            _mqttEngine.Received(1).ConnectAsync();
-        }
+           // Assert
+           _mqttServiceMock.Received(1).UpdateSettings(Arg.Any<MqttConnectionSettings>()); // Can verify this now on the interface
+           _mqttServiceMock.Received(1).ConnectAsync();
+       }
 
         [Fact]
         public void DisconnectAsync_ShouldDisconnect()
@@ -48,19 +48,19 @@ namespace CrowsNestMqtt.Tests.ViewModels
             // Arrange
             var viewModel = new MainViewModel(_commandParserService);
             
-            // Use reflection to set the mocked MqttEngine and set IsConnected to true
-            var mqttEngineField = typeof(MainViewModel).GetField("_mqttEngine", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            mqttEngineField?.SetValue(viewModel, _mqttEngine);
-            
-            var isConnectedProperty = typeof(MainViewModel).GetProperty("IsConnected");
+           // Use reflection to set the mocked IMqttService and set IsConnected to true
+           var mqttServiceField = typeof(MainViewModel).GetField("_mqttService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); // Field name changed
+           mqttServiceField?.SetValue(viewModel, _mqttServiceMock);
+
+           var isConnectedProperty = typeof(MainViewModel).GetProperty("IsConnected");
             isConnectedProperty?.SetValue(viewModel, true);
 
             // Act - use Subscribe() instead of await for ReactiveCommand
             viewModel.DisconnectCommand.Execute().Subscribe();
 
-            // Assert
-            // _mqttEngine.Received(1).DisconnectAsync(Arg.Any<CancellationToken>()); // Cannot verify non-virtual method on class substitute
-        }
+           // Assert
+           _mqttServiceMock.Received(1).DisconnectAsync(Arg.Any<CancellationToken>()); // Can verify this now
+       }
 
         [Fact]
         public void ConnectionStateChanged_ShouldUpdateConnectionState()
@@ -68,11 +68,11 @@ namespace CrowsNestMqtt.Tests.ViewModels
             // Arrange
             var viewModel = new MainViewModel(_commandParserService);
             
-            // Use reflection to set the mocked MqttEngine
-            var mqttEngineField = typeof(MainViewModel).GetField("_mqttEngine", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            mqttEngineField?.SetValue(viewModel, _mqttEngine);
+           // Use reflection to set the mocked IMqttService
+           var mqttServiceField = typeof(MainViewModel).GetField("_mqttService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); // Field name changed
+           mqttServiceField?.SetValue(viewModel, _mqttServiceMock);
 
-            // bool connectionStateChanged = false; // Removed PropertyChanged check due to Dispatcher.Post in handler
+           // bool connectionStateChanged = false; // Removed PropertyChanged check due to Dispatcher.Post in handler
             
             // Subscribe to IsConnected property changes - Removed
             // viewModel.PropertyChanged += (sender, args) =>
@@ -83,9 +83,10 @@ namespace CrowsNestMqtt.Tests.ViewModels
 
             // Act - Simulate connection state changed event
             var connectionStateEventArgs = new MqttConnectionStateChangedEventArgs(true, null);
-            // _mqttEngine.ConnectionStateChanged += Raise.EventWith(_mqttEngine, connectionStateEventArgs); // Cannot raise non-virtual event reliably
+           // Raise the event on the mock interface
+           _mqttServiceMock.ConnectionStateChanged += Raise.EventWith(_mqttServiceMock, connectionStateEventArgs);
 
-            // Assert
+           // Assert
             // Assert.True(connectionStateChanged); // Removed PropertyChanged check
             // Assert.True(viewModel.IsConnected); // Cannot reliably assert state change due to non-virtual event + Dispatcher.Post
         }
@@ -96,11 +97,11 @@ namespace CrowsNestMqtt.Tests.ViewModels
             // Arrange
             var viewModel = new MainViewModel(_commandParserService);
             
-            // Use reflection to set the mocked MqttEngine
-            var mqttEngineField = typeof(MainViewModel).GetField("_mqttEngine", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            mqttEngineField?.SetValue(viewModel, _mqttEngine);
-            
-            // Setup a mock message with ReadOnlySequence<byte> for payload
+           // Use reflection to set the mocked IMqttService
+           var mqttServiceField = typeof(MainViewModel).GetField("_mqttService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); // Field name changed
+           mqttServiceField?.SetValue(viewModel, _mqttServiceMock);
+
+           // Setup a mock message with ReadOnlySequence<byte> for payload
             var payload = System.Text.Encoding.UTF8.GetBytes("test message");
             var message = new MqttApplicationMessage
             {
@@ -109,21 +110,23 @@ namespace CrowsNestMqtt.Tests.ViewModels
                 Payload = new ReadOnlySequence<byte>(payload)
             };
             
-            // Create MqttApplicationMessageReceivedEventArgs with correct constructor parameters
-            var messageEventArgs = new MqttApplicationMessageReceivedEventArgs(
-                "client1", // clientId
-                message,   // applicationMessage
-                new MQTTnet.Packets.MqttPublishPacket(), // Pass dummy packet
-                null       // acknowledgeHandler (can be null for testing)
-            );
+           // Create IdentifiedMqttApplicationMessageReceivedEventArgs
+           var messageId = Guid.NewGuid();
+           var clientId = "client1";
+           var identifiedArgs = new IdentifiedMqttApplicationMessageReceivedEventArgs(
+               messageId,
+               message,
+               clientId
+           );
 
-            // Setup for pause state
+           // Setup for pause state
             viewModel.IsPaused = false;
 
             // Act - Simulate message received event
-            // _mqttEngine.MessageReceived += Raise.EventWith(_mqttEngine, messageEventArgs); // Cannot raise non-virtual event on class substitute
+           // Raise the event on the mock interface
+           _mqttServiceMock.MessageReceived += Raise.EventWith(_mqttServiceMock, identifiedArgs);
 
-            // Assert - Check that the topic tree contains the new topic
+           // Assert - Check that the topic tree contains the new topic
             // bool topicFound = false; // Cannot assert if event handler not invoked
             // foreach (var node in viewModel.TopicTreeNodes)
             // {
@@ -143,11 +146,11 @@ namespace CrowsNestMqtt.Tests.ViewModels
             // Arrange
             var viewModel = new MainViewModel(_commandParserService);
             
-            // Use reflection to set the mocked MqttEngine
-            var mqttEngineField = typeof(MainViewModel).GetField("_mqttEngine", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            mqttEngineField?.SetValue(viewModel, _mqttEngine);
-            
-            // Setup a mock message with ReadOnlySequence<byte> for payload
+           // Use reflection to set the mocked IMqttService
+           var mqttServiceField = typeof(MainViewModel).GetField("_mqttService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); // Field name changed
+           mqttServiceField?.SetValue(viewModel, _mqttServiceMock);
+
+           // Setup a mock message with ReadOnlySequence<byte> for payload
             var payload = System.Text.Encoding.UTF8.GetBytes("test message");
             var message = new MqttApplicationMessage
             {
@@ -156,21 +159,23 @@ namespace CrowsNestMqtt.Tests.ViewModels
                 Payload = new ReadOnlySequence<byte>(payload)
             };
 
-            // Create MqttApplicationMessageReceivedEventArgs with correct constructor parameters
-            var messageEventArgs = new MqttApplicationMessageReceivedEventArgs(
-                "client1", // clientId
-                message,   // applicationMessage
-                new MQTTnet.Packets.MqttPublishPacket(), // Pass dummy packet
-                null       // acknowledgeHandler (can be null for testing)
-            );
+           // Create IdentifiedMqttApplicationMessageReceivedEventArgs
+           var messageId = Guid.NewGuid();
+           var clientId = "client1";
+            var identifiedArgs = new IdentifiedMqttApplicationMessageReceivedEventArgs(
+               messageId,
+               message,
+               clientId
+           );
 
-            // Set pause state to true
+           // Set pause state to true
             viewModel.IsPaused = true;
 
             // Act - Simulate message received event
-            // _mqttEngine.MessageReceived += Raise.EventWith(_mqttEngine, messageEventArgs); // Cannot raise non-virtual event on class substitute
+           // Raise the event on the mock interface
+           _mqttServiceMock.MessageReceived += Raise.EventWith(_mqttServiceMock, identifiedArgs);
 
-            // Assert - Check that no nodes were added for the paused message
+           // Assert - Check that no nodes were added for the paused message
             bool topicFound = false;
             foreach (var node in viewModel.TopicTreeNodes)
             {
@@ -205,15 +210,15 @@ namespace CrowsNestMqtt.Tests.ViewModels
             // Arrange
             var viewModel = new MainViewModel(_commandParserService);
             
-            // Use reflection to set the mocked MqttEngine
-            var mqttEngineField = typeof(MainViewModel).GetField("_mqttEngine", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            mqttEngineField?.SetValue(viewModel, _mqttEngine);
+           // Use reflection to set the mocked IMqttService
+           var mqttServiceField = typeof(MainViewModel).GetField("_mqttService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); // Field name changed
+           mqttServiceField?.SetValue(viewModel, _mqttServiceMock);
 
-            // Act
+           // Act
             viewModel.Dispose();
 
-            // Assert
-            _mqttEngine.Received(1).Dispose();
-        }
+           // Assert
+           _mqttServiceMock.Received(1).Dispose(); // Verify Dispose on the interface mock
+       }
     }
 }

@@ -3,6 +3,7 @@ using CrowsNestMqtt.Businesslogic.Commands;
 using CrowsNestMqtt.Businesslogic.Configuration;
 using CrowsNestMqtt.Businesslogic.Services;
 using CrowsNestMqtt.UI.ViewModels;
+using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using NSubstitute;
 using MQTTnet;
 using System;
@@ -16,14 +17,18 @@ namespace CrowsNestMqtt.Tests.ViewModels
 {
     public class CommandInterfaceTests
     {
-        private readonly ICommandParserService _commandParserService;
-        private readonly MqttEngine _mqttEngine;
+       private readonly ICommandParserService _commandParserService;
+       private readonly MqttEngine _mqttEngine; // Keep this for engine-specific tests
+       private readonly IMqttService _mqttServiceMock; // Add mock for MessageViewModel
+       private readonly IStatusBarService _statusBarServiceMock; // Add mock for MessageViewModel
 
-        public CommandInterfaceTests()
-        {
-            _commandParserService = Substitute.For<ICommandParserService>();
-            _mqttEngine = Substitute.For<MqttEngine>(new MqttConnectionSettings());
-        }
+       public CommandInterfaceTests()
+       {
+           _commandParserService = Substitute.For<ICommandParserService>();
+           _mqttEngine = Substitute.For<MqttEngine>(new MqttConnectionSettings());
+           _mqttServiceMock = Substitute.For<IMqttService>(); // Initialize mock
+           _statusBarServiceMock = Substitute.For<IStatusBarService>(); // Initialize mock
+       }
 
         [Fact]
         public void ExecuteSubmitInput_WithCommandInput_ShouldExecuteCommand()
@@ -148,18 +153,24 @@ namespace CrowsNestMqtt.Tests.ViewModels
             // Arrange
             var viewModel = new MainViewModel(_commandParserService);
             
-            // Create a message to export
-            var testMessage = new MessageViewModel
-            {
-                Timestamp = DateTime.Now,
-                FullMessage = new MqttApplicationMessage
-                {
-                    Topic = "test/export",
-                    Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes("test payload"))
-                },
-                PayloadPreview = "test payload"
-            };
-            viewModel.SelectedMessage = testMessage;
+           // Create a message to export
+           var messageIdExport = Guid.NewGuid();
+           var timestampExport = DateTime.Now;
+           var topicExport = "test/export";
+           var payloadExport = "test payload";
+           var fullMessageExport = new MqttApplicationMessageBuilder()
+               .WithTopic(topicExport)
+               .WithPayload(Encoding.UTF8.GetBytes(payloadExport))
+               .Build();
+
+           _mqttServiceMock.TryGetMessage(topicExport, messageIdExport, out Arg.Any<MqttApplicationMessage?>())
+               .Returns(x => {
+                   x[2] = fullMessageExport;
+                   return true;
+               });
+
+           var testMessageExport = new MessageViewModel(messageIdExport, topicExport, timestampExport, payloadExport, _mqttServiceMock, _statusBarServiceMock);
+           viewModel.SelectedMessage = testMessageExport;
             
             // Create export command with format and path
             var exportCommand = new ParsedCommand(CommandType.Export, new List<string> { "json", "c:\\temp" }.AsReadOnly());
@@ -179,18 +190,24 @@ namespace CrowsNestMqtt.Tests.ViewModels
             // Arrange
             var viewModel = new MainViewModel(_commandParserService);
             
-            // Create a message with JSON payload
-            var testMessage = new MessageViewModel
-            {
-                Timestamp = DateTime.Now,
-                FullMessage = new MqttApplicationMessage
-                {
-                    Topic = "test/view",
-                    Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes("{\"test\":\"value\"}"))
-                },
-                PayloadPreview = "{\"test\":\"value\"}"
-            };
-            viewModel.SelectedMessage = testMessage;
+           // Create a message with JSON payload
+           var messageIdViewRaw = Guid.NewGuid();
+           var timestampViewRaw = DateTime.Now;
+           var topicViewRaw = "test/view";
+           var payloadViewRaw = "{\"test\":\"value\"}";
+           var fullMessageViewRaw = new MqttApplicationMessageBuilder()
+               .WithTopic(topicViewRaw)
+               .WithPayload(Encoding.UTF8.GetBytes(payloadViewRaw))
+               .Build();
+
+            _mqttServiceMock.TryGetMessage(topicViewRaw, messageIdViewRaw, out Arg.Any<MqttApplicationMessage?>())
+               .Returns(x => {
+                   x[2] = fullMessageViewRaw;
+                   return true;
+               });
+
+           var testMessageViewRaw = new MessageViewModel(messageIdViewRaw, topicViewRaw, timestampViewRaw, payloadViewRaw, _mqttServiceMock, _statusBarServiceMock);
+           viewModel.SelectedMessage = testMessageViewRaw;
             
             // Initially JSON viewer should be visible for valid JSON
             Assert.True(viewModel.IsJsonViewerVisible);
@@ -214,18 +231,24 @@ namespace CrowsNestMqtt.Tests.ViewModels
             // Arrange
             var viewModel = new MainViewModel(_commandParserService);
             
-            // Create a message with JSON payload
-            var testMessage = new MessageViewModel
-            {
-                Timestamp = DateTime.Now,
-                FullMessage = new MqttApplicationMessage
-                {
-                    Topic = "test/view",
-                    Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes("{\"test\":\"value\"}"))
-                },
-                PayloadPreview = "{\"test\":\"value\"}"
-            };
-            viewModel.SelectedMessage = testMessage;
+           // Create a message with JSON payload (same as above for simplicity, could reuse)
+           var messageIdViewJson = Guid.NewGuid();
+           var timestampViewJson = DateTime.Now;
+           var topicViewJson = "test/view";
+           var payloadViewJson = "{\"test\":\"value\"}";
+           var fullMessageViewJson = new MqttApplicationMessageBuilder()
+               .WithTopic(topicViewJson)
+               .WithPayload(Encoding.UTF8.GetBytes(payloadViewJson))
+               .Build();
+
+           _mqttServiceMock.TryGetMessage(topicViewJson, messageIdViewJson, out Arg.Any<MqttApplicationMessage?>())
+               .Returns(x => {
+                   x[2] = fullMessageViewJson;
+                   return true;
+               });
+
+           var testMessageViewJson = new MessageViewModel(messageIdViewJson, topicViewJson, timestampViewJson, payloadViewJson, _mqttServiceMock, _statusBarServiceMock);
+           viewModel.SelectedMessage = testMessageViewJson;
             
             // First switch to raw view
             var switchViewMethod = typeof(MainViewModel).GetMethod("SwitchPayloadView", 

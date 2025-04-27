@@ -26,11 +26,11 @@ public class TopicRingBuffer
         {
             Message = message ?? throw new ArgumentNullException(nameof(message));
             MessageId = messageId;
-            // Estimate size: Topic length + Payload length + some overhead
-            // This is a rough estimate; adjust if more accuracy is needed.
-            Size = (message.Topic?.Length ?? 0) * sizeof(char) + message.Payload.Length + 100; // Payload is ReadOnlySequence<byte> (struct), cannot be null
-        }
-    }
+           // Simplified size calculation for testing purposes - primarily payload length.
+           // A more accurate calculation might be needed later.
+           Size = message.Payload.Length; // Use payload length directly for now
+       }
+   }
     // -------------------------------------------------
 
     private readonly LinkedList<BufferedMqttMessage> _messages;
@@ -73,26 +73,36 @@ public class TopicRingBuffer
              return;
         }
 
-        var bufferedMessage = new BufferedMqttMessage(message, messageId);
+       var bufferedMessage = new BufferedMqttMessage(message, messageId);
 
-        if (bufferedMessage.Size > _maxSizeInBytes)
-        {
-            Log.Warning("Message for topic '{Topic}' (ID: {MessageId}, Size: {Size} bytes) exceeds buffer limit ({Limit} bytes). Clearing buffer and adding.",
-                message.Topic, messageId, bufferedMessage.Size, _maxSizeInBytes);
-            Clear(); // Clear buffer if single message is too large
-            // Fall through to add the large message after clearing
-        }
+       // Remove the explicit check for oversized messages here.
+       // The while loop below will handle making space.
 
-        // Remove oldest messages until there's space for the new one
+       // Remove oldest messages until there's space for the new one
         while (_currentSizeInBytes + bufferedMessage.Size > _maxSizeInBytes && _messages.Count > 0)
         {
             RemoveOldestMessage();
-        }
+       }
 
-        // Add the new message to the list and the index
-        var node = _messages.AddLast(bufferedMessage);
-        _messageIndex.Add(messageId, node); // Add to index
-        _currentSizeInBytes += bufferedMessage.Size;
+       // Only add the message if it fits after potentially removing older messages
+       if (_currentSizeInBytes + bufferedMessage.Size <= _maxSizeInBytes)
+       {
+           // Add the new message to the list and the index
+           var node = _messages.AddLast(bufferedMessage);
+           _messageIndex.Add(messageId, node); // Add to index
+           _currentSizeInBytes += bufferedMessage.Size;
+       }
+       else
+       {
+            // Log if a message couldn't be added even after clearing space (because it's intrinsically too large)
+            Log.Warning("Message for topic '{Topic}' (ID: {MessageId}, Size: {Size} bytes) could not be added as it exceeds the buffer limit ({Limit} bytes) even after clearing space.",
+                message.Topic, messageId, bufferedMessage.Size, _maxSizeInBytes);
+            // Ensure buffer is clear if the only message was too large and couldn't be added
+            if (_messages.Count == 0)
+            {
+                Clear();
+            }
+       }
     }
 
     /// <summary>

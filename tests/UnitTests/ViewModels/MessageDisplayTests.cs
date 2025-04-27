@@ -1,6 +1,7 @@
 using CrowsNestMqtt.BusinessLogic;
 using CrowsNestMqtt.Businesslogic.Services;
 using CrowsNestMqtt.UI.ViewModels;
+using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using DynamicData;
 using NSubstitute;
 using MQTTnet;
@@ -15,30 +16,40 @@ namespace CrowsNestMqtt.Tests.ViewModels
 {
     public class MessageDisplayTests
     {
-        private readonly ICommandParserService _commandParserService;
+       private readonly ICommandParserService _commandParserService;
+       private readonly IMqttService _mqttServiceMock;
+       private readonly IStatusBarService _statusBarServiceMock;
 
-        public MessageDisplayTests()
-        {
-            _commandParserService = Substitute.For<ICommandParserService>();
-        }
+       public MessageDisplayTests()
+       {
+           _commandParserService = Substitute.For<ICommandParserService>();
+           _mqttServiceMock = Substitute.For<IMqttService>();
+           _statusBarServiceMock = Substitute.For<IStatusBarService>();
+       }
 
         [Fact]
         public void SelectedMessage_WhenChanged_ShouldUpdateMessageDetails()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
-            var testMessage = new MessageViewModel
-            {
-                Timestamp = DateTime.Now,
-                FullMessage = new MqttApplicationMessage
-                {
-                    Topic = "test/message",
-                    Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes("test payload"))
-                },
-                PayloadPreview = "test payload"
-            };
+           var viewModel = new MainViewModel(_commandParserService);
+           var messageId = Guid.NewGuid();
+           var timestamp = DateTime.Now;
+           var topic = "test/message";
+           var payload = "test payload";
+           var fullMessage = new MqttApplicationMessageBuilder()
+               .WithTopic(topic)
+               .WithPayload(Encoding.UTF8.GetBytes(payload))
+               .Build();
 
-            // Act
+           _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+               .Returns(x => {
+                   x[2] = fullMessage;
+                   return true;
+               });
+
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, payload, _mqttServiceMock, _statusBarServiceMock);
+
+           // Act
             viewModel.SelectedMessage = testMessage;
 
             // Assert
@@ -52,19 +63,24 @@ namespace CrowsNestMqtt.Tests.ViewModels
         {
             // Arrange
             var viewModel = new MainViewModel(_commandParserService);
-            var jsonPayload = "{\"test\":\"value\"}";
-            var testMessage = new MessageViewModel
-            {
-                Timestamp = DateTime.Now,
-                FullMessage = new MqttApplicationMessage
-                {
-                    Topic = "test/json",
-                    Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(jsonPayload))
-                },
-                PayloadPreview = jsonPayload
-            };
+           var jsonPayload = "{\"test\":\"value\"}";
+           var messageId = Guid.NewGuid();
+           var timestamp = DateTime.Now;
+           var topic = "test/json";
+           var fullMessage = new MqttApplicationMessageBuilder()
+               .WithTopic(topic)
+               .WithPayload(Encoding.UTF8.GetBytes(jsonPayload))
+               .Build();
 
-            // Act
+           _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+               .Returns(x => {
+                   x[2] = fullMessage;
+                   return true;
+               });
+
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, jsonPayload, _mqttServiceMock, _statusBarServiceMock);
+
+           // Act
             viewModel.SelectedMessage = testMessage;
 
             // Assert
@@ -78,20 +94,25 @@ namespace CrowsNestMqtt.Tests.ViewModels
         {
             // Arrange
             var viewModel = new MainViewModel(_commandParserService);
-            var xmlPayload = "<root><test>value</test></root>";
-            var testMessage = new MessageViewModel
-            {
-                Timestamp = DateTime.Now,
-                FullMessage = new MqttApplicationMessage
-                {
-                    Topic = "test/xml",
-                    ContentType = "application/xml",
-                    Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(xmlPayload))
-                },
-                PayloadPreview = xmlPayload
-            };
+           var xmlPayload = "<root><test>value</test></root>";
+           var messageId = Guid.NewGuid();
+           var timestamp = DateTime.Now;
+           var topic = "test/xml";
+           var fullMessage = new MqttApplicationMessageBuilder()
+               .WithTopic(topic)
+               .WithPayload(Encoding.UTF8.GetBytes(xmlPayload))
+               .WithContentType("application/xml")
+               .Build();
 
-            // Act
+           _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+               .Returns(x => {
+                   x[2] = fullMessage;
+                   return true;
+               });
+
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, xmlPayload, _mqttServiceMock, _statusBarServiceMock);
+
+           // Act
             viewModel.SelectedMessage = testMessage;
 
             // Assert
@@ -107,26 +128,37 @@ namespace CrowsNestMqtt.Tests.ViewModels
             // Arrange
             var viewModel = new MainViewModel(_commandParserService);
 
-            // Create a message with user properties
-            var message = new MqttApplicationMessage
-            {
-                Topic = "test/properties",
-                Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes("test")),
-                UserProperties = new List<MQTTnet.Packets.MqttUserProperty>
-                {
-                    new MQTTnet.Packets.MqttUserProperty("Property1", "Value1"),
-                    new MQTTnet.Packets.MqttUserProperty("Property2", "Value2")
-                }
-            };
+           // Create a message with user properties
+           var messageId = Guid.NewGuid();
+           var timestamp = DateTime.Now;
+           var topic = "test/properties";
+           var payload = "test";
+           var userProperties = new List<MQTTnet.Packets.MqttUserProperty>
+           {
+               new MQTTnet.Packets.MqttUserProperty("Property1", "Value1"),
+               new MQTTnet.Packets.MqttUserProperty("Property2", "Value2")
+           };
+            // Corrected approach:
+            var fullMessageBuilder = new MqttApplicationMessageBuilder() // Declare the builder
+                .WithTopic(topic)
+                .WithPayload(Encoding.UTF8.GetBytes(payload));
 
-            var testMessage = new MessageViewModel
+            // Add user properties individually by chaining
+            foreach (var prop in userProperties)
             {
-                Timestamp = DateTime.Now,
-                FullMessage = message,
-                PayloadPreview = "test"
-            };
+                fullMessageBuilder = fullMessageBuilder.WithUserProperty(prop.Name, prop.Value); // Chain the builder
+            }
+            var fullMessage = fullMessageBuilder.Build(); // Build the final message
 
-            // Act
+             _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+               .Returns(x => {
+                   x[2] = fullMessage;
+                   return true;
+               });
+
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, payload, _mqttServiceMock, _statusBarServiceMock);
+
+           // Act
             viewModel.SelectedMessage = testMessage;
 
             // Assert
@@ -147,41 +179,26 @@ namespace CrowsNestMqtt.Tests.ViewModels
                 BindingFlags.NonPublic | BindingFlags.Instance);
             var messageSource = (SourceList<MessageViewModel>?)messageSourceField?.GetValue(viewModel);
             
-            // Add test messages
-            messageSource?.Add(new MessageViewModel 
-            { 
-                Timestamp = DateTime.Now, 
-                FullMessage = new MqttApplicationMessage 
-                { 
-                    Topic = "sensor/temperature", 
-                    Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes("25.5")) 
-                }, 
-                PayloadPreview = "25.5" 
-            });
-            
-            messageSource?.Add(new MessageViewModel 
-            { 
-                Timestamp = DateTime.Now, 
-                FullMessage = new MqttApplicationMessage 
-                { 
-                    Topic = "sensor/humidity", 
-                    Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes("60%")) 
-                }, 
-                PayloadPreview = "60%" 
-            });
-            
-            messageSource?.Add(new MessageViewModel 
-            { 
-                Timestamp = DateTime.Now, 
-                FullMessage = new MqttApplicationMessage 
-                { 
-                    Topic = "light/status", 
-                    Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes("ON")) 
-                }, 
-                PayloadPreview = "ON" 
-            });
-            
-            // Act
+           // Add test messages
+           var msg1_id = Guid.NewGuid();
+           var msg1_topic = "sensor/temperature";
+           var msg1_payload = "25.5";
+           var msg1_time = DateTime.Now;
+           messageSource?.Add(new MessageViewModel(msg1_id, msg1_topic, msg1_time, msg1_payload, _mqttServiceMock, _statusBarServiceMock));
+
+           var msg2_id = Guid.NewGuid();
+           var msg2_topic = "sensor/humidity";
+           var msg2_payload = "60%";
+           var msg2_time = DateTime.Now;
+           messageSource?.Add(new MessageViewModel(msg2_id, msg2_topic, msg2_time, msg2_payload, _mqttServiceMock, _statusBarServiceMock));
+
+           var msg3_id = Guid.NewGuid();
+           var msg3_topic = "light/status";
+           var msg3_payload = "ON";
+           var msg3_time = DateTime.Now;
+           messageSource?.Add(new MessageViewModel(msg3_id, msg3_topic, msg3_time, msg3_payload, _mqttServiceMock, _statusBarServiceMock));
+
+           // Act
             viewModel.CurrentSearchTerm = "sensor";
             
             // Give dynamic data time to filter
@@ -224,14 +241,15 @@ namespace CrowsNestMqtt.Tests.ViewModels
                 Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes("test"))
             };
             
-            var args = new MqttApplicationMessageReceivedEventArgs(
-                "client",
-                message,
-                new MQTTnet.Packets.MqttPublishPacket(), // Pass dummy packet
-                null
-            );
-            
-            // Act - simulate message received
+           var messageId = Guid.NewGuid();
+           var clientId = "test-client";
+           var args = new IdentifiedMqttApplicationMessageReceivedEventArgs(
+               messageId,
+               message,
+               clientId
+           );
+
+           // Act - simulate message received
             handlerMethod?.Invoke(viewModel, new object[] { mqttEngine, args });
             
             // Assert - count should remain the same as paused

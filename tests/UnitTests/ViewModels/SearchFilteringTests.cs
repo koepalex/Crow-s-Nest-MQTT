@@ -2,6 +2,7 @@ using CrowsNestMqtt.BusinessLogic;
 using CrowsNestMqtt.Businesslogic.Commands;
 using CrowsNestMqtt.Businesslogic.Services;
 using CrowsNestMqtt.UI.ViewModels;
+using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using DynamicData;
 using NSubstitute;
 using MQTTnet;
@@ -17,12 +18,16 @@ namespace CrowsNestMqtt.Tests.ViewModels
 {
     public class SearchFilteringTests
     {
-        private readonly ICommandParserService _commandParserService;
+       private readonly ICommandParserService _commandParserService;
+       private readonly IMqttService _mqttServiceMock; // Add mock for MessageViewModel
+       private readonly IStatusBarService _statusBarServiceMock; // Add mock for MessageViewModel
 
-        public SearchFilteringTests()
-        {
-            _commandParserService = Substitute.For<ICommandParserService>();
-        }
+       public SearchFilteringTests()
+       {
+           _commandParserService = Substitute.For<ICommandParserService>();
+           _mqttServiceMock = Substitute.For<IMqttService>(); // Initialize mock
+           _statusBarServiceMock = Substitute.For<IStatusBarService>(); // Initialize mock
+       }
 
         [Fact]
         public void CurrentSearchTerm_WhenChanged_ShouldUpdateFilteredMessageHistory()
@@ -113,9 +118,9 @@ namespace CrowsNestMqtt.Tests.ViewModels
             
             // Assert
             Assert.Equal(2, viewModel.FilteredMessageHistory.Count);
-            Assert.All(viewModel.FilteredMessageHistory, 
-                msg => Assert.Equal("sensor/temperature", msg.FullMessage!.Topic));
-        }
+           Assert.All(viewModel.FilteredMessageHistory,
+               msg => Assert.Equal("sensor/temperature", msg.Topic)); // Use msg.Topic directly
+       }
 
         [Fact]
         public void SelectedNode_WhenSetToNull_ShouldShowAllTopics()
@@ -188,11 +193,11 @@ namespace CrowsNestMqtt.Tests.ViewModels
             
             // Assert - Should only show temperature readings (not the error message)
             Assert.Equal(2, viewModel.FilteredMessageHistory.Count);
-            Assert.All(viewModel.FilteredMessageHistory, msg => 
-            {
-                Assert.Equal("sensor/temperature", msg.FullMessage!.Topic);
-                Assert.Contains("reading", msg.PayloadPreview);
-            });
+           Assert.All(viewModel.FilteredMessageHistory, msg =>
+           {
+               Assert.Equal("sensor/temperature", msg.Topic); // Use msg.Topic directly
+               Assert.Contains("reading", msg.PayloadPreview);
+           });
         }
 
         [Fact]
@@ -359,20 +364,14 @@ namespace CrowsNestMqtt.Tests.ViewModels
             if (messageSource == null)
                 throw new InvalidOperationException("Could not access _messageHistorySource field");
             
-            foreach (var (topic, payload) in messages)
-            {
-                var message = new MessageViewModel
-                {
-                    Timestamp = DateTime.Now,
-                    FullMessage = new MqttApplicationMessage
-                    {
-                        Topic = topic,
-                        Payload = new System.Buffers.ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(payload))
-                    },
-                    PayloadPreview = payload
-                };
-                
-                messageSource.Add(message);
+           foreach (var (topic, payload) in messages)
+           {
+               var messageId = Guid.NewGuid();
+               var timestamp = DateTime.Now;
+               // No need to mock TryGetMessage here as these messages aren't selected in these specific tests
+               var message = new MessageViewModel(messageId, topic, timestamp, payload, _mqttServiceMock, _statusBarServiceMock);
+
+               messageSource.Add(message);
             }
             
             // Allow time for the reactive pipeline to process

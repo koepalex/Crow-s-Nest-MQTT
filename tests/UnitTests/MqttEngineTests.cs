@@ -27,8 +27,8 @@ namespace CrowsNestMqtt.Tests
             };
             var engine = new MqttEngine(connectionSettings);
 
-            MqttApplicationMessageReceivedEventArgs? receivedArgs = null;
-            var messageReceivedEvent = new ManualResetEventSlim(false);
+           IdentifiedMqttApplicationMessageReceivedEventArgs? receivedArgs = null; // Changed type here
+           var messageReceivedEvent = new ManualResetEventSlim(false);
 
             engine.MessageReceived += (sender, args) =>
             {

@@ -360,10 +360,11 @@ public class MqttEngine : IMqttService // Implement the interface
         return Task.CompletedTask;
     }
 
-    // --- IDisposable Implementation ---
-    protected virtual void Dispose(bool disposing)
-    {
-        if (_isDisposing) return;
+   // --- IDisposable Implementation ---
+   // Made protected internal virtual for testability with NSubstitute
+   protected internal virtual void Dispose(bool disposing)
+   {
+       if (_isDisposing) return;
 
         if (disposing)
         {
