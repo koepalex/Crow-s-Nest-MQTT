@@ -98,7 +98,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-      # No fetch-depth needed here unless required by publish step
+      with:
+        fetch-depth: 0 
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
@@ -107,7 +108,7 @@ jobs:
 
     # Restore might be needed before publish if not implicitly done
     - name: Restore dependencies (optional, publish might handle it)
-      run: dotnet restore src/MainApp/CrowsNestMqtt.App.csproj
+      run: dotnet restore 
 
     - name: Publish (${{ matrix.runtime }})
       run: dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --runtime ${{ matrix.runtime }} --self-contained -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}/ --no-restore # Use --no-restore if restore step is present
