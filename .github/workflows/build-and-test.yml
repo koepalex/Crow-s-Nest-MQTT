@@ -66,5 +66,11 @@ jobs:
         path: code-coverage-results.md
 
     - name: Publish
-      run: dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --self-contained -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}
+      run: dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --self-contained -p:PublishSingleFile=true -o ./publish/
     
+    - name: Upload Application
+      uses: actions/upload-artifact@v4
+      with:
+        name: crows-nest-mqtt
+        path: ./publish
+        if-no-files-found: warn
