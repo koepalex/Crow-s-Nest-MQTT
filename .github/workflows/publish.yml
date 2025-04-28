@@ -44,6 +44,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4 # Checkout code again for this job
+      with:
+        fetch-depth: 0 # Fetch all history for GitVersion
+        ref: ${{ github.ref }} # Ensure the correct ref is checked out
+        fetch-tags: true # Explicitly fetch all tags
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
