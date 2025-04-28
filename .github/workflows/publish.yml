@@ -41,6 +41,8 @@ jobs:
           - os: macos-latest
             runtime: osx-x64
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
 
     steps:
     - uses: actions/checkout@v4 # Checkout code again for this job
