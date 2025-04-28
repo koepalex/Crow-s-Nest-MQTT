@@ -11,9 +11,16 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    env:
-      runtime: linux-x64
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            runtime: linux-x64
+          - os: windows-latest
+            runtime: win-x64
+          - os: macos-latest
+            runtime: osx-x64
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v3
@@ -81,11 +88,11 @@ jobs:
         path: ./TestResults/CoverageReport/code-coverage-results.md
 
     - name: Publish
-      run: dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --self-contained -p:PublishSingleFile=true -o ./publish/
-    
-    - name: Upload Application
+      run: dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --runtime ${{ matrix.runtime }} --self-contained -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}/
+
+    - name: Upload Application (${{ matrix.runtime }})
       uses: actions/upload-artifact@v4
       with:
-        name: crows-nest-mqtt-${{ steps.gitversion.outputs.semVer }} # Include version in artifact name
-        path: ./publish
+        name: crows-nest-mqtt-${{ matrix.runtime }}-${{ steps.gitversion.outputs.semVer }} # Include runtime and version in artifact name
+        path: ./publish/${{ matrix.runtime }}
         if-no-files-found: warn
