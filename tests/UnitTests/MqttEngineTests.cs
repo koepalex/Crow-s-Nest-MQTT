@@ -64,7 +64,7 @@ namespace CrowsNestMqtt.Tests
             // Wait for the message to be received
             if (!messageReceivedEvent.Wait(TimeSpan.FromSeconds(10)))
             {
-                Assert.True(false, "Timeout waiting for message.");
+                Assert.Fail("Timeout waiting for message.");
             }
 
             // Assert
