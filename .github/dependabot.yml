@@ -9,5 +9,5 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "monthly"
-    target-branch: "main"
+    target-branch: "nuget-updates"
     open-pull-requests-limit: 10 # Limit the number of open PRs for nuget updates
