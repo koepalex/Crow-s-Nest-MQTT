@@ -12,6 +12,7 @@ namespace CrowsNestMqtt.Tests
     public class MqttEngineTests
     {
         [Fact]
+        [Trait("Category", "LocalOnly")] // Add this trait to mark the test as local-only
         public async Task MqttEngine_Should_Receive_Published_Message()
         {
             // Arrange
