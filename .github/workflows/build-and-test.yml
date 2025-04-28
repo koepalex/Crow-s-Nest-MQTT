@@ -10,17 +10,12 @@ on:
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            runtime: linux-x64
-          - os: windows-latest
-            runtime: win-x64
-          - os: macos-latest
-            runtime: osx-x64
-    runs-on: ${{ matrix.os }}
+  build_test_cover: # Renamed job
+    name: Build, Test & Coverage
+    runs-on: ubuntu-latest # Run only on Linux
+
+    outputs: # Define output for the version
+      semVer: ${{ steps.gitversion.outputs.semVer }}
 
     steps:
     - uses: actions/checkout@v3
@@ -87,12 +82,39 @@ jobs:
         recreate: true
         path: ./TestResults/CoverageReport/code-coverage-results.md
 
-    - name: Publish
-      run: dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --runtime ${{ matrix.runtime }} --self-contained -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}/
+  publish:
+    name: Publish Application
+    needs: build_test_cover # Depends on the first job
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            runtime: linux-x64
+          - os: windows-latest
+            runtime: win-x64
+          - os: macos-latest
+            runtime: osx-x64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+      # No fetch-depth needed here unless required by publish step
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 9.0.x
+
+    # Restore might be needed before publish if not implicitly done
+    - name: Restore dependencies (optional, publish might handle it)
+      run: dotnet restore src/MainApp/CrowsNestMqtt.App.csproj
+
+    - name: Publish (${{ matrix.runtime }})
+      run: dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --runtime ${{ matrix.runtime }} --self-contained -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}/ --no-restore # Use --no-restore if restore step is present
 
     - name: Upload Application (${{ matrix.runtime }})
       uses: actions/upload-artifact@v4
       with:
-        name: crows-nest-mqtt-${{ matrix.runtime }}-${{ steps.gitversion.outputs.semVer }} # Include runtime and version in artifact name
+        name: crows-nest-mqtt-${{ matrix.runtime }}-${{ needs.build_test_cover.outputs.semVer }} # Use version from build_test_cover job
         path: ./publish/${{ matrix.runtime }}
-        if-no-files-found: warn
+        if-no-files-found: error # Changed to error as publish should always produce files
