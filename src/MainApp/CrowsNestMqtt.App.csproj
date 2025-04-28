@@ -2,7 +2,7 @@
   <PropertyGroup>
     <RootNamespace>CrowsNestMqtt.App</RootNamespace>
     <AssemblyName>CrowsNestMqtt.App</AssemblyName>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>$(AppTargetFramework)</TargetFramework>
     <Nullable>enable</Nullable>
     <RuntimeIdentifiers>$(TargetRuntimeIdentifiers)</RuntimeIdentifiers>
