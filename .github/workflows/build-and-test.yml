@@ -66,5 +66,5 @@ jobs:
         path: code-coverage-results.md
 
     - name: Publish
-      run: dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --runtime ${{ matrix.runtime }} --self-contained true -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}
+      run: dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --self-contained -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}
     
