@@ -67,3 +67,12 @@ jobs:
         name: crows-nest-mqtt-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }} # Use version from needs context
         path: ./publish/${{ matrix.runtime }}
         if-no-files-found: error
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      if: github.ref_type == 'tag'
+      with:
+        generate_release_notes: true
+        draft: true
+        append_body: true
+        files: crows-nest-mqtt-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }}
