@@ -1,0 +1,69 @@
+name: Publish Application
+
+# Allows manual triggering
+on:
+  workflow_dispatch:
+
+jobs:
+  determine_version:
+    name: Determine Version
+    runs-on: ubuntu-latest
+    outputs:
+      semVer: ${{ steps.gitversion.outputs.semVer }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Fetch all history for GitVersion
+
+    - name: Install GitVersion
+      uses: gittools/actions/gitversion/setup@v1.1.1
+      with:
+        versionSpec: '5.x'
+
+    - name: Determine Version
+      id: gitversion
+      uses: gittools/actions/gitversion/execute@v1.1.1
+
+    - name: Display GitVersion outputs (for debugging)
+      run: |
+        echo "Determined SemVer: ${{ steps.gitversion.outputs.semVer }}"
+
+  publish:
+    name: Publish Application
+    needs: determine_version # Depends on the version determination job
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            runtime: linux-x64
+          - os: windows-latest
+            runtime: win-x64
+          - os: macos-latest
+            runtime: osx-x64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4 # Checkout code again for this job
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+
+    # Restore might be needed before publish if not implicitly done
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Publish (${{ matrix.runtime }})
+      env:
+        PUBLISH_VERSION: ${{ needs.determine_version.outputs.semVer }} # Get version from needs context
+      run: |
+        echo "Publishing version: $PUBLISH_VERSION"
+        dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --runtime ${{ matrix.runtime }} --self-contained -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}/ --no-restore -p:Version=$PUBLISH_VERSION
+
+    - name: Upload Application (${{ matrix.runtime }})
+      uses: actions/upload-artifact@v4
+      with:
+        name: crows-nest-mqtt-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }} # Use version from needs context
+        path: ./publish/${{ matrix.runtime }}
+        if-no-files-found: error
