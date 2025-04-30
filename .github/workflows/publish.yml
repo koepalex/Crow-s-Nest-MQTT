@@ -85,6 +85,6 @@ jobs:
         draft: true
         append_body: true
         files: |
-          crows-nest-mqtt-linux-x64-${{ needs.determine_version.outputs.semVer }}
-          crows-nest-mqtt-osx-x64-${{ needs.determine_version.outputs.semVer }}
-          crows-nest-mqtt-win-x64-${{ needs.determine_version.outputs.semVer }}
+          ./publish/linux-x64/crows-nest-mqtt-linux-x64-${{ needs.determine_version.outputs.semVer }}
+          ./publish/osx-x64/crows-nest-mqtt-osx-x64-${{ needs.determine_version.outputs.semVer }}
+          ./publish/win-x64/crows-nest-mqtt-win-x64-${{ needs.determine_version.outputs.semVer }}
