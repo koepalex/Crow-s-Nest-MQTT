@@ -61,12 +61,8 @@ jobs:
       run: dotnet restore
 
     - name: Publish (${{ matrix.runtime }})
-      env:
-        PUBLISH_VERSION: ${{ needs.determine_version.outputs.semVer }} # Get version from needs context
       run: |
-        echo "Publishing version: $PUBLISH_VERSION"
-        dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --runtime ${{ matrix.runtime }} --self-contained -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}/ --no-restore -p:Version=$PUBLISH_VERSION
-
+        dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --runtime ${{ matrix.runtime }} --self-contained -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}/ --no-restore -p:Version=${{ needs.determine_version.outputs.semVer }}
     - name: Upload Application (${{ matrix.runtime }})
       uses: actions/upload-artifact@v4
       with:
