@@ -37,10 +37,29 @@ public class TopicRingBuffer
     private readonly Dictionary<Guid, LinkedListNode<BufferedMqttMessage>> _messageIndex; // Added for fast lookup
     private readonly long _maxSizeInBytes;
     private long _currentSizeInBytes;
+    private readonly object _lock = new object(); // Added for thread safety
 
-    public long CurrentSizeInBytes => _currentSizeInBytes;
-    public int Count => _messages.Count;
-    public long MaxSizeInBytes => _maxSizeInBytes;
+    public long CurrentSizeInBytes
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _currentSizeInBytes;
+            }
+        }
+    }
+    public int Count
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _messages.Count;
+            }
+        }
+    }
+    public long MaxSizeInBytes => _maxSizeInBytes; // Max size is immutable, no lock needed
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TopicRingBuffer"/> class.
@@ -66,43 +85,48 @@ public class TopicRingBuffer
     /// <param name="messageId">The unique identifier for this message.</param>
     public void AddMessage(MqttApplicationMessage message, Guid messageId) // Added messageId parameter
     {
-        // Prevent adding duplicates if somehow the same ID is generated (highly unlikely)
-        if (_messageIndex.ContainsKey(messageId))
+        lock (_lock)
         {
-             Log.Warning("Attempted to add message with duplicate ID {MessageId} to topic buffer '{Topic}'. Ignoring.", messageId, message.Topic);
-             return;
-        }
-
-       var bufferedMessage = new BufferedMqttMessage(message, messageId);
-
-       // Remove the explicit check for oversized messages here.
-       // The while loop below will handle making space.
-
-       // Remove oldest messages until there's space for the new one
-        while (_currentSizeInBytes + bufferedMessage.Size > _maxSizeInBytes && _messages.Count > 0)
-        {
-            RemoveOldestMessage();
-       }
-
-       // Only add the message if it fits after potentially removing older messages
-       if (_currentSizeInBytes + bufferedMessage.Size <= _maxSizeInBytes)
-       {
-           // Add the new message to the list and the index
-           var node = _messages.AddLast(bufferedMessage);
-           _messageIndex.Add(messageId, node); // Add to index
-           _currentSizeInBytes += bufferedMessage.Size;
-       }
-       else
-       {
-            // Log if a message couldn't be added even after clearing space (because it's intrinsically too large)
-            Log.Warning("Message for topic '{Topic}' (ID: {MessageId}, Size: {Size} bytes) could not be added as it exceeds the buffer limit ({Limit} bytes) even after clearing space.",
-                message.Topic, messageId, bufferedMessage.Size, _maxSizeInBytes);
-            // Ensure buffer is clear if the only message was too large and couldn't be added
-            if (_messages.Count == 0)
+            // Prevent adding duplicates if somehow the same ID is generated (highly unlikely)
+            if (_messageIndex.ContainsKey(messageId))
             {
-                Clear();
+                 Log.Warning("Attempted to add message with duplicate ID {MessageId} to topic buffer '{Topic}'. Ignoring.", messageId, message.Topic);
+                 return;
             }
-       }
+
+           var bufferedMessage = new BufferedMqttMessage(message, messageId);
+
+           // Remove the explicit check for oversized messages here.
+           // The while loop below will handle making space.
+
+           // Remove oldest messages until there's space for the new one
+            while (_currentSizeInBytes + bufferedMessage.Size > _maxSizeInBytes && _messages.Count > 0)
+            {
+                // RemoveOldestMessage is called within the lock
+                RemoveOldestMessage();
+           }
+
+           // Only add the message if it fits after potentially removing older messages
+           if (_currentSizeInBytes + bufferedMessage.Size <= _maxSizeInBytes)
+           {
+               // Add the new message to the list and the index
+               var node = _messages.AddLast(bufferedMessage);
+               _messageIndex.Add(messageId, node); // Add to index
+               _currentSizeInBytes += bufferedMessage.Size;
+           }
+           else
+           {
+                // Log if a message couldn't be added even after clearing space (because it's intrinsically too large)
+                Log.Warning("Message for topic '{Topic}' (ID: {MessageId}, Size: {Size} bytes) could not be added as it exceeds the buffer limit ({Limit} bytes) even after clearing space.",
+                    message.Topic, messageId, bufferedMessage.Size, _maxSizeInBytes);
+                // Ensure buffer is clear if the only message was too large and couldn't be added
+                if (_messages.Count == 0)
+                {
+                    // Clear is called within the lock
+                    Clear();
+                }
+           }
+        }
     }
 
     /// <summary>
@@ -113,14 +137,17 @@ public class TopicRingBuffer
     /// <returns>True if the message was found, false otherwise.</returns>
     public bool TryGetMessage(Guid messageId, out MqttApplicationMessage? message)
     {
-        if (_messageIndex.TryGetValue(messageId, out var node))
+        lock (_lock)
         {
-            message = node.Value.Message;
-            return true;
-        }
+            if (_messageIndex.TryGetValue(messageId, out var node))
+            {
+                message = node.Value.Message;
+                return true;
+            }
 
-        message = null;
-        return false;
+            message = null;
+            return false;
+        }
     }
 
 
@@ -130,8 +157,12 @@ public class TopicRingBuffer
     /// <returns>An enumerable collection of the stored MQTT messages.</returns>
     public IEnumerable<MqttApplicationMessage> GetMessages()
     {
-        // Return a copy or snapshot to avoid issues with modification while enumerating
-        return _messages.Select(bm => bm.Message).ToList();
+        lock (_lock)
+        {
+            // Return a copy or snapshot to avoid issues with modification while enumerating
+            // ToList() creates the copy inside the lock
+            return _messages.Select(bm => bm.Message).ToList();
+        }
     }
 
     /// <summary>
@@ -139,13 +170,18 @@ public class TopicRingBuffer
     /// </summary>
     public void Clear()
     {
-        _messages.Clear();
-        _messageIndex.Clear(); // Clear the index too
-        _currentSizeInBytes = 0;
+        lock (_lock)
+        {
+            _messages.Clear();
+            _messageIndex.Clear(); // Clear the index too
+            _currentSizeInBytes = 0;
+        }
     }
 
+    // This method should only be called from within a lock
     private void RemoveOldestMessage()
     {
+        // No lock here, assumes caller holds the lock
         if (_messages.First != null)
         {
             var oldestBufferedMessage = _messages.First.Value;
