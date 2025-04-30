@@ -247,5 +247,119 @@ namespace CrowsNestMqtt.Tests
             Assert.Equal(0, buffer.CurrentSizeInBytes);
             Assert.Empty(buffer.GetMessages());
         }
+// --- Tests for TryGetMessage ---
+
+        [Fact]
+        public void TryGetMessage_MessageExists_ReturnsTrueAndMessage()
+        {
+            // Arrange
+            var buffer = new TopicRingBuffer(100);
+            var message1 = CreateTestMessage("test/topic", 30, "Message1");
+            var message2 = CreateTestMessage("test/topic", 40, "Message2");
+            var messageId1 = Guid.NewGuid();
+            var messageId2 = Guid.NewGuid();
+            buffer.AddMessage(message1, messageId1);
+            buffer.AddMessage(message2, messageId2);
+
+            // Act
+            var found = buffer.TryGetMessage(messageId2, out var retrievedMessage);
+
+            // Assert
+            Assert.True(found);
+            Assert.NotNull(retrievedMessage);
+            Assert.Same(message2, retrievedMessage); // Verify it's the correct message instance
+        }
+
+        [Fact]
+        public void TryGetMessage_MessageDoesNotExist_ReturnsFalseAndNull()
+        {
+            // Arrange
+            var buffer = new TopicRingBuffer(100);
+            var message1 = CreateTestMessage("test/topic", 30, "Message1");
+            var messageId1 = Guid.NewGuid();
+            buffer.AddMessage(message1, messageId1);
+            var nonExistentId = Guid.NewGuid(); // An ID that was never added
+
+            // Act
+            var found = buffer.TryGetMessage(nonExistentId, out var retrievedMessage);
+
+            // Assert
+            Assert.False(found);
+            Assert.Null(retrievedMessage);
+        }
+
+        [Fact]
+        public void TryGetMessage_MessageWasEvicted_ReturnsFalseAndNull()
+        {
+            // Arrange
+            var buffer = new TopicRingBuffer(100);
+            var message1 = CreateTestMessage("test/topic", 60, "Message1"); // Will be evicted
+            var message2 = CreateTestMessage("test/topic", 30, "Message2");
+            var message3 = CreateTestMessage("test/topic", 50, "Message3"); // Causes eviction of message1
+            var messageId1 = Guid.NewGuid(); // ID of the message that will be evicted
+            var messageId2 = Guid.NewGuid();
+            var messageId3 = Guid.NewGuid();
+
+            buffer.AddMessage(message1, messageId1);
+            buffer.AddMessage(message2, messageId2);
+            buffer.AddMessage(message3, messageId3); // message1 is evicted here
+
+            // Act
+            var found = buffer.TryGetMessage(messageId1, out var retrievedMessage); // Try to get the evicted message
+
+            // Assert
+            Assert.False(found);
+            Assert.Null(retrievedMessage);
+            Assert.Equal(2, buffer.Count); // Verify buffer state after eviction
+        }
+
+        // --- Test for Duplicate ID Handling ---
+
+        [Fact]
+        public void AddMessage_WithDuplicateId_IgnoresNewMessage()
+        {
+            // Arrange
+            var buffer = new TopicRingBuffer(100);
+            var message1 = CreateTestMessage("test/topic", 40, "Original");
+            var message2 = CreateTestMessage("test/topic", 40, "Duplicate"); // Same size, different content
+            var messageId = Guid.NewGuid(); // Use the same ID for both
+
+            // Act
+            buffer.AddMessage(message1, messageId); // Add the first message
+            var initialCount = buffer.Count;
+            var initialSize = buffer.CurrentSizeInBytes;
+            var initialMessages = buffer.GetMessages().ToList();
+
+            buffer.AddMessage(message2, messageId); // Attempt to add the second message with the same ID
+
+            // Assert
+            Assert.Equal(initialCount, buffer.Count); // Count should not change
+            Assert.Equal(initialSize, buffer.CurrentSizeInBytes); // Size should not change
+            var finalMessages = buffer.GetMessages().ToList();
+            Assert.Single(finalMessages); // Should still only contain one message
+            Assert.Same(message1, finalMessages[0]); // The original message should still be there
+            Assert.True(buffer.TryGetMessage(messageId, out var retrievedMessage)); // Can still retrieve by ID
+            Assert.Same(message1, retrievedMessage); // Retrieved message is the original one
+        }
+
+        // --- Test for Oversized Message (Edge Case) ---
+
+        [Fact]
+        public void AddMessage_OversizedMessageToEmptyBuffer_IsIgnored()
+        {
+            // Arrange
+            var buffer = new TopicRingBuffer(50); // Buffer limit of 50 bytes
+            var oversizedMessage = CreateTestMessage("test/topic", 100, "Too Big"); // Message size > buffer limit
+            var messageId = Guid.NewGuid();
+
+            // Act
+            buffer.AddMessage(oversizedMessage, messageId); // Attempt to add the oversized message
+
+            // Assert
+            Assert.Equal(0, buffer.Count); // Message should not be added
+            Assert.Equal(0, buffer.CurrentSizeInBytes); // Size should remain 0
+            Assert.Empty(buffer.GetMessages()); // Buffer should be empty
+            Assert.False(buffer.TryGetMessage(messageId, out _)); // Cannot retrieve the message
+        }
     }
 }
