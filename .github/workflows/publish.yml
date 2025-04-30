@@ -41,8 +41,6 @@ jobs:
           - os: macos-latest
             runtime: osx-x64
     runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
 
     steps:
     - uses: actions/checkout@v4 # Checkout code again for this job
@@ -69,7 +67,16 @@ jobs:
         name: crows-nest-mqtt-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }} # Use version from needs context
         path: ./publish/${{ matrix.runtime }}
         if-no-files-found: error
-
+  
+  release:
+    name: Create Release Notes
+    runs-on: ubuntu-latest
+    needs: 
+     - determine_version
+     - publish
+    permissions:
+      contents: write
+    steps:
     - name: Create Release
       uses: softprops/action-gh-release@v2
       if: github.ref_type == 'tag'
@@ -77,4 +84,7 @@ jobs:
         generate_release_notes: true
         draft: true
         append_body: true
-        files: crows-nest-mqtt-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }}
+        files: |
+          crows-nest-mqtt-linux-x64-${{ needs.determine_version.outputs.semVer }}
+          crows-nest-mqtt-osx-x64-${{ needs.determine_version.outputs.semVer }}
+          crows-nest-mqtt-win-x64-${{ needs.determine_version.outputs.semVer }}
