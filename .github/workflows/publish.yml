@@ -81,8 +81,24 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         path: ./release/
-    - name: debugging
+    
+    - name: Debug before zipping
       run: ls -lisah ./release/
+      
+    - name: Zip all subfolders
+      run: |
+        cd ./release/
+        for dir in */; do
+          zip -r "../${dir%/}.zip" "$dir"
+        done
+        cd ..
+        mkdir -p ./zipped-releases
+        mv *.zip ./zipped-releases/
+    
+    - name: Debug after zipping
+      run: |
+        ls -lisah ./zipped-releases/
+        
     - name: Create Release
       uses: softprops/action-gh-release@v2
       if: github.ref_type == 'tag'
@@ -91,4 +107,4 @@ jobs:
         draft: true
         append_body: true
         files: |
-          ./release/*
+          ./zipped-releases/*.zip
