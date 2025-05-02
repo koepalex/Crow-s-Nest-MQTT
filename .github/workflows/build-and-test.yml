@@ -63,7 +63,7 @@ jobs:
       uses: marocchino/sticky-pull-request-comment@v2
       with:
         recreate: true
-        path: code-coverage-results.md
+        path: ./TestResults/CoverageReport/code-coverage-results.md
 
     - name: Publish
       run: dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --self-contained -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}
