@@ -1,5 +1,5 @@
 using CrowsNestMqtt.BusinessLogic;
-using CrowsNestMqtt.Businesslogic.Services;
+using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.UI.ViewModels;
 using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using DynamicData;
@@ -12,7 +12,7 @@ using System.Text;
 using System.Collections.Generic;
 using Xunit;
 
-namespace CrowsNestMqtt.Tests.ViewModels
+namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class MessageDisplayTests
     {

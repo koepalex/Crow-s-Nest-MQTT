@@ -1,4 +1,4 @@
-namespace CrowsNestMqtt.Businesslogic.Exporter;
+namespace CrowsNestMqtt.BusinessLogic.Exporter;
 
 using System.Text; // Added for Encoding
 using System.Text.Json;
@@ -11,7 +11,7 @@ using System.Text.Encodings.Web;
 public class JsonExporter : IMessageExporter
 {
     /// <inheritdoc />
-    public ExportTypes ExporterType => ExportTypes.Json;
+    public ExportTypes ExporterType => ExportTypes.json;
 
     // Define a DTO to control serialization
     private record MqttMessageExportDto

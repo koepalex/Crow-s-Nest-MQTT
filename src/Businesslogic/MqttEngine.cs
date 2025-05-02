@@ -1,9 +1,9 @@
+namespace CrowsNestMqtt.BusinessLogic;
+
 using MQTTnet;
 using MQTTnet.Protocol;
 using System.Collections.Concurrent;
 using CrowsNestMqtt.Utils;
-
-namespace CrowsNestMqtt.BusinessLogic;
 
 // New EventArgs class including MessageId and Topic
 public class IdentifiedMqttApplicationMessageReceivedEventArgs : EventArgs // Not inheriting from MqttApplicationMessageReceivedEventArgs to avoid confusion

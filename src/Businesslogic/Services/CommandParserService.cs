@@ -1,11 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text; // Added for StringBuilder
-using CrowsNestMqtt.Businesslogic.Commands;
-using CrowsNestMqtt.Businesslogic.Configuration;
+namespace CrowsNestMqtt.BusinessLogic.Services;
 
-namespace CrowsNestMqtt.Businesslogic.Services;
+using System.Text; // Added for StringBuilder
+using CrowsNestMqtt.BusinessLogic.Commands;
+using CrowsNestMqtt.BusinessLogic.Configuration;
+using CrowsNestMqtt.BusinessLogic.Exporter;
 
 /// <summary>
 /// Service responsible for parsing user input into commands or search terms.
@@ -36,8 +34,14 @@ public class CommandParserService : ICommandParserService
         }
     }
 
-    private CommandResult ParseCommand(string input, SettingsData settingsData)
+    internal CommandResult ParseCommand(string input, SettingsData settingsData)
     {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            // Treat empty input as a search for nothing (effectively clearing search)
+            return CommandResult.SuccessSearch(string.Empty);
+        }
+
         // Remove prefix and parse command + arguments using helper
         var parts = SplitArguments(input.Substring(1)).ToList();
 
@@ -52,12 +56,21 @@ public class CommandParserService : ICommandParserService
         switch (commandKeyword)
         {
             case "connect":
-                // TODO: Implement more robust argument validation for :connect <server_address:port> (e.g., Uri parsing)
+                // Validate that the argument follows the format server_address:port
                 if (arguments.Count == 1)
                 {
-                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, arguments));
-                } 
-                else if (!string.IsNullOrEmpty(settingsData.Hostname))
+                    // Check if the argument matches the pattern server_address:port
+                    if (System.Text.RegularExpressions.Regex.IsMatch(arguments[0], @"^([a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9]|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})$"))
+                    {
+                        // Ensure port is in valid range (optional additional check)
+                        string[] connectParameters = arguments[0].Split(':');
+                        if (connectParameters.Length == 2 && int.TryParse(connectParameters[1], out int port) && port > 0 && port <= 65535)
+                        {
+                            return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, arguments));
+                        }
+                    }
+                }
+                else if (arguments.Count == 0 && !string.IsNullOrEmpty(settingsData.Hostname))
                 {
                     return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, [$"{settingsData.Hostname}:{settingsData.Port}"]));
                 }
@@ -76,14 +89,14 @@ public class CommandParserService : ICommandParserService
                 {
                     // Basic validation for format
                     string format = arguments[0].ToLowerInvariant();
-                    if (format != "json" && format != "txt") 
+                    if (format != "json" && format != "txt")
                     {
                         return CommandResult.Failure("Invalid format for :export. Expected 'json' or 'txt'.");
                     }
                     // Argument 1 is filepath
                     return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Export, arguments));
                 }
-                else if (!string.IsNullOrEmpty(settingsData.ExportPath) && (settingsData.ExportFormat == Exporter.ExportTypes.Json || settingsData.ExportFormat == Exporter.ExportTypes.Text))
+                else if (arguments.Count == 0 && !string.IsNullOrEmpty(settingsData.ExportPath) && (settingsData.ExportFormat == ExportTypes.json || settingsData.ExportFormat == ExportTypes.txt))
                 {
 #pragma warning disable CS8601 // Possible null reference assignment.
                     return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Export, [settingsData.ExportFormat!.ToString(), settingsData.ExportPath]));
@@ -93,12 +106,9 @@ public class CommandParserService : ICommandParserService
 
             case "filter":
                 // TODO: Implement regex validation
-                if (arguments.Count >= 0) // Allow zero arguments for clearing the filter
+                if (arguments.Count <= 1) // Allow zero arguments for clearing the filter
                 {
-                	// If arguments exist, join them; otherwise, pass null/empty to indicate clearing
-                	string? pattern = arguments.Count > 0 ? string.Join(" ", arguments) : null;
-                	// Pass the pattern (or null) as the single argument
-                	return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Filter, pattern != null ? new List<string> { pattern } : new List<string>()));
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Filter, arguments));
                 }
                 // This part should technically not be reached if Count >= 0 is allowed, but keep for safety.
                 return CommandResult.Failure("Invalid arguments for :filter. Expected: :filter [pattern]");
@@ -141,11 +151,9 @@ public class CommandParserService : ICommandParserService
 
             case "search":
                 // Allow zero arguments to clear the search
-                if (arguments.Count >= 0)
+                if (arguments.Count <= 1)
                 {
-                    // Join arguments if any, otherwise pass empty string to clear
-                    string searchTerm = arguments.Count > 0 ? string.Join(" ", arguments) : string.Empty;
-                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Search, new List<string> { searchTerm }));
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Search, arguments));
                 }
                 // This part should not be reachable if Count >= 0 is allowed
                 // This part should not be reachable if Count >= 0 is allowed

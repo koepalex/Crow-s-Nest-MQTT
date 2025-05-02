@@ -2,8 +2,6 @@
   <PropertyGroup>
     <Product>Crow's NestMQTT</Product>
     <RepositoryUrl>https://github.com/koepalex/Crow-s-Nest-MQTT</RepositoryUrl>
-    <VersionPrefix>1.0.0</VersionPrefix>
-    <VersionSuffix>preview-$([System.DateTime]::Now.ToString("yyyyMMdd"))</VersionSuffix>
     <Copyright>Copyright © 2025 Alexander Köpke</Copyright>
     <Authors>Alexander Köpke</Authors>
     <NeutralLanguage>en-US</NeutralLanguage>

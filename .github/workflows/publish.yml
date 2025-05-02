@@ -1,0 +1,103 @@
+name: Publish Application
+
+# Allows manual triggering
+on:
+  workflow_dispatch:
+
+jobs:
+  determine_version:
+    name: Determine Version
+    runs-on: ubuntu-latest
+    outputs:
+      semVer: ${{ steps.gitversion.outputs.semVer }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Fetch all history for GitVersion
+
+    - name: Install GitVersion
+      uses: gittools/actions/gitversion/setup@v1.1.1
+      with:
+        versionSpec: '5.x'
+
+    - name: Determine Version
+      id: gitversion
+      uses: gittools/actions/gitversion/execute@v1.1.1
+
+    - name: Display GitVersion outputs (for debugging)
+      run: |
+        echo "Determined SemVer: ${{ steps.gitversion.outputs.semVer }}"
+
+  publish:
+    name: Publish Application
+    needs: determine_version # Depends on the version determination job
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            runtime: linux-x64
+          - os: windows-latest
+            runtime: win-x64
+          - os: macos-latest
+            runtime: osx-x64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4 # Checkout code again for this job
+      with:
+        fetch-depth: 0 # Fetch all history for GitVersion
+        ref: ${{ github.ref }} # Ensure the correct ref is checked out
+        fetch-tags: true # Explicitly fetch all tags
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+
+    # Restore might be needed before publish if not implicitly done
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Publish (${{ matrix.runtime }})
+      run: |
+        dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --runtime ${{ matrix.runtime }} --self-contained -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}/ --no-restore -p:Version=${{ needs.determine_version.outputs.semVer }}
+    - name: Upload Application (${{ matrix.runtime }})
+      uses: actions/upload-artifact@v4
+      with:
+        name: crows-nest-mqtt-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }} # Use version from needs context
+        path: ./publish/${{ matrix.runtime }}
+        if-no-files-found: error
+  
+  release:
+    name: Create Release Notes
+    runs-on: ubuntu-latest
+    needs: 
+     - determine_version
+     - publish
+    permissions:
+      contents: write
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./release/
+         
+    - name: Zip all subfolders
+      run: |
+        cd ./release/
+        for dir in */; do
+          zip -r "../${dir%/}.zip" "$dir"
+        done
+        cd ..
+        mkdir -p ./zipped-releases
+        mv *.zip ./zipped-releases/
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      if: github.ref_type == 'tag'
+      with:
+        generate_release_notes: true
+        draft: true
+        append_body: true
+        files: |
+          ./zipped-releases/*.zip

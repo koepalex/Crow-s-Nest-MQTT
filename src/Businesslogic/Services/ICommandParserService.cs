@@ -1,9 +1,7 @@
-using System.Dynamic;
+namespace CrowsNestMqtt.BusinessLogic.Services;
 
-using CrowsNestMqtt.Businesslogic.Commands;
-using CrowsNestMqtt.Businesslogic.Configuration;
-
-namespace CrowsNestMqtt.Businesslogic.Services;
+using CrowsNestMqtt.BusinessLogic.Commands;
+using CrowsNestMqtt.BusinessLogic.Configuration;
 
 /// <summary>
 /// Defines the contract for a service that parses user input into commands or search terms.

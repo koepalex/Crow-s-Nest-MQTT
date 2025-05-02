@@ -1,7 +1,7 @@
 #nullable enable
-using System;
+namespace CrowsNestMqtt.BusinessLogic.Commands;
 
-namespace CrowsNestMqtt.Businesslogic.Commands;
+using System;
 
 /// <summary>
 /// Represents the result of parsing user input.

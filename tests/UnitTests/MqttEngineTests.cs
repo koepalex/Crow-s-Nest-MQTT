@@ -7,7 +7,7 @@ using MQTTnet.Protocol;
 using Xunit;
 using CrowsNestMqtt.BusinessLogic;
 
-namespace CrowsNestMqtt.Tests
+namespace CrowsNestMqtt.UnitTests
 {
     public class MqttEngineTests
     {

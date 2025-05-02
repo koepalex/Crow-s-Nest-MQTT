@@ -1,6 +1,6 @@
 using CrowsNestMqtt.BusinessLogic;
-using CrowsNestMqtt.Businesslogic.Commands;
-using CrowsNestMqtt.Businesslogic.Services;
+using CrowsNestMqtt.BusinessLogic.Commands;
+using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.UI.ViewModels;
 using NSubstitute;
 using MQTTnet;
@@ -11,7 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace CrowsNestMqtt.Tests.ViewModels
+namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class MqttCommunicationTests
     {

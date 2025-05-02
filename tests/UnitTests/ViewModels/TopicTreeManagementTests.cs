@@ -1,11 +1,11 @@
 using CrowsNestMqtt.BusinessLogic;
-using CrowsNestMqtt.Businesslogic.Services;
+using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.UI.ViewModels;
 using NSubstitute;
 using System.Linq;
 using Xunit;
 
-namespace CrowsNestMqtt.Tests.ViewModels
+namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class TopicTreeManagementTests
     {

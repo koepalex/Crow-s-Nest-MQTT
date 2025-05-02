@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <RootNamespace>CrowsNestMqtt.Tests</RootNamespace>
-    <AssemblyName>CrowsNestMqtt.Tests</AssemblyName>
+    <RootNamespace>CrowsNestMqtt.UnitTests</RootNamespace>
+    <AssemblyName>CrowsNestMqtt.UnitTests</AssemblyName>
     <TargetFramework>$(TestsTargetFramework)</TargetFramework>
     <IsPackable>false</IsPackable>
     <CollectCoverage>true</CollectCoverage>
@@ -11,12 +11,12 @@
   <ItemGroup>
     <PackageReference Include="NSubstitute" Version="5.3.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2">
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.3.2" />
-    <PackageReference Include="coverlet.collector" Version="6.0.1">
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

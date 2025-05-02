@@ -1,17 +1,17 @@
-using CrowsNestMqtt.Businesslogic.Configuration;
-using CrowsNestMqtt.Businesslogic.Exporter; // Added for ExportTypes
+namespace CrowsNestMqtt.UI.ViewModels;
+
+using CrowsNestMqtt.BusinessLogic.Exporter;
+using CrowsNestMqtt.BusinessLogic.Configuration;
 using ReactiveUI;
 using Serilog;
 using System;
 using System.Collections.ObjectModel;
 using System.IO; // For Path, File, Directory
-using System.Net.Http.Headers;
 using System.Reactive; // For Unit
 using System.Reactive.Linq; // For Observable operators like Throttle
 using System.Text.Json; // For JSON serialization
 using System.Text.Json.Serialization; // For JsonIgnore
 
-namespace CrowsNestMqtt.UI.ViewModels;
 
 /// <summary>
 /// ViewModel for MQTT connection settings.
@@ -110,7 +110,7 @@ public class SettingsViewModel : ReactiveObject
      [JsonIgnore] // Don't serialize the derived uint? property
      public uint? SessionExpiryInterval => _sessionExpiryInterval; // Expose for engine
 
-   private ExportTypes? _exportFormat = ExportTypes.Json; // Changed type to ExportTypes? and set default
+   private ExportTypes? _exportFormat = ExportTypes.json; // Changed type to ExportTypes? and set default
    public ExportTypes? ExportFormat
    {
        get => _exportFormat;
