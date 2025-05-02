@@ -1,11 +1,23 @@
 using Avalonia;
 using Avalonia.ReactiveUI;
 using Serilog;
+using System;
+using System.IO;
+using System.Threading.Tasks;
+using Avalonia.Controls.ApplicationLifetimes;
+using CrowsNestMqtt.UI; // Use the App from UI project
+using CrowsNestMqtt.UI.ViewModels;
+using CrowsNestMqtt.UI.Views;
+using CrowsNestMqtt.BusinessLogic.Services;
+using System.Timers; // Added for Timer
+using System.Runtime; // Added for GCSettings
 
 namespace CrowsNestMqtt.App;
 
 class Program
 {
+    private static System.Timers.Timer? _gcTimer; // Moved from App.axaml.cs
+
     private static readonly string _settingsFilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "CrowsNestMqtt",
@@ -42,9 +54,69 @@ class Program
 
     public static AppBuilder BuildAvaloniaApp()
     {
-        return AppBuilder.Configure<App>()
+        return AppBuilder.Configure<CrowsNestMqtt.UI.App>() // Configure the App from UI project
             .UsePlatformDetect()
-            .UseReactiveUI();
+            .LogToTrace() // Added for better diagnostics if needed
+            .UseReactiveUI()
+            .AfterSetup(builder => // Add desktop-specific setup here
+            {
+                if (builder.Instance?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                {
+                    desktop.MainWindow = new MainWindow
+                    {
+                        DataContext = new MainViewModel(new CommandParserService())
+                    };
+
+                    // Subscribe to the ShutdownRequested event
+                    desktop.ShutdownRequested += OnShutdownRequested;
+
+                    // Start GC compaction timer
+                    _gcTimer = new System.Timers.Timer(TimeSpan.FromMinutes(1).TotalMilliseconds);
+                    _gcTimer.Elapsed += CollectAndCompactHeap;
+                    _gcTimer.AutoReset = true;
+                    _gcTimer.Enabled = true;
+                    Log.Information("Heap compaction timer started.");
+                }
+            });
+    }
+
+    // Moved from App.axaml.cs and made static
+    private static void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
+    {
+        if (sender is IClassicDesktopStyleApplicationLifetime desktop &&
+            desktop.MainWindow?.DataContext is IDisposable disposableViewModel)
+        {
+            Log.Information("Shutdown requested. Disposing MainViewModel.");
+            disposableViewModel.Dispose();
+        }
+        else
+        {
+            Log.Warning("Could not find MainViewModel to dispose during shutdown.");
+        }
+
+        // Stop and dispose the timer
+        if (_gcTimer != null)
+        {
+            _gcTimer.Stop();
+            _gcTimer.Elapsed -= CollectAndCompactHeap;
+            _gcTimer.Dispose();
+            _gcTimer = null;
+            Log.Information("Heap compaction timer stopped and disposed.");
+        }
+    }
+
+    // Moved from App.axaml.cs and made static
+    private static void CollectAndCompactHeap(object? sender, ElapsedEventArgs e)
+    {
+        Log.Debug("Triggering GC Collect and Compaction.");
+        // Collect generations 0, 1, and 2
+        GC.Collect();
+        // Wait for finalizers to complete
+        GC.WaitForPendingFinalizers();
+        // Compact the LOH
+        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect();
+        Log.Debug("GC Collect and Compaction finished.");
     }
 
     private static void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)

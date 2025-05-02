@@ -42,4 +42,10 @@
   <ItemGroup>
     <AvaloniaResource Include="Assets\icon.ico" />
   </ItemGroup>
+
+  <!-- Explicitly remove the moved App files to avoid potential conflicts -->
+  <ItemGroup>
+    <Compile Remove="App.axaml.cs" />
+    <AvaloniaXaml Remove="App.axaml" />
+  </ItemGroup>
 </Project>

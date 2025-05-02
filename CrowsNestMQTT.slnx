@@ -4,4 +4,5 @@
   <Project Path="src/UI/UI.csproj" />
   <Project Path="src/Utils/Utils.csproj" />
   <Project Path="tests/UnitTests/UnitTests.csproj" />
+  <Project Path="src/WasmApp/CrowsNestMqtt.Wasm.csproj" />
 </Solution>

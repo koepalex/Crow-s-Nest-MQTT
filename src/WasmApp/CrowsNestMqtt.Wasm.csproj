@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>$(LibTargetFramework)</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- Define BROWSER symbol for conditional compilation -->
+    <DefineConstants>$(DefineConstants);BROWSER</DefineConstants>
+    <!-- Needed for MSBuild.Sdk.Extras -->
+    <WasmSingleFileBundle>true</WasmSingleFileBundle>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Browser" Version="11.0.10" /> <!-- Use an appropriate Avalonia version -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Businesslogic\Businesslogic.csproj" />
+    <ProjectReference Include="..\UI\UI.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -30,8 +30,10 @@ using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using DynamicData; // Added for SourceList and reactive filtering
 using DynamicData.Binding; // Added for Bind()
 using FuzzySharp; // Added for fuzzy search
+#if !BROWSER
 using SharpHook.Native; // Added SharpHook Native for KeyCode and ModifierMask
 using SharpHook.Reactive; // Added SharpHook Reactive
+#endif
 
 namespace CrowsNestMqtt.UI.ViewModels;
 
@@ -53,8 +55,10 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly ReadOnlyObservableCollection<MessageViewModel> _filteredMessageHistory; // Field for the bound collection
     private string _currentSearchTerm = string.Empty; // Backing field for search term
     private readonly List<string> _availableCommands; // Added list of commands for suggestions
-    private readonly IReactiveGlobalHook _globalHook; // Added SharpHook global hook
-    private readonly IDisposable _globalHookSubscription; // Added subscription for the hook
+#if !BROWSER
+    private readonly IReactiveGlobalHook? _globalHook; // Added SharpHook global hook
+    private readonly IDisposable? _globalHookSubscription; // Added subscription for the hook
+#endif
     private bool _disposedValue; // For IDisposable pattern
     private readonly CancellationTokenSource _cts = new(); // Added cancellation token source for graceful shutdown
     private bool _isWindowFocused; // Added to track window focus for global hook
@@ -362,50 +366,61 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 .ObserveOn(RxApp.MainThreadScheduler) // Ensure UI update is on the correct thread
                 .Subscribe(text => UpdateCommandSuggestions(text));
 
+#if !BROWSER
             // --- Global Hook Setup ---
-            _globalHook = new SimpleReactiveGlobalHook();
-            _globalHookSubscription = _globalHook.KeyPressed
-                .Do(e => {})
-                .Where(e =>
-                {
-                    // Check for either Left or Right Ctrl/Shift explicitly
-                    bool ctrl = e.RawEvent.Mask.HasFlag(ModifierMask.LeftCtrl) || e.RawEvent.Mask.HasFlag(ModifierMask.RightCtrl);
-                    bool shift = e.RawEvent.Mask.HasFlag(ModifierMask.LeftShift) || e.RawEvent.Mask.HasFlag(ModifierMask.RightShift);
-                    bool pKey = e.Data.KeyCode == KeyCode.VcP;
-
-                    // NEW: Check if the window is focused
-                    bool focused = IsWindowFocused;
-
-                    bool match = focused && ctrl && shift && pKey;
-
-                    // Log details for debugging
-                    if (match)
+            try
+            {
+                _globalHook = new SimpleReactiveGlobalHook();
+                _globalHookSubscription = _globalHook.KeyPressed
+                    .Do(e => {})
+                    .Where(e =>
                     {
-                        Log.Debug("Ctrl+Shift+P MATCHED inside Where filter (Window Focused: {IsFocused}).", focused);
-                    }
-                    else if (ctrl && shift && pKey) // Log if keys match but focus doesn't
-                    {
-                        Log.Verbose("Ctrl+Shift+P detected but window not focused. Hook suppressed.");
-                    }
-                    // else Log.Verbose("Keypress did not match Ctrl+Shift+P: Focused={Focused}, Ctrl={Ctrl}, Shift={Shift}, Key={Key}", focused, ctrl, shift, e.Data.KeyCode); // Optional: Log non-matches verbosely
+                        // Check for either Left or Right Ctrl/Shift explicitly
+                        bool ctrl = e.RawEvent.Mask.HasFlag(ModifierMask.LeftCtrl) || e.RawEvent.Mask.HasFlag(ModifierMask.RightCtrl);
+                        bool shift = e.RawEvent.Mask.HasFlag(ModifierMask.LeftShift) || e.RawEvent.Mask.HasFlag(ModifierMask.RightShift);
+                        bool pKey = e.Data.KeyCode == KeyCode.VcP;
 
-                    // Log the state being evaluated
-                    Log.Verbose("Global Hook Filter Check: Key={Key}, Modifiers={Modifiers}, IsWindowFocused={IsFocused}, Result={Match}", e.Data.KeyCode, e.RawEvent.Mask, focused, match);
+                        // NEW: Check if the window is focused
+                        bool focused = IsWindowFocused;
 
-                    return match;
-                })
-                .ObserveOn(RxApp.MainThreadScheduler) // Ensure command execution is on the UI thread
-                .Do(_ => Log.Debug("Ctrl+Shift+P detected by SharpHook pipeline (after Where filter).")) // Changed log message slightly
-                .Select(_ => Unit.Default) // We don't need the event args anymore
-                .InvokeCommand(FocusCommandBarCommand); // Invoke the focus command
+                        bool match = focused && ctrl && shift && pKey;
 
-            // Start the hook asynchronously
-            _globalHook.RunAsync().Subscribe(
-                _ => { }, // OnNext (not used)
-                ex => Log.Error(ex, "Error during Global Hook execution (RunAsync OnError)"), // Log errors during hook runtime
-                () => Log.Information("Global Hook stopped.") // OnCompleted
-            );
-            Log.Information("SharpHook Global Hook RunAsync called."); // Log that startup was attempted
+                        // Log details for debugging
+                        if (match)
+                        {
+                            Log.Debug("Ctrl+Shift+P MATCHED inside Where filter (Window Focused: {IsFocused}).", focused);
+                        }
+                        else if (ctrl && shift && pKey) // Log if keys match but focus doesn't
+                        {
+                            Log.Verbose("Ctrl+Shift+P detected but window not focused. Hook suppressed.");
+                        }
+                        // else Log.Verbose("Keypress did not match Ctrl+Shift+P: Focused={Focused}, Ctrl={Ctrl}, Shift={Shift}, Key={Key}", focused, ctrl, shift, e.Data.KeyCode); // Optional: Log non-matches verbosely
+
+                        // Log the state being evaluated
+                        Log.Verbose("Global Hook Filter Check: Key={Key}, Modifiers={Modifiers}, IsWindowFocused={IsFocused}, Result={Match}", e.Data.KeyCode, e.RawEvent.Mask, focused, match);
+
+                        return match;
+                    })
+                    .ObserveOn(RxApp.MainThreadScheduler) // Ensure command execution is on the UI thread
+                    .Do(_ => Log.Debug("Ctrl+Shift+P detected by SharpHook pipeline (after Where filter).")) // Changed log message slightly
+                    .Select(_ => Unit.Default) // We don't need the event args anymore
+                    .InvokeCommand(FocusCommandBarCommand); // Invoke the focus command
+
+                // Start the hook asynchronously
+                _globalHook.RunAsync().Subscribe(
+                    _ => { }, // OnNext (not used)
+                    ex => Log.Error(ex, "Error during Global Hook execution (RunAsync OnError)"), // Log errors during hook runtime
+                    () => Log.Information("Global Hook stopped.") // OnCompleted
+                );
+                Log.Information("SharpHook Global Hook RunAsync called."); // Log that startup was attempted
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to initialize or run SharpHook global hook. Hotkey might not work.");
+                _globalHook = null; // Ensure hook is null if initialization failed
+                _globalHookSubscription = null;
+            }
+#endif
         }
 
     private void OnLogMessage(object? sender, string log)
@@ -1392,8 +1407,10 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 }
                 StopTimer();
                 _messageHistorySubscription?.Dispose();
+#if !BROWSER
                 _globalHookSubscription?.Dispose(); // Dispose hook subscription
                 _globalHook?.Dispose(); // Dispose the hook itself
+#endif
                 // MqttEngine's Dispose method now handles the final disconnect attempt.
                 // We rely on _cts.Cancel() being called first, then _mqttEngine.Dispose() below.
                 // Removed explicit synchronous DisconnectAsync call here.

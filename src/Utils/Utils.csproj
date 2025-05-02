@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>$(LibTargetFramework)</TargetFramework>
+    <TargetFrameworks>$(LibTargetFramework)</TargetFrameworks> <!-- Multi-target for WASM and Desktop -->
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
