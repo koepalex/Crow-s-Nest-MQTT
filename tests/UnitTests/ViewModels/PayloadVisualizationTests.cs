@@ -1,5 +1,5 @@
 using CrowsNestMqtt.BusinessLogic;
-using CrowsNestMqtt.Businesslogic.Services;
+using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.UI.ViewModels;
 using NSubstitute;
 using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
@@ -12,7 +12,7 @@ using System.Reactive;
 using Xunit;
 using System.Text.Json; // Added for JsonValueKind
 
-namespace CrowsNestMqtt.Tests.ViewModels
+namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class PayloadVisualizationTests
     {

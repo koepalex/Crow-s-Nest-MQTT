@@ -1,23 +1,25 @@
-namespace CrowsNestMqtt.Businesslogic.Exporter;
+namespace CrowsNestMqtt.BusinessLogic.Exporter;
 
 using System.IO;
 using System.Text;
 using MQTTnet;
 using Serilog;
+using CrowsNestMqtt.Utils; // Added for BufferedMqttMessage
 public class TextExporter : IMessageExporter
 {
     /// <inheritdoc />
-    public ExportTypes ExporterType => ExportTypes.Text;
+    public ExportTypes ExporterType => ExportTypes.txt;
 
     public (string content, bool isPayloadValidUtf8, string payloadAsString) GenerateDetailedTextFromMessage(MqttApplicationMessage msg, DateTime receivedTime)
     {
         var sb = new StringBuilder();
+        var correlationData = msg.CorrelationData?.ToArray() ?? Array.Empty<byte>();
         sb.AppendLine($"Timestamp: {receivedTime:yyyy-MM-dd HH:mm:ss.fff}"); 
         sb.AppendLine($"Topic: {msg.Topic}");
         sb.AppendLine($"Response Topic: {msg.ResponseTopic}");
         sb.AppendLine($"QoS: {msg.QualityOfServiceLevel}");
         sb.AppendLine($"Message Expiry Interval: {msg.MessageExpiryInterval}");
-        sb.AppendLine($"Correlation Data: {msg.CorrelationData}");
+        sb.AppendLine($"Correlation Data: {Convert.ToBase64String(correlationData)}");
         sb.AppendLine($"Payload Format: {msg.PayloadFormatIndicator}");
         sb.AppendLine($"Content Type: {msg.ContentType ?? "N/A"}");
         sb.AppendLine($"Retain: {msg.Retain}");
@@ -77,7 +79,7 @@ public class TextExporter : IMessageExporter
 
             // Create a sanitized filename
             string sanitizedTopic = string.Join("_", msg.Topic.Split(Path.GetInvalidFileNameChars()));
-            string timestamp = receivedTime.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            string timestamp = receivedTime.ToString("yyyyMMdd_HHmmssfff"); // Use Windows-compatible format
             string filename = $"{timestamp}_{sanitizedTopic}.txt"; // Use .txt extension
             string filePath = Path.Combine(exportFolderPath, filename);
 

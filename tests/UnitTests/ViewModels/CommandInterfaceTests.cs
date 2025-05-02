@@ -1,7 +1,7 @@
 using CrowsNestMqtt.BusinessLogic;
-using CrowsNestMqtt.Businesslogic.Commands;
-using CrowsNestMqtt.Businesslogic.Configuration;
-using CrowsNestMqtt.Businesslogic.Services;
+using CrowsNestMqtt.BusinessLogic.Commands;
+using CrowsNestMqtt.BusinessLogic.Configuration;
+using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.UI.ViewModels;
 using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using NSubstitute;
@@ -12,8 +12,9 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using Xunit;
+using System.Threading.Tasks;
 
-namespace CrowsNestMqtt.Tests.ViewModels
+namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class CommandInterfaceTests
     {
@@ -31,7 +32,7 @@ namespace CrowsNestMqtt.Tests.ViewModels
        }
 
         [Fact]
-        public void ExecuteSubmitInput_WithCommandInput_ShouldExecuteCommand()
+        public async Task ExecuteSubmitInput_WithCommandInput_ShouldExecuteCommand()
         {
             // Arrange
             var viewModel = new MainViewModel(_commandParserService);
@@ -55,7 +56,7 @@ namespace CrowsNestMqtt.Tests.ViewModels
             _commandParserService.Received(1).ParseInput(commandText, Arg.Any<SettingsData>()); // Use Arg.Any for Received check too
             // Should update settings and connect as a result of the :connect command
             // _mqttEngine.Received(1).UpdateSettings(Arg.Is<MqttConnectionSettings>(s => s != null)); // Cannot verify non-virtual method on class substitute
-            _mqttEngine.Received(1).ConnectAsync();
+            await _mqttEngine.Received(1).ConnectAsync();
         }
 
         [Fact]

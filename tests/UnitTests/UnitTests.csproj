@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <RootNamespace>CrowsNestMqtt.Tests</RootNamespace>
-    <AssemblyName>CrowsNestMqtt.Tests</AssemblyName>
+    <RootNamespace>CrowsNestMqtt.UnitTests</RootNamespace>
+    <AssemblyName>CrowsNestMqtt.UnitTests</AssemblyName>
     <TargetFramework>$(TestsTargetFramework)</TargetFramework>
     <IsPackable>false</IsPackable>
     <CollectCoverage>true</CollectCoverage>

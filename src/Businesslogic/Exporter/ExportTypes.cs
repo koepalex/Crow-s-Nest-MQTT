@@ -1,4 +1,4 @@
-namespace CrowsNestMqtt.Businesslogic.Exporter;
+namespace CrowsNestMqtt.BusinessLogic.Exporter;
 
 /// <summary>
 /// Defines the types of available message exporters.
@@ -8,10 +8,10 @@ public enum ExportTypes
     /// <summary>
     /// Represents an exporter that outputs in JSON format.
     /// </summary>
-    Json,
+    json,
 
     /// <summary>
     /// Represents an exporter that outputs in plain text format.
     /// </summary>
-    Text
+    txt
 }

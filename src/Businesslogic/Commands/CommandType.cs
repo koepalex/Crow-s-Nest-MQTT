@@ -1,4 +1,4 @@
-namespace CrowsNestMqtt.Businesslogic.Commands;
+namespace CrowsNestMqtt.BusinessLogic.Commands;
 
 /// <summary>
 /// Represents the types of commands that can be parsed from user input.

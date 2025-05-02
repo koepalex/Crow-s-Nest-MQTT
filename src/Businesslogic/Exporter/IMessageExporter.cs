@@ -1,4 +1,4 @@
-namespace CrowsNestMqtt.Businesslogic.Exporter;
+namespace CrowsNestMqtt.BusinessLogic.Exporter;
 
 using MQTTnet;
 

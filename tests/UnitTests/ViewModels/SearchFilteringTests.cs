@@ -1,6 +1,6 @@
 using CrowsNestMqtt.BusinessLogic;
-using CrowsNestMqtt.Businesslogic.Commands;
-using CrowsNestMqtt.Businesslogic.Services;
+using CrowsNestMqtt.BusinessLogic.Commands;
+using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.UI.ViewModels;
 using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using DynamicData;
@@ -14,7 +14,7 @@ using System.Text;
 using System.Threading;
 using Xunit;
 
-namespace CrowsNestMqtt.Tests.ViewModels
+namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class SearchFilteringTests
     {

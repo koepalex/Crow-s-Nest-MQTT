@@ -1,3 +1,4 @@
+using CrowsNestMqtt.BusinessLogic.Exporter;
 using Avalonia;
 using Avalonia.Input.Platform; // For IClipboard
 using Avalonia.Platform.Storage; // Potentially needed for other storage operations
@@ -22,23 +23,15 @@ using System.Threading;
 using System.Threading.Tasks; // For Task
 using AvaloniaEdit.Document; // Added for TextDocument
 using AvaloniaEdit.Highlighting; // Added for Syntax Highlighting
-using AvaloniaEdit.Highlighting.Xshd; // Added for Syntax Highlighting loading
-using System.Xml; // Added for XSHD loading
-// using Avalonia.Threading; // Removed duplicate - already on line 7
-// using Avalonia.Controls; // No longer needed for ItemsSourceView
 using CrowsNestMqtt.BusinessLogic; // Required for MqttEngine, MqttConnectionStateChangedEventArgs, IMqttService
-using CrowsNestMqtt.Businesslogic.Commands; // Added for command parsing
-using CrowsNestMqtt.Businesslogic.Services; // Added for command parsing
+using CrowsNestMqtt.BusinessLogic.Commands; // Added for command parsing
+using CrowsNestMqtt.BusinessLogic.Services; // Added for command parsing
 using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using DynamicData; // Added for SourceList and reactive filtering
 using DynamicData.Binding; // Added for Bind()
 using FuzzySharp; // Added for fuzzy search
-using MQTTnet;
-using CrowsNestMqtt.Businesslogic.Exporter; // Required for MqttApplicationMessage, MqttApplicationMessageReceivedEventArgs
-using SharpHook; // Added SharpHook
 using SharpHook.Native; // Added SharpHook Native for KeyCode and ModifierMask
 using SharpHook.Reactive; // Added SharpHook Reactive
-using MQTTnet.Protocol; // For MqttQualityOfServiceLevel
 
 namespace CrowsNestMqtt.UI.ViewModels;
 
@@ -1052,13 +1045,13 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         {
             exporter = new JsonExporter();
         }
-        else if (format == "text")
+        else if (format == "txt")
         {
             exporter = new TextExporter();
         }
         else
         {
-            StatusBarText = $"Error: Invalid export format '{format}'. Use 'json' or 'text'.";
+            StatusBarText = $"Error: Invalid export format '{format}'. Use 'json' or 'txt'.";
             Log.Warning("Invalid export format specified: {Format}", format);
             return;
         }

@@ -1,7 +1,8 @@
+namespace CrowsNestMqtt.BusinessLogic;
+
 using MQTTnet;
 using MQTTnet.Protocol;
 
-namespace CrowsNestMqtt.BusinessLogic;
 
 /// <summary>
 /// Interface defining the contract for the MQTT interaction service.

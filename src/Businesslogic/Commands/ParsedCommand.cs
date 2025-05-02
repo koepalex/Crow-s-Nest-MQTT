@@ -1,6 +1,4 @@
-using System.Collections.Generic;
-
-namespace CrowsNestMqtt.Businesslogic.Commands;
+namespace CrowsNestMqtt.BusinessLogic.Commands;
 
 /// <summary>
 /// Represents a command parsed from user input, including its type and arguments.

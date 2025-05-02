@@ -1,6 +1,6 @@
-using CrowsNestMqtt.Businesslogic.Exporter; // Added for ExportTypes
+namespace CrowsNestMqtt.BusinessLogic.Configuration;
 
-namespace CrowsNestMqtt.Businesslogic.Configuration;
+using CrowsNestMqtt.BusinessLogic.Exporter;
 
 public  record SettingsData(
     string Hostname,
