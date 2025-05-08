@@ -18,9 +18,14 @@ jobs:
       semVer: ${{ steps.gitversion.outputs.semVer }}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0 # Fetch all history for GitVersion
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 9.0.203
 
     - name: Install GitVersion
       uses: gittools/actions/gitversion/setup@v0.10.2 # Use a specific stable version
@@ -36,11 +41,6 @@ jobs:
         echo "SemVer: ${{ steps.gitversion.outputs.semVer }}"
         echo "MajorMinorPatch: ${{ steps.gitversion.outputs.majorMinorPatch }}"
         echo "InformationalVersion: ${{ steps.gitversion.outputs.informationalVersion }}"
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: 9.0.x
 
     - name: Restore dependencies
       run: dotnet restore

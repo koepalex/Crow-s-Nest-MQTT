@@ -52,7 +52,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 9.0.x
+        dotnet-version: 9.0.203
 
     # Restore might be needed before publish if not implicitly done
     - name: Restore dependencies
