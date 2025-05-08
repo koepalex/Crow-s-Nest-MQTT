@@ -17,6 +17,8 @@ using System.Text.Json.Serialization; // For JsonIgnore
 [JsonSourceGenerationOptions(WriteIndented = true)]
 [JsonSerializable(typeof(SettingsViewModel))]
 [JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.SettingsData))]
+[JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Exporter.ExportTypes))]
+[JsonSerializable(typeof(Nullable<CrowsNestMqtt.BusinessLogic.Exporter.ExportTypes>))]
 internal partial class SettingsViewModelJsonContext : JsonSerializerContext
 {
 }

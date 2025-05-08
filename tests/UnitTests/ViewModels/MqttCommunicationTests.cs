@@ -10,19 +10,20 @@ using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
+using CrowsNestMqtt.BusinessLogic.Configuration; // Required for MqttConnectionSettings
 
 namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class MqttCommunicationTests
     {
-       private readonly ICommandParserService _commandParserService;
-       private readonly IMqttService _mqttServiceMock; // Changed to interface substitute
+        private readonly ICommandParserService _commandParserService;
+        private readonly IMqttService _mqttServiceMock; // Changed to interface substitute
 
-       public MqttCommunicationTests()
-       {
-           _commandParserService = Substitute.For<ICommandParserService>();
-           _mqttServiceMock = Substitute.For<IMqttService>(); // Substitute the interface
-       }
+        public MqttCommunicationTests()
+        {
+            _commandParserService = Substitute.For<ICommandParserService>();
+            _mqttServiceMock = Substitute.For<IMqttService>(); // Substitute the interface
+        }
 
         [Fact]
         public void ConnectAsync_ShouldUpdateSettingsAndConnect()
@@ -220,5 +221,55 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
            // Assert
            _mqttServiceMock.Received(1).Dispose(); // Verify Dispose on the interface mock
        }
-    }
+
+       [Fact]
+       public void ConnectCommand_WhenAspireConfigurationProvided_UsesAspireSettingsForConnection()
+       {
+           // Arrange
+           const string envVarName = "services__mqtt__default__0";
+           const string envVarValue = "tcp://testhost:1883";
+           const string expectedHostname = "testhost";
+           const int expectedPort = 1883;
+           string? originalEnvVar = null;
+
+           MainViewModel viewModel = null!; // Initialize with null!, will be set in try or throw
+
+           try
+           {
+               originalEnvVar = Environment.GetEnvironmentVariable(envVarName);
+               Environment.SetEnvironmentVariable(envVarName, envVarValue);
+
+               // We pass expectedHostname and expectedPort directly, simulating Program.cs behavior
+               // after it reads and parses the environment variable.
+               viewModel = new MainViewModel(_commandParserService, expectedHostname, expectedPort);
+
+               // Replace the internally created MqttEngine with our mock
+               var fieldInfo = typeof(MainViewModel).GetField("_mqttService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+               fieldInfo?.SetValue(viewModel, _mqttServiceMock);
+
+               // Act
+               viewModel.ConnectCommand.Execute().Subscribe();
+
+               // Assert
+               // This assertion checks if the MainViewModel.ConnectAsync method correctly uses the
+               // Aspire-provided hostname and port when calling UpdateSettings.
+               // If MainViewModel.Settings is not updated by Aspire values, this will likely fail,
+               // as ConnectAsync reads from MainViewModel.Settings.
+               _mqttServiceMock.Received(1).UpdateSettings(Arg.Is<MqttConnectionSettings>(s =>
+                   s.Hostname == expectedHostname &&
+                   s.Port == expectedPort &&
+                   s.ClientId == viewModel.Settings.ClientId && // Other settings should come from SettingsViewModel
+                   s.KeepAliveInterval == viewModel.Settings.KeepAliveInterval &&
+                   s.CleanSession == viewModel.Settings.CleanSession &&
+                   s.SessionExpiryInterval == viewModel.Settings.SessionExpiryInterval
+               ));
+               _mqttServiceMock.Received(1).ConnectAsync();
+           }
+           finally
+           {
+               Environment.SetEnvironmentVariable(envVarName, originalEnvVar);
+               viewModel?.Dispose(); // Dispose the ViewModel if it was created
+           }
+       }
+   }
 }

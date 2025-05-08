@@ -25,6 +25,7 @@ using AvaloniaEdit.Document; // Added for TextDocument
 using AvaloniaEdit.Highlighting; // Added for Syntax Highlighting
 using CrowsNestMqtt.BusinessLogic; // Required for MqttEngine, MqttConnectionStateChangedEventArgs, IMqttService
 using CrowsNestMqtt.BusinessLogic.Commands; // Added for command parsing
+using CrowsNestMqtt.BusinessLogic.Configuration; // Required for SettingsData
 using CrowsNestMqtt.BusinessLogic.Services; // Added for command parsing
 using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using DynamicData; // Added for SourceList and reactive filtering
@@ -262,7 +263,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     /// Sets up placeholder data and starts the UI update timer.
     /// </summary>
     // Constructor now requires ICommandParserService
-    public MainViewModel(ICommandParserService commandParserService)
+    public MainViewModel(ICommandParserService commandParserService, string? aspireHostname = null, int? aspirePort = null)
     {
         _commandParserService = commandParserService ?? throw new ArgumentNullException(nameof(commandParserService)); // Store injected service
         _syncContext = SynchronizationContext.Current; // Capture sync context
@@ -329,24 +330,32 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
         FilteredMessageHistory = _filteredMessageHistory; // Assign the bound collection
 
-        // Create connection settings based on the SettingsViewModel
+        if (!string.IsNullOrEmpty(aspireHostname) && aspirePort.HasValue)
+        {
+            if (aspirePort.Value > 0 && aspirePort.Value < 65535)
+            {
+                Log.Information("Using Aspire-provided MQTT configuration. Hostname: {Hostname}, Port: {Port}", aspireHostname, aspirePort.Value);
+                Settings.Hostname = aspireHostname; // Example if you want to update the UI settings fields
+                Settings.Port = aspirePort.Value;
+            }
+        }
+
         var connectionSettings = new MqttConnectionSettings
         {
             Hostname = Settings.Hostname,
             Port = Settings.Port,
-            ClientId = Settings.ClientId,
+            ClientId = Settings.ClientId, // Keep other settings from SettingsViewModel
             KeepAliveInterval = Settings.KeepAliveInterval,
             CleanSession = Settings.CleanSession,
             SessionExpiryInterval = Settings.SessionExpiryInterval
             // TODO: Map other settings like TLS, Credentials if added
         };
 
-         _mqttService = new MqttEngine(connectionSettings); // MqttEngine (IMqttService) is now injected
+         _mqttService = new MqttEngine(connectionSettings); 
 
-        // Subscribe to MQTT Service events
-        _mqttService.ConnectionStateChanged += OnConnectionStateChanged; // Assuming IMqttService exposes this
-        _mqttService.MessageReceived += OnMessageReceived;             // Assuming IMqttService exposes this
-        _mqttService.LogMessage += OnLogMessage;                     // Assuming IMqttService exposes this
+        _mqttService.ConnectionStateChanged += OnConnectionStateChanged; 
+        _mqttService.MessageReceived += OnMessageReceived;             
+        _mqttService.LogMessage += OnLogMessage;                     
 
         // --- Command Implementations ---
         // Rebuild connection settings before connecting if they might change after initial setup
@@ -428,7 +437,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 _globalHookSubscription = null;
             }
 #endif
-        }
+    }
 
     private void OnLogMessage(object? sender, string log)
     {

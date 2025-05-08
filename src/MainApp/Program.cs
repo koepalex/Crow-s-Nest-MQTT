@@ -40,7 +40,8 @@ class Program
         try
         {
             Log.Information("Starting application");
-            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+            (var aspireHostname, var aspirePort) = LoadMqttEndpointFromEnv();
+            BuildAvaloniaApp(aspireHostname, aspirePort).StartWithClassicDesktopLifetime(args);
         }
         catch (Exception ex)
         {
@@ -52,7 +53,7 @@ class Program
         }
     }
 
-    public static AppBuilder BuildAvaloniaApp()
+    public static AppBuilder BuildAvaloniaApp(string? aspireHostname = null, int? aspirePort = null)
     {
         return AppBuilder.Configure<CrowsNestMqtt.UI.App>() // Configure the App from UI project
             .UsePlatformDetect()
@@ -64,8 +65,13 @@ class Program
                 {
                     desktop.MainWindow = new MainWindow
                     {
-                        DataContext = new MainViewModel(new CommandParserService())
+                        DataContext = new MainViewModel(new CommandParserService(), aspireHostname, aspirePort)
                     };
+
+                    if (!string.IsNullOrEmpty(aspireHostname) && aspirePort.HasValue)
+                    {
+                        (desktop.MainWindow.DataContext as MainViewModel)?.ConnectCommand.Execute().Subscribe();
+                    }
 
                     // Subscribe to the ShutdownRequested event
                     desktop.ShutdownRequested += OnShutdownRequested;
@@ -136,5 +142,42 @@ class Program
         }
         // Depending on the application's needs, you might want to exit explicitly
         // if (e.IsTerminating) { Environment.Exit(1); }
+    }
+
+    private static (string? aspireHostname, int? aspirePort) LoadMqttEndpointFromEnv()
+    {
+        string? aspireHostname = null;
+        int? aspirePort = null;
+        const string aspireMqttEnvVar = "services__mqtt__default__0";
+        var mqttConnectionString = Environment.GetEnvironmentVariable(aspireMqttEnvVar);
+
+        if (!string.IsNullOrEmpty(mqttConnectionString))
+        {
+            Log.Information("Found Aspire MQTT connection string from environment variable {EnvVarName}: {ConnectionString}", aspireMqttEnvVar, mqttConnectionString);
+            try
+            {
+                var uri = new Uri(mqttConnectionString);
+                if (!string.IsNullOrEmpty(uri.Host) && uri.Port > 0)
+                {
+                    aspireHostname = uri.Host;
+                    aspirePort = uri.Port;
+                    Log.Information("Successfully parsed Aspire MQTT configuration. Hostname: {Hostname}, Port: {Port}", aspireHostname, aspirePort);
+                }
+                else
+                {
+                    Log.Error("Failed to parse Hostname/Port from Aspire MQTT connection string: {ConnectionString}. Host or Port missing or invalid.", mqttConnectionString);
+                }
+            }
+            catch (UriFormatException ex)
+            {
+                Log.Error(ex, "Invalid URI format for Aspire MQTT connection string: {ConnectionString}", mqttConnectionString);
+            }
+        }
+        else
+        {
+            Log.Information("Aspire MQTT environment variable {EnvVarName} not found or empty.", aspireMqttEnvVar);
+        }
+
+        return (aspireHostname, aspirePort);
     }
 }
