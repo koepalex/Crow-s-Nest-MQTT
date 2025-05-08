@@ -37,6 +37,13 @@ using SharpHook.Reactive; // Added SharpHook Reactive
 
 namespace CrowsNestMqtt.UI.ViewModels;
 
+// Define the JsonSerializerContext for MainViewModel
+[JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(JsonElement))]
+internal partial class MainViewModelJsonContext : JsonSerializerContext
+{
+}
+
 // Simple record for DataGrid items
 public record MetadataItem(string Key, string Value);
 
@@ -235,7 +242,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; } // Added Settings Command
    public ReactiveCommand<Unit, Unit> SubmitInputCommand { get; } // Added for command/search input
   public ReactiveCommand<Unit, Unit> FocusCommandBarCommand { get; } // Added command to trigger focus
-  public ReactiveCommand<MessageViewModel, Unit> CopyPayloadCommand { get; } // Added command to copy payload
+  public ReactiveCommand<object?, Unit> CopyPayloadCommand { get; } // Added command to copy payload
 
   // Interaction for requesting clipboard copy from the View
   public Interaction<string, Unit> CopyTextToClipboardInteraction { get; }
@@ -350,7 +357,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         OpenSettingsCommand = ReactiveCommand.Create(OpenSettings); // Initialize Settings Command
        SubmitInputCommand = ReactiveCommand.Create(ExecuteSubmitInput); // Allow execution even when text is empty (handled inside method)
        FocusCommandBarCommand = ReactiveCommand.Create(() => { Log.Debug("FocusCommandBarCommand executed by global hook."); /* Actual focus happens in View code-behind */ });
-       CopyPayloadCommand = ReactiveCommand.CreateFromTask<MessageViewModel>(CopyPayloadToClipboardAsync); // Initialize copy payload command
+       CopyPayloadCommand = ReactiveCommand.CreateFromTask<object?>(CopyPayloadToClipboardAsync); // Initialize copy payload command
 
             // --- Property Change Reactions ---
 
@@ -613,12 +620,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 try {
                     // Parse and format JSON with indentation
                     var jsonDoc = JsonDocument.Parse(payloadAsString);
-                    var options = new JsonSerializerOptions {
-                        WriteIndented = true,
-                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                    };
-                    
-                    RawPayloadDocument.Text = JsonSerializer.Serialize(jsonDoc.RootElement, options);
+                    // Options are now defined in MainViewModelJsonContext
+                    RawPayloadDocument.Text = JsonSerializer.Serialize(jsonDoc.RootElement, MainViewModelJsonContext.Default.JsonElement);
                     Log.Debug("Formatted JSON payload for raw text display");
                 }
                 catch (JsonException) {
@@ -1351,14 +1354,22 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
    /// <summary>
     /// Copies the full payload of the given message to the system clipboard using an Interaction.
     /// </summary>
-    /// <param name="messageVm">The view model of the message whose payload should be copied.</param>
-    private async Task CopyPayloadToClipboardAsync(MessageViewModel? messageVm) // Allow null VM
+    private async Task CopyPayloadToClipboardAsync(object? param) // Parameter changed to object?
     {
-        var fullMessage = messageVm?.GetFullMessage(); // Use method
+        MessageViewModel? messageVm = param as MessageViewModel;
+
+        if (messageVm == null)
+        {
+            Log.Debug("CopyPayloadToClipboardAsync called with null or invalid parameter. Param: {@Param}", param);
+            StatusBarText = "Error: No message selected or invalid parameter to copy payload from.";
+            return;
+        }
+
+        var fullMessage = messageVm.GetFullMessage(); // Use method, no longer nullable due to check above
         if (fullMessage?.Payload == null)
         {
             StatusBarText = "Cannot copy: Message or payload is missing.";
-            Log.Warning("CopyPayloadCommand failed: MessageViewModel or FullMessage or Payload was null.");
+            Log.Warning("CopyPayloadCommand failed: FullMessage or Payload was null for MessageId {MessageId}.", messageVm.MessageId);
             return;
         }
 
@@ -1371,7 +1382,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         catch (Exception ex)
         {
             StatusBarText = "Error decoding payload for clipboard.";
-            Log.Error(ex, "Failed to decode payload to UTF8 string for clipboard copy.");
+            Log.Error(ex, "Failed to decode payload to UTF8 string for clipboard copy for MessageId {MessageId}.", messageVm.MessageId);
             return;
         }
 
@@ -1380,13 +1391,12 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             // Invoke the interaction to request the View to copy the text
             await CopyTextToClipboardInteraction.Handle(payloadString);
             StatusBarText = "Payload copied to clipboard."; // Assume success if Handle doesn't throw
-            // Use the fetched fullMessage for topic
-            Log.Information("CopyTextToClipboardInteraction handled for topic '{Topic}'.", fullMessage.Topic);
+            Log.Information("CopyTextToClipboardInteraction handled for topic '{Topic}' (MessageId {MessageId}).", fullMessage.Topic, messageVm.MessageId);
         }
         catch (Exception ex) // Catch potential exceptions from the interaction handler
         {
             StatusBarText = $"Error copying to clipboard: {ex.Message}";
-            Log.Error(ex, "Exception occurred during CopyTextToClipboardInteraction handling.");
+            Log.Error(ex, "Exception occurred during CopyTextToClipboardInteraction handling for MessageId {MessageId}.", messageVm.MessageId);
         }
     }
 

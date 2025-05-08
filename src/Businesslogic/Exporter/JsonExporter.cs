@@ -5,8 +5,18 @@ using System.Text.Json;
 using System.IO;
 using System.Linq; // Added for LINQ operations on UserProperties
 using MQTTnet;
-using Serilog;
+using CrowsNestMqtt.Utils; // For AppLogger
 using System.Text.Encodings.Web;
+using System.Text.Json.Serialization;
+
+// Define the JsonSerializerContext
+[JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(JsonExporter.MqttMessageExportDto))]
+[JsonSerializable(typeof(JsonExporter.MqttUserPropertyDto))]
+internal partial class JsonExporterContext : JsonSerializerContext
+{
+    // Removed GeneratedSerializerOptions override to avoid conflict CS0102
+}
 
 public class JsonExporter : IMessageExporter
 {
@@ -14,7 +24,7 @@ public class JsonExporter : IMessageExporter
     public ExportTypes ExporterType => ExportTypes.json;
 
     // Define a DTO to control serialization
-    private record MqttMessageExportDto
+    internal record MqttMessageExportDto // Changed from private to internal
     {
         public DateTime Timestamp { get; init; }
         public string Topic { get; init; } = string.Empty;
@@ -29,7 +39,7 @@ public class JsonExporter : IMessageExporter
         public string? Payload { get; init; } // Payload as string
     }
 
-    private record MqttUserPropertyDto(string Name, string Value);
+    internal record MqttUserPropertyDto(string Name, string Value); // Changed from private to internal
 
 
     public (string content, bool isPayloadValidUtf8, string payloadAsString) GenerateDetailedTextFromMessage(MqttApplicationMessage msg, DateTime receivedTime)
@@ -51,7 +61,7 @@ public class JsonExporter : IMessageExporter
                 {
                     payloadAsString = $"[Could not decode payload as UTF-8: {decodeEx.Message}]";
                     isPayloadValidUtf8 = false;
-                    Log.Warning(decodeEx, "Could not decode payload as UTF-8 for JSON export (Topic: {Topic}). Representing as error string.", msg.Topic);
+                    AppLogger.Warning(decodeEx, "Could not decode payload as UTF-8 for JSON export (Topic: {Topic}). Representing as error string.", msg.Topic);
                 }
             }
             else
@@ -75,16 +85,12 @@ public class JsonExporter : IMessageExporter
                 Payload = isPayloadValidUtf8 ? payloadAsString : null // Only include valid UTF-8 payload in JSON DTO, otherwise null
             };
 
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            };
-            jsonContent = JsonSerializer.Serialize(dto, options);
+            // Use the generated context
+            jsonContent = JsonSerializer.Serialize(dto, JsonExporterContext.Default.MqttMessageExportDto); // Use specific type info
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error generating JSON from MQTT message DTO (Topic: {Topic})", msg.Topic);
+            AppLogger.Error(ex, "Error generating JSON from MQTT message DTO (Topic: {Topic})", msg.Topic);
             jsonContent = string.Empty; // Ensure empty string on error
             // Keep payloadAsString and isPayloadValidUtf8 as they were before the serialization error
         }
@@ -98,7 +104,7 @@ public class JsonExporter : IMessageExporter
             var (jsonContent, _, _) = GenerateDetailedTextFromMessage(msg, receivedTime); // Discard bool and payload string
             if (string.IsNullOrEmpty(jsonContent))
             {
-                Log.Warning("Skipping export for message due to empty content (topic: {Topic})", msg.Topic);
+                AppLogger.Warning("Skipping export for message due to empty content (topic: {Topic})", msg.Topic);
                 return null;
             }
 
@@ -112,12 +118,12 @@ public class JsonExporter : IMessageExporter
             string filePath = Path.Combine(exportFolderPath, filename);
 
             File.WriteAllText(filePath, jsonContent);
-            Log.Information("Exported message (topic: {Topic}) to {FilePath}", msg.Topic, filePath);
+            AppLogger.Information("Exported message (topic: {Topic}) to {FilePath}", msg.Topic, filePath);
             return filePath;
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error exporting message (topic: {Topic}) to file", msg.Topic);
+            AppLogger.Error(ex, "Error exporting message (topic: {Topic}) to file", msg.Topic);
             return null;
         }
     }

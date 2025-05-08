@@ -3,7 +3,7 @@ using System.Collections.ObjectModel;
 using System.Reactive; // For Unit
 using System.Reactive.Linq; // For Select
 using System.Text.Json; // For JsonDocument, JsonElement
-using Serilog; // For logging
+using CrowsNestMqtt.Utils; // For AppLogger
 
 namespace CrowsNestMqtt.UI.ViewModels;
 
@@ -77,13 +77,13 @@ public JsonNodeViewModel? SelectedNode
         }
         catch (JsonException ex)
         {
-            Log.Warning(ex, "Failed to parse JSON string.");
+            AppLogger.Warning(ex, "Failed to parse JSON string.");
             JsonParseError = $"JSON Parsing Error: {ex.Message} (Line: {ex.LineNumber}, Pos: {ex.BytePositionInLine})";
             HasParseError = true;
         }
         catch (Exception ex) // Catch other potential errors
         {
-            Log.Error(ex, "An unexpected error occurred while loading JSON.");
+            AppLogger.Error(ex, "An unexpected error occurred while loading JSON.");
             JsonParseError = $"An unexpected error occurred: {ex.Message}";
             HasParseError = true;
         }
@@ -127,7 +127,7 @@ public JsonNodeViewModel? SelectedNode
 
             // Value types (string, number, boolean, null) are handled within JsonNodeViewModel constructor
             default:
-                 Log.Warning("Unexpected JsonValueKind encountered directly in PopulateNodes: {ValueKind}", element.ValueKind);
+                 AppLogger.Warning("Unexpected JsonValueKind encountered directly in PopulateNodes: {ValueKind}", element.ValueKind);
                  break;
         }
     }

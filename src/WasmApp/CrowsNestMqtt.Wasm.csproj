@@ -1,18 +1,42 @@
 <Project Sdk="Microsoft.NET.Sdk.WebAssembly">
 
   <PropertyGroup>
-    <TargetFramework>$(LibTargetFramework)</TargetFramework>
+    <TargetFramework>net9-browser</TargetFramework>
+    <RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
     <OutputType>Exe</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <!-- Define BROWSER symbol for conditional compilation -->
     <DefineConstants>$(DefineConstants);BROWSER</DefineConstants>
-    <!-- Needed for MSBuild.Sdk.Extras -->
-    <WasmSingleFileBundle>true</WasmSingleFileBundle>
+    <PublishTrimmed>true</PublishTrimmed>
+    <!-- Attempt to resolve JSSynchronizationContext issue and enable modern WASM features -->
+    <WasmEnableWebcil>true</WasmEnableWebcil>
+    <!-- Suppress trim warnings for specific assemblies known to cause IL2104 -->
+    <IsTrimmable>true</IsTrimmable>
+    <NoWarn>$(NoWarn);IL2104;IL2036;IL2026</NoWarn>
+  </PropertyGroup>
+<PropertyGroup Condition="'$(Configuration)'=='Debug'">
+    <DefineConstants>$(DefineConstants);BROWSER</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <DefineConstants>$(DefineConstants);BROWSER</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia.Browser" Version="11.0.10" /> <!-- Use an appropriate Avalonia version -->
+    <PackageReference Include="Avalonia.Browser" Version="11.2.8" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.4" />
+    <!-- Add other packages if they were causing IL2104 and are not project references -->
+    <!-- Example: <PackageReference Include="Serilog" Version="x.y.z" /> -->
+    <!-- Example: <PackageReference Include="ReactiveUI" Version="x.y.z" /> -->
+    <!-- Example: <PackageReference Include="Avalonia.Controls.DataGrid" Version="x.y.z" /> -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Root assemblies that cause IL2104 warnings to prevent them from being trimmed aggressively or to suppress warnings -->
+    <TrimmerRootAssembly Include="Avalonia.Browser" />
+    <TrimmerRootAssembly Include="Avalonia.Controls.DataGrid" />
+    <TrimmerRootAssembly Include="ReactiveUI" />
   </ItemGroup>
 
   <ItemGroup>

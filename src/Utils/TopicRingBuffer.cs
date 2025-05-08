@@ -1,5 +1,4 @@
 using MQTTnet;
-using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -90,7 +89,7 @@ public class TopicRingBuffer
             // Prevent adding duplicates if somehow the same ID is generated (highly unlikely)
             if (_messageIndex.ContainsKey(messageId))
             {
-                 Log.Warning("Attempted to add message with duplicate ID {MessageId} to topic buffer '{Topic}'. Ignoring.", messageId, message.Topic);
+                 AppLogger.Warning("Attempted to add message with duplicate ID {MessageId} to topic buffer '{Topic}'. Ignoring.", messageId, message.Topic);
                  return;
             }
 
@@ -117,7 +116,7 @@ public class TopicRingBuffer
            else
            {
                 // Log if a message couldn't be added even after clearing space (because it's intrinsically too large)
-                Log.Warning("Message for topic '{Topic}' (ID: {MessageId}, Size: {Size} bytes) could not be added as it exceeds the buffer limit ({Limit} bytes) even after clearing space.",
+                AppLogger.Warning("Message for topic '{Topic}' (ID: {MessageId}, Size: {Size} bytes) could not be added as it exceeds the buffer limit ({Limit} bytes) even after clearing space.",
                     message.Topic, messageId, bufferedMessage.Size, _maxSizeInBytes);
                 // Ensure buffer is clear if the only message was too large and couldn't be added
                 if (_messages.Count == 0)

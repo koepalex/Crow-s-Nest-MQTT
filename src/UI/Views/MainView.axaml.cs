@@ -58,7 +58,7 @@ public partial class MainView : UserControl
         _rawPayloadEditor = this.FindControl<AvaloniaEdit.TextEditor>("RawPayloadEditor");
         if (_rawPayloadEditor == null)
         {
-             Serilog.Log.Error("Could not find RawPayloadEditor control in MainView constructor.");
+             CrowsNestMqtt.Utils.AppLogger.Error("Could not find RawPayloadEditor control in MainView constructor.");
              // Consider throwing an exception or handling this more robustly if the editor is critical
         }
 
@@ -88,33 +88,37 @@ public partial class MainView : UserControl
             {
                 // Set initial focus state
                 viewModel.IsWindowFocused = _parentWindow.IsFocused;
-                Serilog.Log.Debug("MainView Attached. Initial IsWindowFocused = {IsFocused}", viewModel.IsWindowFocused);
+                CrowsNestMqtt.Utils.AppLogger.Debug("MainView Attached. Initial IsWindowFocused = {IsFocused}", viewModel.IsWindowFocused);
 
                 // Subscribe to focus events (unsubscribe handled in OnDetached/UnsubscribeFromViewModel)
+#pragma warning disable IL2026 // Suppress trim warning for FromEventPattern
                 _gotFocusSubscription = Observable.FromEventPattern<GotFocusEventArgs>(_parentWindow, nameof(Window.GotFocus))
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_ =>
                     {
-                        Serilog.Log.Debug("MainView GotFocus event fired. Setting IsWindowFocused = true.");
+                        CrowsNestMqtt.Utils.AppLogger.Debug("MainView GotFocus event fired. Setting IsWindowFocused = true.");
                         viewModel.IsWindowFocused = true;
                     });
+#pragma warning restore IL2026
 
+#pragma warning disable IL2026 // Suppress trim warning for FromEventPattern
                 _lostFocusSubscription = Observable.FromEventPattern<RoutedEventArgs>(_parentWindow, nameof(Window.LostFocus))
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_ =>
                     {
-                        Serilog.Log.Debug("MainView LostFocus event fired. Setting IsWindowFocused = false.");
+                        CrowsNestMqtt.Utils.AppLogger.Debug("MainView LostFocus event fired. Setting IsWindowFocused = false.");
                         viewModel.IsWindowFocused = false;
                     });
+#pragma warning restore IL2026
             }
             else
             {
-                Serilog.Log.Warning("Could not find parent window in MainView.OnAttachedToVisualTree to track focus.");
+                CrowsNestMqtt.Utils.AppLogger.Warning("Could not find parent window in MainView.OnAttachedToVisualTree to track focus.");
             }
         }
         else
         {
-             Serilog.Log.Warning("DataContext not ready or not MainViewModel in MainView.OnAttachedToVisualTree.");
+             CrowsNestMqtt.Utils.AppLogger.Warning("DataContext not ready or not MainViewModel in MainView.OnAttachedToVisualTree.");
         }
         // --- End Initial Focus & Window Focus Tracking ---
     }
@@ -185,17 +189,17 @@ public partial class MainView : UserControl
                    {
                        await clipboard.SetTextAsync(textToCopy);
                        interaction.SetOutput(Unit.Default); // Signal completion
-                       Serilog.Log.Debug("Successfully copied text to clipboard via interaction.");
+                       CrowsNestMqtt.Utils.AppLogger.Debug("Successfully copied text to clipboard via interaction.");
                    }
                    catch (Exception clipEx)
                    {
-                       Serilog.Log.Error(clipEx, "Failed to set clipboard text via interaction.");
+                       CrowsNestMqtt.Utils.AppLogger.Error(clipEx, "Failed to set clipboard text via interaction.");
                        // Optionally signal failure: interaction.SetException(clipEx);
                    }
                }
                else
                {
-                   Serilog.Log.Warning("Clipboard service not available in MainView interaction handler.");
+                   CrowsNestMqtt.Utils.AppLogger.Warning("Clipboard service not available in MainView interaction handler.");
                    // Optionally signal failure: interaction.SetException(new Exception("Clipboard not available."));
                }
            });
@@ -212,7 +216,7 @@ public partial class MainView : UserControl
                    {
                        // Clear selection by creating an empty selection at the start
                        _rawPayloadEditor.TextArea.Selection = Selection.Create(_rawPayloadEditor.TextArea, 0, 0);
-                       Serilog.Log.Debug("RawPayloadDocument changed and is empty. Cleared editor selection.");
+                       CrowsNestMqtt.Utils.AppLogger.Debug("RawPayloadDocument changed and is empty. Cleared editor selection.");
                    }
                });
        }

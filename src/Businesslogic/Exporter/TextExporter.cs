@@ -3,8 +3,8 @@ namespace CrowsNestMqtt.BusinessLogic.Exporter;
 using System.IO;
 using System.Text;
 using MQTTnet;
-using Serilog;
-using CrowsNestMqtt.Utils; // Added for BufferedMqttMessage
+using CrowsNestMqtt.Utils; // For AppLogger
+
 public class TextExporter : IMessageExporter
 {
     /// <inheritdoc />
@@ -70,7 +70,7 @@ public class TextExporter : IMessageExporter
             var (textContent, _, _) = GenerateDetailedTextFromMessage(msg, receivedTime); // Discard the bool and payload string for file export
             if (string.IsNullOrEmpty(textContent))
             {
-                Log.Warning("Skipping export for message due to empty content (topic: {Topic})", msg.Topic);
+                AppLogger.Warning("Skipping export for message due to empty content (topic: {Topic})", msg.Topic);
                 return null;
             }
 
@@ -84,12 +84,12 @@ public class TextExporter : IMessageExporter
             string filePath = Path.Combine(exportFolderPath, filename);
 
             File.WriteAllText(filePath, textContent);
-            Log.Information("Exported message (topic: {Topic}) to {FilePath}", msg.Topic, filePath);
+            AppLogger.Information("Exported message (topic: {Topic}) to {FilePath}", msg.Topic, filePath);
             return filePath;
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error exporting message (topic: {Topic}) to file", msg.Topic);
+            AppLogger.Error(ex, "Error exporting message (topic: {Topic}) to file", msg.Topic);
             return null;
         }
     }

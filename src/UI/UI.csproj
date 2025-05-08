@@ -15,8 +15,11 @@
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.2.8" />
     <PackageReference Include="FuzzySharp" Version="2.0.2" />
     <PackageReference Include="ReactiveUI.Fody" Version="19.5.41" />
-    <PackageReference Include="Serilog" Version="4.2.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0" /> <!-- Added Fluent Theme -->
+  </ItemGroup>
+
+  <ItemGroup Condition="!$(DefineConstants.Contains('BROWSER'))">
+    <PackageReference Include="Serilog" Version="4.2.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -29,6 +32,10 @@
    <PackageReference Include="SharpHook" Version="5.2.0" />
    <PackageReference Include="SharpHook.Reactive" Version="5.2.0" /> <!-- Add reactive extensions -->
  </ItemGroup>
-</Project>
-</Project>
 
+ <!-- Conditionally include Microsoft.Extensions.Logging for WASM targets -->
+ <ItemGroup Condition="$(DefineConstants.Contains('BROWSER'))">
+   <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.4" />
+   <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.4" />
+ </ItemGroup>
+</Project>

@@ -3,7 +3,7 @@ namespace CrowsNestMqtt.UI.ViewModels;
 using CrowsNestMqtt.BusinessLogic.Exporter;
 using CrowsNestMqtt.BusinessLogic.Configuration;
 using ReactiveUI;
-using Serilog;
+using CrowsNestMqtt.Utils; // For AppLogger
 using System;
 using System.Collections.ObjectModel;
 using System.IO; // For Path, File, Directory
@@ -12,6 +12,14 @@ using System.Reactive.Linq; // For Observable operators like Throttle
 using System.Text.Json; // For JSON serialization
 using System.Text.Json.Serialization; // For JsonIgnore
 
+
+// Define the JsonSerializerContext for SettingsViewModel and SettingsData
+[JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(SettingsViewModel))]
+[JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.SettingsData))]
+internal partial class SettingsViewModelJsonContext : JsonSerializerContext
+{
+}
 
 /// <summary>
 /// ViewModel for MQTT connection settings.
@@ -161,17 +169,17 @@ public class SettingsViewModel : ReactiveObject
             if (directory != null && !Directory.Exists(directory))
             {
                 Directory.CreateDirectory(directory);
-                Log.Information("Created settings directory: {Directory}", directory);
+                AppLogger.Information("Created settings directory: {Directory}", directory);
             }
 
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            string json = JsonSerializer.Serialize(this, options);
+            // Use the generated context for serialization
+            string json = JsonSerializer.Serialize(this, SettingsViewModelJsonContext.Default.SettingsViewModel);
             File.WriteAllText(_settingsFilePath, json);
-            Log.Information("Settings saved to {FilePath}", _settingsFilePath);
+            AppLogger.Information("Settings saved to {FilePath}", _settingsFilePath);
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error saving settings to {FilePath}", _settingsFilePath);
+            AppLogger.Error(ex, "Error saving settings to {FilePath}", _settingsFilePath);
         }
     }
 
@@ -183,27 +191,27 @@ public class SettingsViewModel : ReactiveObject
     {
         if (!File.Exists(_settingsFilePath))
         {
-            Log.Warning("Settings file not found at {FilePath}. Using defaults.", _settingsFilePath);
+            AppLogger.Warning("Settings file not found at {FilePath}. Using defaults.", _settingsFilePath);
             return; // Use default values if file doesn't exist
         }
 
         try
         {
             string json = File.ReadAllText(_settingsFilePath);
-            // Deserialize into the temporary SettingsData record
-            var loadedData = JsonSerializer.Deserialize<SettingsData>(json);
+            // Deserialize into the temporary SettingsData record using the generated context
+            var loadedData = JsonSerializer.Deserialize(json, SettingsViewModelJsonContext.Default.SettingsData);
 
             if (loadedData != null)
             {
                 // Copy values from the loaded data to the current ViewModel instance
                 From(loadedData);
 
-                Log.Information("Settings loaded from {FilePath}", _settingsFilePath);
+                AppLogger.Information("Settings loaded from {FilePath}", _settingsFilePath);
             }
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error loading settings from {FilePath}", _settingsFilePath);
+            AppLogger.Error(ex, "Error loading settings from {FilePath}", _settingsFilePath);
             // Keep default values if loading fails
         }
     }

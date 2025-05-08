@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <AppTargetFramework>net9.0</AppTargetFramework>
-    <LibTargetFramework>net9.0</LibTargetFramework>
+    <LibTargetFramework>net9.0;net9.0-browser</LibTargetFramework>
     <TestsTargetFramework>net9.0</TestsTargetFramework>
     <TargetRuntimeIdentifiers>win-x64;linux-x64;osx-x64</TargetRuntimeIdentifiers>
   </PropertyGroup>

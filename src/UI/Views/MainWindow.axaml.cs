@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace CrowsNestMqtt.App;
+namespace CrowsNestMqtt.UI.Views;
 
 /// <summary>
 /// The main window of the application.
