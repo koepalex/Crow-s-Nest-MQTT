@@ -52,7 +52,7 @@ jobs:
       run: dotnet build src/WasmApp/CrowsNestMqtt.Wasm.csproj --no-restore --configuration Release
 
     - name: Test with coverage
-      run: dotnet test --no-build --configuration Release --verbosity normal --filter "Category!=LocalOnly" /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=./TestResults/coverage/
+      run: dotnet test --configuration Release --verbosity normal --filter "Category!=LocalOnly" /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=./TestResults/coverage/
     
     - name: Generate coverage report
       run: |
