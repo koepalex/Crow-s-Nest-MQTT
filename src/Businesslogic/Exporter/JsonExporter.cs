@@ -20,6 +20,9 @@ internal partial class JsonExporterContext : JsonSerializerContext
 
 public class JsonExporter : IMessageExporter
 {
+    // Define a fixed set of characters to replace for cross-platform compatibility.
+    private static readonly char[] s_charactersToReplace = new char[] { ':', '?', '*', '<', '>', '/', '\\', '|', '"' };
+
     /// <inheritdoc />
     public ExportTypes ExporterType => ExportTypes.json;
 
@@ -112,7 +115,7 @@ public class JsonExporter : IMessageExporter
             Directory.CreateDirectory(exportFolderPath);
 
             // Create a sanitized filename
-            string sanitizedTopic = string.Join("_", msg.Topic.Split(Path.GetInvalidFileNameChars()));
+            string sanitizedTopic = string.Join("_", msg.Topic.Split(s_charactersToReplace));
             string timestamp = receivedTime.ToString("yyyyMMdd_HHmmssfff");
             string filename = $"{timestamp}_{sanitizedTopic}.json";
             string filePath = Path.Combine(exportFolderPath, filename);

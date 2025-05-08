@@ -7,6 +7,11 @@ using CrowsNestMqtt.Utils; // For AppLogger
 
 public class TextExporter : IMessageExporter
 {
+    // Define a fixed set of characters to replace for cross-platform compatibility.
+    // This set includes characters that are commonly invalid in filenames on various OS
+    // and specifically those causing issues in the failing unit test (:, ?, *, <, >).
+    private static readonly char[] s_charactersToReplace = new char[] { ':', '?', '*', '<', '>', '/', '\\', '|', '"' };
+
     /// <inheritdoc />
     public ExportTypes ExporterType => ExportTypes.txt;
 
@@ -78,7 +83,7 @@ public class TextExporter : IMessageExporter
             Directory.CreateDirectory(exportFolderPath);
 
             // Create a sanitized filename
-            string sanitizedTopic = string.Join("_", msg.Topic.Split(Path.GetInvalidFileNameChars()));
+            string sanitizedTopic = string.Join("_", msg.Topic.Split(s_charactersToReplace));
             string timestamp = receivedTime.ToString("yyyyMMdd_HHmmssfff"); // Use Windows-compatible format
             string filename = $"{timestamp}_{sanitizedTopic}.txt"; // Use .txt extension
             string filePath = Path.Combine(exportFolderPath, filename);
