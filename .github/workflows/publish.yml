@@ -15,6 +15,11 @@ jobs:
       with:
         fetch-depth: 0 # Fetch all history for GitVersion
 
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.203
+
     - name: Install GitVersion
       uses: gittools/actions/gitversion/setup@v1.1.1
       with:
