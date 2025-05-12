@@ -567,7 +567,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             string correlationDisplay;
             try
             {
-                correlationDisplay = Encoding.UTF8.GetString(msg.CorrelationData);
+                correlationDisplay = BitConverter.ToString(msg.CorrelationData).Replace("-", string.Empty);
             }
             catch
             {
