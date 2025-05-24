@@ -11,14 +11,21 @@ using System.Reactive; // For Unit
 using System.Reactive.Linq; // For Observable operators like Throttle
 using System.Text.Json; // For JSON serialization
 using System.Text.Json.Serialization; // For JsonIgnore
+using System.Collections.Generic; // For List<T>
+using System.Linq; // For .Select
 
 
 // Define the JsonSerializerContext for SettingsViewModel and SettingsData
 [JsonSourceGenerationOptions(WriteIndented = true)]
-[JsonSerializable(typeof(SettingsViewModel))]
+[JsonSerializable(typeof(SettingsViewModel))] // Though we save SettingsData, this might be used elsewhere or for future flexibility
 [JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.SettingsData))]
 [JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Exporter.ExportTypes))]
 [JsonSerializable(typeof(Nullable<CrowsNestMqtt.BusinessLogic.Exporter.ExportTypes>))]
+[JsonSerializable(typeof(ObservableCollection<TopicBufferLimitViewModel>))]
+[JsonSerializable(typeof(TopicBufferLimitViewModel))]
+[JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.TopicBufferLimit))]
+[JsonSerializable(typeof(IList<CrowsNestMqtt.BusinessLogic.Configuration.TopicBufferLimit>))]
+[JsonSerializable(typeof(List<CrowsNestMqtt.BusinessLogic.Configuration.TopicBufferLimit>))] // For deserialization of SettingsData's property
 internal partial class SettingsViewModelJsonContext : JsonSerializerContext
 {
 }
@@ -42,6 +49,8 @@ public class SettingsViewModel : ReactiveObject
     private readonly ReadOnlyObservableCollection<ExportTypes> _availableExportTypes;
     public ReadOnlyObservableCollection<ExportTypes> AvailableExportTypes => _availableExportTypes; // Changed type and name
 
+    public ObservableCollection<TopicBufferLimitViewModel> TopicSpecificLimits { get; } = new();
+
 #pragma warning disable IDE0044 // Add readonly modifier
     private bool _isLoading = false; // Flag to prevent saving during initial load
 #pragma warning restore IDE0044 // Add readonly modifier
@@ -49,22 +58,30 @@ public class SettingsViewModel : ReactiveObject
     public SettingsViewModel()
     {
         _isLoading = true; // Set flag before loading
-        LoadSettings();
+        LoadSettings(); // This calls From() which populates TopicSpecificLimits
         _isLoading = false; // Clear flag after loading
 
         // Auto-save settings when properties change (with throttling)
-        // Auto-save settings when properties change (with throttling)
-        // Use CombineLatest for robustness with multiple properties
-        Observable.CombineLatest(
-                this.WhenAnyValue(x => x.Hostname),
-                this.WhenAnyValue(x => x.Port),
-                this.WhenAnyValue(x => x.ClientId),
-                this.WhenAnyValue(x => x.KeepAliveIntervalSeconds),
-                this.WhenAnyValue(x => x.CleanSession),
-                this.WhenAnyValue(x => x.SessionExpiryIntervalSeconds),
-                this.WhenAnyValue(x => x.ExportFormat),
-                this.WhenAnyValue(x => x.ExportPath),
-                (_, _, _, _, _, _, _, _) => Unit.Default) // Combine results, we only care about the trigger
+        var basicPropertiesChanged = Observable.CombineLatest(
+            this.WhenAnyValue(x => x.Hostname),
+            this.WhenAnyValue(x => x.Port),
+            this.WhenAnyValue(x => x.ClientId),
+            this.WhenAnyValue(x => x.KeepAliveIntervalSeconds),
+            this.WhenAnyValue(x => x.CleanSession),
+            this.WhenAnyValue(x => x.SessionExpiryIntervalSeconds),
+            this.WhenAnyValue(x => x.ExportFormat),
+            this.WhenAnyValue(x => x.ExportPath),
+            (_, _, _, _, _, _, _, _) => Unit.Default);
+
+        // Watch for changes in the collection itself (add/remove)
+        var collectionChanged = this.WhenAnyValue(x => x.TopicSpecificLimits)
+            .Select(_ => Unit.Default); // We just need a trigger
+
+        // Watch for changes within any item in the collection
+        var itemPropertiesChanged = this.WhenAnyObservable(x => x.TopicSpecificLimits.ItemChanged)
+            .Select(_ => Unit.Default); // We just need a trigger
+
+        Observable.Merge(basicPropertiesChanged, collectionChanged, itemPropertiesChanged)
             .Throttle(TimeSpan.FromMilliseconds(500)) // Wait 500ms after the last change
             .ObserveOn(RxApp.TaskpoolScheduler) // Perform save on a background thread
             .Subscribe(_ => SaveSettings());
@@ -72,7 +89,12 @@ public class SettingsViewModel : ReactiveObject
         // Populate with enum values
         _availableExportTypes = new ReadOnlyObservableCollection<ExportTypes>(
             new ObservableCollection<ExportTypes>(Enum.GetValues(typeof(ExportTypes)).Cast<ExportTypes>()));
-        ExportPath = _exportFolderPath;
+        
+        // Set default export path if not loaded
+        if (string.IsNullOrEmpty(ExportPath))
+        {
+            ExportPath = _exportFolderPath;
+        }
     }
     private string _hostname = "localhost";
     public string Hostname
@@ -135,16 +157,24 @@ public class SettingsViewModel : ReactiveObject
    }
     public SettingsData Into()
     {
+        var topicLimits = TopicSpecificLimits
+            .Select(vm => new TopicBufferLimit { TopicFilter = vm.TopicFilter, MaxSizeBytes = vm.MaxSizeBytes })
+            .ToList();
+
         return new SettingsData(
-            Hostname,
-            Port,
-            ClientId,
-            KeepAliveIntervalSeconds,
-            CleanSession,
-            SessionExpiryIntervalSeconds,
-            ExportFormat, // Type is now ExportTypes?
-            ExportPath    
-        );
+            Hostname: Hostname,
+            Port: Port,
+            ClientId: ClientId,
+            KeepAliveIntervalSeconds: KeepAliveIntervalSeconds,
+            CleanSession: CleanSession,
+            SessionExpiryIntervalSeconds: SessionExpiryIntervalSeconds,
+            ExportFormat: ExportFormat,
+            ExportPath: ExportPath
+        ) // Call to primary constructor
+        { 
+            // Use object initializer for the new property
+            TopicSpecificBufferLimits = topicLimits 
+        };
     }
 
     public void From(SettingsData settingsData)
@@ -155,8 +185,17 @@ public class SettingsViewModel : ReactiveObject
         KeepAliveIntervalSeconds = settingsData.KeepAliveIntervalSeconds;
         CleanSession = settingsData.CleanSession;
         SessionExpiryIntervalSeconds = settingsData.SessionExpiryIntervalSeconds;
-        ExportFormat = settingsData.ExportFormat; // Type is now ExportTypes?
-        ExportPath = settingsData.ExportPath;       // Added
+        ExportFormat = settingsData.ExportFormat; 
+        ExportPath = settingsData.ExportPath;
+        
+        TopicSpecificLimits.Clear();
+        if (settingsData.TopicSpecificBufferLimits != null)
+        {
+            foreach (var limitModel in settingsData.TopicSpecificBufferLimits)
+            {
+                TopicSpecificLimits.Add(new TopicBufferLimitViewModel(limitModel));
+            }
+        }
     }
 
     // --- Persistence Methods ---
@@ -174,8 +213,11 @@ public class SettingsViewModel : ReactiveObject
                 AppLogger.Information("Created settings directory: {Directory}", directory);
             }
 
-            // Use the generated context for serialization
-            string json = JsonSerializer.Serialize(this, SettingsViewModelJsonContext.Default.SettingsViewModel);
+            // Get the SettingsData model from the ViewModel
+            SettingsData dataToSave = this.Into();
+            
+            // Use the generated context for serializing SettingsData
+            string json = JsonSerializer.Serialize(dataToSave, SettingsViewModelJsonContext.Default.SettingsData);
             File.WriteAllText(_settingsFilePath, json);
             AppLogger.Information("Settings saved to {FilePath}", _settingsFilePath);
         }
@@ -184,37 +226,38 @@ public class SettingsViewModel : ReactiveObject
             AppLogger.Error(ex, "Error saving settings to {FilePath}", _settingsFilePath);
         }
     }
-
-    // Define a simple record to hold settings data for deserialization
-    // This avoids recursive constructor calls during deserialization.
     
-
     private void LoadSettings()
     {
         if (!File.Exists(_settingsFilePath))
         {
             AppLogger.Warning("Settings file not found at {FilePath}. Using defaults.", _settingsFilePath);
+            // Ensure default export path is set if settings file doesn't exist
+            if (string.IsNullOrEmpty(ExportPath)) ExportPath = _exportFolderPath;
             return; // Use default values if file doesn't exist
         }
 
         try
         {
             string json = File.ReadAllText(_settingsFilePath);
-            // Deserialize into the temporary SettingsData record using the generated context
             var loadedData = JsonSerializer.Deserialize(json, SettingsViewModelJsonContext.Default.SettingsData);
 
             if (loadedData != null)
             {
-                // Copy values from the loaded data to the current ViewModel instance
-                From(loadedData);
-
+                From(loadedData); // This now also populates TopicSpecificLimits
                 AppLogger.Information("Settings loaded from {FilePath}", _settingsFilePath);
+            }
+            else
+            {
+                 AppLogger.Warning("Failed to deserialize settings from {FilePath}. Using defaults.", _settingsFilePath);
+                 if (string.IsNullOrEmpty(ExportPath)) ExportPath = _exportFolderPath;
             }
         }
         catch (Exception ex)
         {
             AppLogger.Error(ex, "Error loading settings from {FilePath}", _settingsFilePath);
-            // Keep default values if loading fails
+            // Keep default values if loading fails, ensure default export path
+            if (string.IsNullOrEmpty(ExportPath)) ExportPath = _exportFolderPath;
         }
     }
 }

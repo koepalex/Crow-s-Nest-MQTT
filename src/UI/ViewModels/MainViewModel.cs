@@ -347,7 +347,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             ClientId = Settings.ClientId, // Keep other settings from SettingsViewModel
             KeepAliveInterval = Settings.KeepAliveInterval,
             CleanSession = Settings.CleanSession,
-            SessionExpiryInterval = Settings.SessionExpiryInterval
+            SessionExpiryInterval = Settings.SessionExpiryInterval,
+            TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits
             // TODO: Map other settings like TLS, Credentials if added
         };
 
@@ -751,7 +752,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             ClientId = Settings.ClientId,
             KeepAliveInterval = Settings.KeepAliveInterval,
             CleanSession = Settings.CleanSession,
-            SessionExpiryInterval = Settings.SessionExpiryInterval
+            SessionExpiryInterval = Settings.SessionExpiryInterval,
+            TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits
         };
         // Update the engine with the latest settings before connecting
         _mqttService.UpdateSettings(connectionSettings); // Use _mqttService

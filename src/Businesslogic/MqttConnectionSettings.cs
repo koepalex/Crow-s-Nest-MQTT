@@ -1,5 +1,8 @@
 namespace CrowsNestMqtt.BusinessLogic;
 
+using System.Collections.Generic;
+using CrowsNestMqtt.BusinessLogic.Configuration;
+
 /// <summary>
 /// Holds configuration settings for establishing an MQTT connection.
 /// This class is independent of the UI layer.
@@ -12,6 +15,7 @@ public class MqttConnectionSettings
     public TimeSpan KeepAliveInterval { get; set; } = TimeSpan.FromSeconds(60);
     public bool CleanSession { get; set; } = true;
     public uint? SessionExpiryInterval { get; set; } = 0;// Null means session never expires
+    public IList<TopicBufferLimit> TopicSpecificBufferLimits { get; set; } = new List<TopicBufferLimit>();
 
     // Consider adding properties for TLS, Credentials, etc. later
 }
