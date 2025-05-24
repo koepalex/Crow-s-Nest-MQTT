@@ -1,19 +1,19 @@
-Below is a comprehensive specification that consolidates all of our discussions into a single, developer-ready document. It outlines the requirements, architecture, data handling, error handling, and a suggested testing plan. This should be sufficient for a developer to begin implementation.
+Below is a comprehensive specification that reflects the current understanding of the implemented system, based on available code definitions. It outlines the requirements, architecture, data handling, error handling, and a suggested testing plan.
 
 ---
 
 ## 1. Overview
 
-We need to build a cross-platform MQTT v5 client application with a graphical user interface. The primary focus is to **subscribe** to all topics (using the wildcard `#`), **monitor** high volumes of messages, and **visualize** their details in a structured, user-friendly way. The tool should run on **Windows, Linux, and macOS** and be packaged as a developer-friendly global tool rather than a traditional installer.
+We are building a cross-platform MQTT v5 client application with a graphical user interface using AvaloniaUI. The primary focus is to **subscribe** to topics (defaulting to `#`), **monitor** messages, and **visualize** their details in a structured, user-friendly way. The tool is intended to run on **Windows, Linux, and macOS** and be packaged as self-contained tool.
 
 ### Key Points
-- **MQTT v5** client.
-- Subscribes to `#` with **QoS 1**.
-- Cross-platform (Windows, Linux, macOS).
-- Focus on **high-performance** message handling and **intuitive** visualization.
-- **Dark mode** by default.
-- **Vim-like** keyboard navigation.
-- Expandable with advanced features in the future (e.g., TLS, user authentication).
+- **MQTT v5** client (via `MQTTnet`).
+- Subscribes to a configurable topic (defaults to `#`) with **QoS 1** by default.
+- Cross-platform (Windows, Linux, macOS) using **AvaloniaUI**, with a **WasmApp** target.
+- Focus on message handling and visualization.
+- **Dark mode** by default (common AvaloniaUI capability, to be confirmed in UI implementation).
+- Keyboard navigation.
+- Expandable with advanced features in the future.
 
 ---
 
@@ -21,89 +21,88 @@ We need to build a cross-platform MQTT v5 client application with a graphical us
 
 ### 2.1 Functional Requirements
 
-1. **MQTT Connection**  
-   - **Broker Settings**:  
-     - Hostname and Port (basic).  
-     - Advanced options (client ID, keepalive, session timeout, clean session vs. session expiry).  
-   - **Subscription**:  
-     - Subscribes to `#` (all topics) at QoS 1 by default.  
-   - **Reconnect**:  
-     - Automatically reconnect if disconnected.  
-     - Show detailed notifications on failure (error code, reason string).
+1.  **MQTT Connection**
+    *   **Broker Settings**:
+        *   Hostname and Port (managed by `MqttConnectionSettings` and `SettingsData`).
+        *   Advanced options: Client ID, Keepalive Interval, Clean Session, Session Expiry Interval (covered by `MqttConnectionSettings` and `SettingsData`).
+    *   **Subscription**:
+        *   Subscribes to a configurable topic (e.g., `#`) at QoS 1 by default (handled by `MqttEngine`).
+    *   **Reconnect**:
+        *   Automatically reconnect if disconnected (handled by `MqttEngine.ReconnectAsync`).
+        *   Notifications on failure via `IStatusBarService` and `AppLogger`.
 
-2. **Topic & Message Display**  
-   - **Topic List Panel**:  
-     - Lists all topics with an incremental message count.  
-     - Collapsed by default for performance; expands on user interaction.  
-   - **Message History Panel**:  
-     - Displays a timestamped list of received messages for the selected topic.  
-     - Allows pausing/resuming UI updates (still buffering messages in the background).  
-     - Allows global reset/clear to empty the ring buffer and reset counters.
+2.  **Topic & Message Display**
+    *   **Topic List Panel**:
+        *   Lists topics with an incremental message count (`NodeViewModel` with `MessageCount`, displayed in `MainViewModel.TopicNodes`).
+        *   Expansion/collapse behavior is a UI implementation detail.
+    *   **Message History Panel**:
+        *   Displays a timestamped list of received messages for the selected topic (`MainViewModel.SelectedTopicMessages` of `MessageViewModel`).
+        *   Allows pausing/resuming UI updates (`MainViewModel.TogglePause`, `IsPaused`).
+        *   Allows global reset/clear (`MainViewModel.ClearHistory` calling `IMqttService.ClearAllBuffers`).
 
-3. **Message Details**  
-   - **Metadata**:  
-     - Message ID, content-type, correlation-data, user-properties, payload-format-indicator, retain flag, message-expiry-interval, timestamp.  
-   - **Payload Display**:  
-     - **Raw** text or **highlighted JSON** (based on content-type).  
-     - If `content-type` is image/jpeg or image/png, **render** the image and allow **zoom** and **save**.  
-     - Option to **diff** the payload against the **previous** message on the same topic.
+3.  **Message Details**
+    *   **Metadata**:
+        *   `MqttApplicationMessage` properties (ContentType, CorrelationData, UserProperties, PayloadFormatIndicator, Retain, MessageExpiryInterval).
+        *   MessageID and Timestamp are associated with messages (e.g., via `BufferedMqttMessage` or `IdentifiedMqttApplicationMessageReceivedEventArgs`).
+    *   **Payload Display**:
+        *   **Raw** text or **highlighted JSON** (syntax highlighting managed by `MainViewModel.GuessSyntaxHighlighting`, raw view via `MainViewModel.SwitchPayloadView`).
+        *   JSON tree view provided by `JsonViewerViewModel`.
+        *   *(Speculative/Future: Image rendering, payload diffing - not confirmed in current definitions).*
 
-4. **Data Handling**  
-   - **Ring Buffer**:  
-     - Configurable max size per topic (e.g., 10MB).  
-     - Oldest messages replaced when full.  
-   - **Storage**:  
-     - Start with in-memory.  
-     - Option to serialize to local DB (DuckDB or SQLite) if needed.  
+4.  **Data Handling**
+    *   **Ring Buffer**:
+        *   Implemented with `TopicRingBuffer` per topic, used by `MqttEngine`.
+        *   Oldest messages replaced when full.
+        *   *(Speculative: Configurable max size per topic - `TopicRingBuffer` likely takes a size parameter or has a constant, but specific configurability from settings isn't confirmed).*
+    *   **Storage**:
+        *   Currently in-memory.
+        *   *(Future: Option to serialize to local DB - not in current definitions).*
 
-5. **Search & Filtering**  
-   - **Global Search** with fuzzy matching.  
-   - Support contextual searches with `@correlation-data:`, `@message-id:`, `@timestamp:`, etc.  
-   - By default, searches payload content and topic names.
+5.  **Search & Filtering**
+    *   **Global Search/Input**:
+        *   Input via `MainViewModel.InputText`, processed by `CommandParserService`.
+        *   Topic filtering is implemented (`MainViewModel.ApplyTopicFilter`).
+        *   *(Speculative: Fuzzy matching, contextual searches like `@correlation-data:` - specific implementation details not confirmed).*
 
-6. **Interactive JSON Element View**  
-   - **Tree-view** of JSON payload.  
-   - Click elements to add them to a **live-updating table** showing last known values across messages.  
-   - If some messages lack a field, display no data or “N/A.”
+6.  **Interactive JSON Element View**
+    *   **Tree-view** of JSON payload provided by `JsonViewerViewModel`.
+    *   *(Speculative/Future: Clicking elements to add them to a live-updating table - not confirmed).*
 
-7. **Command System via Global Search Bar**  
-   - **Colon-prefixed commands** with auto-completion:  
-     - `:connect`, `:disconnect`, `:settings`, `:diagnostic`  
-     - `:export` (export messages per MQTT topic)  
-     - `:export-all` (export all messages in the ring buffer)  
-     - `:verify` (check for missing messages by message-id gaps)  
-     - `:stats` (show messages/second and average message size)  
-   - Support ephemeral/inline error messages for invalid commands.
+7.  **Command System via Global Search Bar**
+    *   **Colon-prefixed commands** parsed by `CommandParserService`, dispatched by `MainViewModel`.
+    *   Implemented Commands:
+        *   `:connect [hostname:port] [clientid] ...`: `MainViewModel.ConnectToMqttBroker`.
+        *   `:disconnect`: `MainViewModel.DisconnectFromMqttBroker`.
+        *   `:settings`: `MainViewModel.OpenSettings`.
+        *   `:export [topic] [format] [path]` / `:export-all [format] [path]`: `MainViewModel.Export` using `IMessageExporter`.
+        *   `:clear`: `MainViewModel.ClearMessageHistory`.
+        *   `:help [command]`: `MainViewModel.DisplayHelpInformation`.
+    *   Ephemeral/inline error messages via `IStatusBarService`.
+    *   *(Speculative/Future: `:diagnostic`, `:verify`, `:stats` - not confirmed as commands).*
 
-8. **User Interactions**  
-   - **Keyboard-Only Usage**:  
-     - **Vim-like** navigation (h, j, k, l).  
-     - `/` to jump to the search bar.  
-     - `:w` to save the current message to file.  
-     - `yy` to copy the current message (with metadata) as JSON to clipboard.  
-   - **UI Controls**:  
-     - Buttons to **copy** payload, topic, or entire message as JSON.  
-     - Pause/resume toggle for the message view.  
-     - Interval-based UI updates (default: 1 second; configurable in advanced settings).  
+8.  **User Interactions**
+    *   **Keyboard Usage**:
+        *   Input handled by `MainViewModel`.
+    *   **UI Controls**:
+        *   Button to copy payload (`MainViewModel.CopyPayloadToClipboardAsync`).
+        *   Pause/resume toggle for message view (`MainViewModel.TogglePause`).
+        *   Interval-based UI updates (`MainViewModel.StartTimer`, `UpdateTick`).
+        *   Copy selected message details (`MainViewModel.CopySelectedMessageDetails`).
 
-9. **Error Handling & Diagnostics**  
-   - **Transient Toast Notifications**:  
-     - Display on command errors or MQTT connection failures.  
-     - Quick actions: “Retry” or “Jump to Diagnostics.”  
-   - **Diagnostics View**:  
-     - Detailed logs of errors, connection status, advanced metrics.  
-     - Hidden by default, can be opened via `:diagnostic` command or UI button.
+9.  **Error Handling & Diagnostics**
+    *   **Transient Notifications**:
+        *   Displayed via `IStatusBarService` for command errors or MQTT connection failures.
+    *   **Logging**:
+        *   Detailed logs via `AppLogger`.
+        *   *(Speculative: Dedicated Diagnostics View UI - not confirmed, but logs are available).*
 
-10. **Logging & Metrics**  
-    - **OpenTelemetry**-conformant logs and metrics.  
-    - Exportable in CSV or JSON.  
-    - Option to show/hide logs in a dedicated (hidden-by-default) window.
+10. **Logging & Metrics**
+    *   Logging via `AppLogger` (custom static logger).
+    *   *(Speculative/Future: OpenTelemetry conformance, exportable logs/metrics - not confirmed).*
 
-11. **Packaging & Distribution**  
-    - Distributed as a **global tool** (e.g., via dotnet, npm).  
-    - No requirement for admin/root privileges.  
-    - Possible future distribution via **winget, brew, apt**.  
-    - **Built-in self-update** mechanism to notify users of new versions.
+11. **Packaging & Distribution**
+    *   Intended as a **global tool** (e.g., via `dotnet tool`).
+    *   *(Speculative/Future: Distribution via winget, brew, apt; built-in self-update mechanism - not confirmed).*
 
 ---
 
@@ -111,186 +110,95 @@ We need to build a cross-platform MQTT v5 client application with a graphical us
 
 ### 3.1 High-Level Components
 
-1. **Core MQTT Engine**  
-   - Manages connection, subscriptions, message reception, and reconnection logic.  
-   - Publishes events (new messages, errors) to the rest of the system.
-
-2. **Message Buffer & Storage**  
-   - Maintains in-memory ring buffers per topic.  
-   - Handles data retention (10MB default, configurable).  
-   - (Optional) Integrates with DuckDB/SQLite for persistent storage if enabled.
-
-3. **GUI Layer**  
-   - Built with a cross-platform framework (e.g., Qt, Electron, or .NET MAUI—choice left open).  
-   - Provides the panels for topics, message history, and details.  
-   - Handles search, commands, and keyboard shortcuts.
-
-4. **Command & Search Parser**  
-   - Interprets user input from the global search bar.  
-   - Executes relevant actions (connect, disconnect, export, etc.).  
-   - Provides fuzzy matching for topics and payload searches.
-
-5. **Diagnostics & Logging**  
-   - Collects logs, metrics, and error details.  
-   - Exposes them via a dedicated UI panel (diagnostics view).  
-   - Writes logs in OpenTelemetry format for external tools.
+1.  **Core MQTT Engine** (`src/Businesslogic`)
+    *   `MqttEngine` manages connection, subscriptions, message reception, reconnection.
+    *   Publishes events for new messages, errors.
+2.  **Message Buffer & Storage** (`src/Utils`, `src/Businesslogic`)
+    *   `TopicRingBuffer` for in-memory buffering per topic.
+3.  **GUI Layer** (`src/UI`)
+    *   Built with **AvaloniaUI**.
+    *   `MainViewModel` is central to UI logic.
+    *   Provides panels for topics, message history, details.
+    *   Handles search input, commands, keyboard interactions.
+4.  **Command & Search Parser** (`src/Businesslogic/Services`)
+    *   `CommandParserService` interprets user input.
+    *   Executes actions or initiates searches.
+5.  **Diagnostics & Logging** (`src/Utils`, `src/UI/Services`)
+    *   `AppLogger` for logging.
+    *   `IStatusBarService` for status messages.
 
 ### 3.2 Data Flows
 
-1. **Message Ingestion**  
-   - MQTT Engine → Message Buffer (Ring Buffer) → UI Notification  
-   - The UI only updates visible topics/messages on an interval to manage performance.
-
-2. **Search/Filter**  
-   - User enters query in the global search bar.  
-   - Command Parser checks if it’s a command (`:something`) or a search query.  
-   - If search, filter topics/messages in memory (with fuzzy matching).  
-   - Display results in the main UI panels.
-
-3. **Exporting**  
-   - `:export` or `:export-all` triggers data retrieval from ring buffers.  
-   - Data is serialized (JSON, CSV) and written to file.
+1.  **Message Ingestion**: MQTT Engine (`MqttEngine`) → Message Buffer (`TopicRingBuffer`) → UI Notification (`MainViewModel` events).
+2.  **Search/Filter/Command**: User Input (`MainViewModel.InputText`) → `CommandParserService` → Action dispatch in `MainViewModel` or UI update.
+3.  **Exporting**: Command → `MainViewModel.Export` → `IMessageExporter` → File.
 
 ---
 
 ## 4. Data Handling
 
-1. **Ring Buffer Implementation**  
-   - Each topic has a ring buffer with a fixed maximum size (e.g., 10MB).  
-   - When the buffer is about to exceed its limit, the oldest messages are removed first.  
-   - Memory usage is tracked globally for UI display.
-
-2. **Optional Persistent Storage**  
-   - If the user enables persistent mode, the application writes messages to DuckDB/SQLite.  
-   - Must respect the ring buffer’s maximum size policy (delete oldest records when the limit is reached).  
-
-3. **JSON Handling**  
-   - For each message with JSON content-type, parse the payload for the tree-view and diff features.  
-   - Store parsed JSON in memory for quick access if feasible.
+1.  **Ring Buffer Implementation** (`TopicRingBuffer`)
+    *   Each topic has a ring buffer. Oldest messages removed when full.
+    *   *(Speculative: Max size configurability - current implementation detail of `TopicRingBuffer` not fully exposed by definitions).*
+2.  **JSON Handling**
+    *   `JsonViewerViewModel` for tree-view. `MainViewModel` for syntax highlighting.
 
 ---
 
 ## 5. UI/UX Details
 
-1. **Layout**  
-   - **Left Panel**: List of topics (collapsed by default).  
-     - Shows message count next to each topic.  
-   - **Right Panel**: Split between:  
-     - **Message History** (top/bottom split or side-by-side).  
-     - **Message Details** (metadata, payload view, diff toggle).  
-   - **Search Bar** at the top, with a “:” prompt for commands.  
-   - **Diagnostic Window** hidden by default; accessible via `:diagnostic`.
-
-2. **Dark Theme**  
-   - Use a default dark color scheme with minimal bright elements.  
-   - Provide a toggle in settings for light/dark if desired (future expansion).
-
-3. **Vim Keybindings**  
-   - `h, j, k, l` for navigation.  
-   - `/` to focus search.  
-   - `:w` to save current message.  
-   - `yy` to copy current message as JSON.  
-   - Standard arrow keys, tab, and mouse interactions should also work.
-
-4. **Payload Rendering**  
-   - **Raw** text or **JSON** highlight.  
-   - **Images** auto-rendered with zoom controls.  
-   - **Diff Mode** compares current payload to previous message payload on the same topic.
-
-5. **Pause/Resume**  
-   - A global button or command to pause UI updates.  
-   - Under the hood, messages still flow into the ring buffer.  
-   - Show an icon or badge to indicate paused state and how many messages have arrived since pause.
-
-6. **Interval-Based Updates**  
-   - Refresh the UI at a user-configurable interval (default: 1 second).  
-   - Keep track of changes in the background to ensure consistency.
+1.  **Layout** (based on `MainViewModel` properties)
+    *   Topic list panel (`TopicNodes`).
+    *   Message history panel (`SelectedTopicMessages`).
+    *   Message details panel (`SelectedMessageText`, `JsonPayloadViewer`).
+    *   Search/Command bar (`InputText`).
+2.  **Dark Theme**: AvaloniaUI capability, assumed default.
+3.  **Keyboard Bindings**: General input handling in `MainViewModel`. Specific Vim-like bindings need confirmation.
+4.  **Payload Rendering**: Raw text, highlighted JSON (`MainViewModel`, `JsonViewerViewModel`).
+    *   *(Speculative: Image rendering, diff mode - not confirmed).*
+5.  **Pause/Resume**: Implemented in `MainViewModel`.
+6.  **Interval-Based Updates**: Implemented in `MainViewModel`.
 
 ---
 
 ## 6. Keyboard and Command System
 
-1. **Global Search/Command**  
-   - Colon-prefixed commands (`:connect`, `:disconnect`, `:export`, etc.) with auto-completion.  
-   - Fuzzy searching for topics and messages if no colon prefix.  
-   - Error feedback in transient toast notifications.
-
-2. **Commands**  
-   - `:connect` / `:disconnect` — Manage MQTT connection.  
-   - `:settings` — Open advanced settings.  
-   - `:diagnostic` — Open diagnostic/log view.  
-   - `:export [topic]` — Export ring buffer for a single topic.  
-   - `:export-all` — Export ring buffer for all topics.  
-   - `:verify` — Check for missing messages (gaps in message-id).  
-   - `:stats` — Show messages/second and average size.  
-
-3. **Clipboard & Saving**  
-   - **Buttons**: Copy payload, topic, or entire message JSON.  
-   - **Keyboard**: `yy` copies entire message JSON, `:w` saves the current message to a file.
+1.  **Global Search/Command Bar**: `MainViewModel.InputText` and `CommandParserService`.
+2.  **Commands**: See section 2.1.7 for implemented commands.
+3.  **Clipboard & Saving**:
+    *   Copy payload: `MainViewModel.CopyPayloadToClipboardAsync`.
+    *   Copy message details: `MainViewModel.CopySelectedMessageDetails`.
+    *   *(Speculative: `:w` to save current message - not confirmed).*
 
 ---
 
 ## 7. Logging and Diagnostics
 
-1. **OpenTelemetry Logs & Metrics**  
-   - Collect logs for connection events, errors, and performance metrics.  
-   - Store them locally for immediate or later analysis.  
-   - Exportable as CSV or JSON from the diagnostics view.
-
-2. **Diagnostics View**  
-   - Summaries of connection attempts, errors, and command usage.  
-   - Filter logs by severity (info, warning, error).
-
-3. **Error Notifications**  
-   - **Transient Toast** with “Retry” or “Jump to Diagnostics.”  
-   - Detailed stack traces or MQTT error codes in diagnostics.
+1.  **Logging**: `AppLogger` provides logging capabilities.
+    *   *(Speculative: OpenTelemetry conformance, exportable logs from UI - not confirmed).*
+2.  **Error Notifications**: Via `IStatusBarService`.
 
 ---
 
 ## 8. Error Handling
 
-1. **Command Errors**  
-   - On invalid or failed command, show a toast with an option to “retry” or “jump to diagnostics.”  
-   - Log error details in the diagnostics window.
-
-2. **MQTT Connection/Subscription Errors**  
-   - Automatically attempt reconnection.  
-   - If reconnection fails, show toast with reason string/error code and a link to diagnostics.
-
-3. **Ring Buffer Overflows**  
-   - When a ring buffer is full, the application quietly removes the oldest messages.  
-   - Optionally log a debug-level message in diagnostics if desired.
+1.  **Command Errors**: `CommandResult` and `IStatusBarService`.
+2.  **MQTT Connection/Subscription Errors**: `MqttEngine` handles reconnection; `IStatusBarService` for notifications.
+3.  **Ring Buffer Overflows**: `TopicRingBuffer` removes oldest messages.
 
 ---
 
 ## 9. Performance Considerations
 
-1. **High Message Volume**  
-   - Efficiently handle thousands of topics and hundreds of thousands of messages.  
-   - Only update the UI for **visible** topics/messages.  
-   - Refresh on a set interval (default 1 second) to avoid continuous re-rendering.
-
-2. **Pause/Resume**  
-   - Allows users to temporarily freeze the UI updates while continuing to store messages.  
-   - Minimizes CPU/GPU usage during extremely high throughput.
-
-3. **Memory Management**  
-   - Default ring buffer limit per topic (10MB).  
-   - Provide user configuration for advanced memory constraints.  
-   - Potential fallback to persistent storage for older messages.
+1.  **High Message Volume**: Strategies include interval-based UI updates (`MainViewModel.UpdateTick`), pause/resume (`MainViewModel.IsPaused`), and efficient data structures (`TopicRingBuffer`).
+2.  **Memory Management**: `TopicRingBuffer` manages message retention.
 
 ---
 
 ## 10. Packaging & Distribution
 
-1. **Global Tool Approach**  
-   - No traditional installer or admin privileges.  
-   - Use frameworks that allow single-binary or minimal-asset distribution.  
-   - Potential distribution via `winget`, `brew`, `apt`, `dotnet tool`, or `npm` in the future.
-
-2. **Self-Update Mechanism**  
-   - On startup or at user request, check for newer versions.  
-   - Notify user if an update is available, optionally auto-download or direct them to instructions.
+1.  **Global Tool Approach**: Project structure supports this (e.g., `dotnet tool`).
+2.  *(Speculative/Future: Self-Update Mechanism - not confirmed).*
 
 ---
 
@@ -298,51 +206,50 @@ We need to build a cross-platform MQTT v5 client application with a graphical us
 
 A thorough testing approach should validate both **functionality** and **performance**:
 
-1. **Unit Tests**  
-   - Core MQTT engine logic (connect, disconnect, reconnect).  
-   - Ring buffer operations (insertion, overflow behavior, memory usage).  
-   - Command parsing and execution (including edge cases for invalid commands).  
-   - JSON parsing/diffing logic.
-
-2. **Integration Tests**  
-   - End-to-end test with a local MQTT broker (e.g., Mosquitto).  
-   - Validate subscription to `#` and correct topic/message displays.  
-   - Check metadata extraction (message-id, content-type, user-properties, etc.).  
-   - Confirm ring buffer rollover and advanced features (pause/resume, diff mode).
-
-3. **UI Tests**  
-   - Automation scripts or manual tests to verify panel resizing, dark theme, search bar functionality, command bar.  
-   - Keyboard shortcuts: ensure vim-like navigation, `:w`, `yy`, etc.  
-   - Rendering of JSON payloads, images, and diff view.
-
-4. **Performance Tests**  
-   - High-throughput scenario: thousands of topics and hundreds of thousands of messages.  
-   - Ensure the UI remains responsive with interval-based updates.  
-   - Validate memory usage does not exceed expected limits with the ring buffer approach.
-
-5. **Error Handling Tests**  
-   - Simulate broker disconnections, invalid credentials (later), or invalid commands.  
-   - Confirm transient toast notifications and diagnostics logging.  
-   - Check self-update mechanism with a mocked “new version” scenario.
-
-6. **Cross-Platform Validation**  
-   - Windows, Linux, and macOS environment tests.  
-   - Verify no OS-specific issues with file paths, permissions, or packaging.
+1.  **Unit Tests**
+    *   Core MQTT engine logic (`MqttEngine`).
+    *   Ring buffer operations (`TopicRingBuffer`).
+    *   Command parsing (`CommandParserService`).
+    *   JSON parsing/viewing logic (`JsonViewerViewModel`).
+    *   ViewModel logic (`MainViewModel`, `SettingsViewModel`).
+2.  **Integration Tests**
+    *   End-to-end test with a local MQTT broker.
+    *   Validate subscription and message display.
+    *   Check metadata extraction.
+    *   Confirm ring buffer rollover, pause/resume.
+3.  **UI Tests** (using Avalonia testing tools or manual)
+    *   Verify panel interactions, theme, search bar, command execution.
+    *   Keyboard navigation basics.
+    *   Rendering of JSON payloads.
+4.  **Performance Tests**
+    *   High-throughput scenarios.
+    *   UI responsiveness with interval updates.
+    *   Memory usage.
+5.  **Error Handling Tests**
+    *   Simulate broker disconnections, invalid commands.
+    *   Confirm status notifications and logging.
+6.  **Cross-Platform Validation**: Windows, Linux, macOS, Wasm.
 
 ---
 
-## 12. Future Extensions (Out of Scope for Initial Version)
+## 12. Future Extensions (Out of Scope for Initial Version, unless otherwise specified by current implementation)
 
-- **Security**: Username/password or certificate-based authentication, TLS/SSL.  
-- **User Management**: Handling different broker credentials or multi-profile usage.  
-- **Topic-Specific Settings**: Different ring buffer sizes or QoS levels per topic.  
-- **Light Theme Toggle**: Option to switch from dark mode.  
-- **Plugin System**: Triggers or custom scripts on incoming messages.
+- **Security**: Username/password or certificate-based authentication, TLS/SSL.
+- **Advanced Search**: Fuzzy matching, contextual search operators.
+- **Enhanced Payload Handling**: Image rendering, payload diffing.
+- **Advanced UI**: Interactive JSON table, dedicated diagnostics view.
+- **More Commands**: `:verify`, `:stats`, `:diagnostic` (as a direct command).
+- **Advanced Keyboard**: Full Vim-like bindings (`:w`, `yy`).
+- **Logging**: OpenTelemetry conformance, UI for log viewing/export.
+- **Distribution**: Self-update, broader package manager support.
+- **Topic-Specific Settings**: Different ring buffer sizes or QoS levels per topic.
+- **Light Theme Toggle**.
+- **Plugin System**.
 
 ---
 
 ## Conclusion
 
-This specification outlines the **core requirements, architecture, data handling strategy, UI design, and testing plan** for a cross-platform MQTT v5 monitoring and visualization tool. By adhering to these details, a developer can implement the solution in a modular, performant way that meets the needs of power users handling large message volumes—while also providing an intuitive, keyboard-friendly interface.
+This specification outlines the **core requirements, architecture, data handling strategy, UI design, and testing plan** for the cross-platform MQTT v5 monitoring tool, updated to align with the current understanding of its implementation from code definitions.
 
-If you have any questions or need clarifications before starting development, please reach out. Otherwise, this document should serve as the foundation for the project’s initial implementation.
+If you have any questions or need clarifications, please reach out. Otherwise, this document should serve as an updated foundation for the project.
