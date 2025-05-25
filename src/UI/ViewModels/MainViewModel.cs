@@ -912,6 +912,84 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 case CommandType.ViewJson:
                     SwitchPayloadView(showRaw: false);
                     break;
+                case CommandType.SetUser:
+                    if (command.Arguments.Count == 1)
+                    {
+                        this.Settings.AuthUsername = command.Arguments[0];
+                        if (this.Settings.SelectedAuthMode == SettingsViewModel.AuthModeSelection.Anonymous)
+                        {
+                            this.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword;
+                            StatusBarText = "Username set. Auth mode switched to Username/Password. Settings will be saved.";
+                            Log.Information("Username set via command: {Username}. Auth mode switched to UsernamePassword.", command.Arguments[0]);
+                        }
+                        else
+                        {
+                            StatusBarText = "Username set. Settings will be saved.";
+                            Log.Information("Username set via command: {Username}", command.Arguments[0]);
+                        }
+                    }
+                    else
+                    {
+                        StatusBarText = "Error: :setuser requires exactly one argument <username>.";
+                        Log.Warning("Invalid arguments for SetUser command.");
+                    }
+                    break;
+                case CommandType.SetPassword:
+                    if (command.Arguments.Count == 1)
+                    {
+                        this.Settings.AuthPassword = command.Arguments[0];
+                        if (this.Settings.SelectedAuthMode == SettingsViewModel.AuthModeSelection.Anonymous)
+                        {
+                            this.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword;
+                            StatusBarText = "Password set. Auth mode switched to Username/Password. Settings will be saved.";
+                            Log.Information("Password set via command. Auth mode switched to UsernamePassword."); // Avoid logging password
+                        }
+                        else
+                        {
+                            StatusBarText = "Password set. Settings will be saved.";
+                            Log.Information("Password set via command."); // Avoid logging password
+                        }
+                    }
+                    else
+                    {
+                        StatusBarText = "Error: :setpass requires exactly one argument <password>.";
+                        Log.Warning("Invalid arguments for SetPassword command.");
+                    }
+                    break;
+                case CommandType.SetAuthMode:
+                    if (command.Arguments.Count == 1)
+                    {
+                        string mode = command.Arguments[0].ToLowerInvariant();
+                        if (mode == "anonymous")
+                        {
+                            this.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
+                            StatusBarText = "Authentication mode set to Anonymous. Settings will be saved.";
+                            Log.Information("Authentication mode set to Anonymous via command.");
+                        }
+                        else if (mode == "userpass")
+                        {
+                            this.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword;
+                            StatusBarText = "Authentication mode set to Username/Password. Settings will be saved.";
+                            Log.Information("Authentication mode set to Username/Password via command.");
+                            if (string.IsNullOrEmpty(this.Settings.AuthUsername))
+                            {
+                                StatusBarText += " Please set a username using :setuser.";
+                                Log.Information("AuthUsername is currently empty.");
+                            }
+                        }
+                        else
+                        {
+                            // This case should ideally be caught by CommandParserService, but good for robustness
+                            StatusBarText = "Error: Invalid argument for :setauthmode. Expected <anonymous|userpass>.";
+                            Log.Warning("Invalid argument for SetAuthMode command: {Argument}", command.Arguments[0]);
+                        }
+                    }
+                    else
+                    {
+                        StatusBarText = "Error: :setauthmode requires exactly one argument <anonymous|userpass>.";
+                        Log.Warning("Invalid arguments for SetAuthMode command.");
+                    }
+                    break;
                 default:
                     StatusBarText = $"Error: Unknown command type '{command.Type}'.";
                     Log.Warning("Unknown command type encountered: {CommandType}", command.Type);
@@ -940,7 +1018,10 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         { "resume", (":resume", "Resumes receiving new messages in the UI.") },
         { "expand", (":expand", "Expands all nodes in the topic tree.") },
         { "collapse", (":collapse", "Collapses all nodes in the topic tree.") },
-        { "view", (":view <raw|json>", "Switches the payload view between raw text and JSON tree.") }
+        { "view", (":view <raw|json>", "Switches the payload view between raw text and JSON tree.") },
+        { "setuser", (":setuser <username>", "Sets MQTT username. Switches to Username/Password auth if current mode is Anonymous.") },
+        { "setpass", (":setpass <password>", "Sets MQTT password. Switches to Username/Password auth if current mode is Anonymous.") },
+        { "setauthmode", (":setauthmode <anonymous|userpass>", "Sets the MQTT authentication mode.") }
     };
 
     private void DisplayHelpInformation(string? commandName = null)

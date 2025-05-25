@@ -17,8 +17,12 @@ using System.Text.Json.Serialization; // For JsonIgnore
 [JsonSourceGenerationOptions(WriteIndented = true)]
 [JsonSerializable(typeof(SettingsViewModel))]
 [JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.SettingsData))]
+[JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.AuthenticationMode))] // Added for AuthMode
+[JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.AnonymousAuthenticationMode))] // Added for AuthMode
+[JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.UsernamePasswordAuthenticationMode))] // Added for AuthMode
 [JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Exporter.ExportTypes))]
 [JsonSerializable(typeof(Nullable<CrowsNestMqtt.BusinessLogic.Exporter.ExportTypes>))]
+[JsonSerializable(typeof(CrowsNestMqtt.UI.ViewModels.SettingsViewModel.AuthModeSelection))] // Added for enum
 internal partial class SettingsViewModelJsonContext : JsonSerializerContext
 {
 }
@@ -28,6 +32,13 @@ internal partial class SettingsViewModelJsonContext : JsonSerializerContext
 /// </summary>
 public class SettingsViewModel : ReactiveObject
 {
+    // Enum for UI selection of authentication mode
+    public enum AuthModeSelection
+    {
+        Anonymous,
+        UsernamePassword
+    }
+
     private static readonly string _settingsFilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "CrowsNestMqtt", 
@@ -64,7 +75,11 @@ public class SettingsViewModel : ReactiveObject
                 this.WhenAnyValue(x => x.SessionExpiryIntervalSeconds),
                 this.WhenAnyValue(x => x.ExportFormat),
                 this.WhenAnyValue(x => x.ExportPath),
-                (_, _, _, _, _, _, _, _) => Unit.Default) // Combine results, we only care about the trigger
+                // Old Username/Password removed, new auth properties added
+                this.WhenAnyValue(x => x.SelectedAuthMode),
+                this.WhenAnyValue(x => x.AuthUsername),
+                this.WhenAnyValue(x => x.AuthPassword),
+                (_, _, _, _, _, _, _, _, _, _, _) => Unit.Default) // Adjusted lambda parameters
             .Throttle(TimeSpan.FromMilliseconds(500)) // Wait 500ms after the last change
             .ObserveOn(RxApp.TaskpoolScheduler) // Perform save on a background thread
             .Subscribe(_ => SaveSettings());
@@ -86,6 +101,35 @@ public class SettingsViewModel : ReactiveObject
     {
         get => _port;
         set => this.RaiseAndSetIfChanged(ref _port, value);
+    }
+
+    // New properties for AuthMode selection
+    private AuthModeSelection _selectedAuthMode = AuthModeSelection.Anonymous;
+    public AuthModeSelection SelectedAuthMode
+    {
+        get => _selectedAuthMode;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _selectedAuthMode, value);
+            this.RaisePropertyChanged(nameof(IsUsernamePasswordSelected)); // Notify that the dependent property has changed
+        }
+    }
+
+    // Property to control visibility of Username/Password fields in UI
+    public bool IsUsernamePasswordSelected => SelectedAuthMode == AuthModeSelection.UsernamePassword;
+
+    private string _authUsername = string.Empty;
+    public string AuthUsername
+    {
+        get => _authUsername;
+        set => this.RaiseAndSetIfChanged(ref _authUsername, value);
+    }
+
+    private string _authPassword = string.Empty;
+    public string AuthPassword
+    {
+        get => _authPassword;
+        set => this.RaiseAndSetIfChanged(ref _authPassword, value);
     }
 
     private string? _clientId; // Null or empty means MQTTnet generates one
@@ -135,6 +179,12 @@ public class SettingsViewModel : ReactiveObject
    }
     public SettingsData Into()
     {
+        AuthenticationMode authMode = SelectedAuthMode switch
+        {
+            AuthModeSelection.UsernamePassword => new UsernamePasswordAuthenticationMode(AuthUsername, AuthPassword),
+            _ => new AnonymousAuthenticationMode(),
+        };
+
         return new SettingsData(
             Hostname,
             Port,
@@ -142,7 +192,8 @@ public class SettingsViewModel : ReactiveObject
             KeepAliveIntervalSeconds,
             CleanSession,
             SessionExpiryIntervalSeconds,
-            ExportFormat, // Type is now ExportTypes?
+            authMode, // Pass the constructed AuthenticationMode
+            ExportFormat,
             ExportPath    
         );
     }
@@ -155,8 +206,24 @@ public class SettingsViewModel : ReactiveObject
         KeepAliveIntervalSeconds = settingsData.KeepAliveIntervalSeconds;
         CleanSession = settingsData.CleanSession;
         SessionExpiryIntervalSeconds = settingsData.SessionExpiryIntervalSeconds;
-        ExportFormat = settingsData.ExportFormat; // Type is now ExportTypes?
-        ExportPath = settingsData.ExportPath;       // Added
+        ExportFormat = settingsData.ExportFormat;
+        ExportPath = settingsData.ExportPath;
+
+        // Handle AuthMode
+        switch (settingsData.AuthMode)
+        {
+            case UsernamePasswordAuthenticationMode upa:
+                SelectedAuthMode = AuthModeSelection.UsernamePassword;
+                AuthUsername = upa.Username;
+                AuthPassword = upa.Password;
+                break;
+            case AnonymousAuthenticationMode:
+            default: // Also handles null from older settings files if AuthMode wasn't present
+                SelectedAuthMode = AuthModeSelection.Anonymous;
+                AuthUsername = string.Empty;
+                AuthPassword = string.Empty;
+                break;
+        }
     }
 
     // --- Persistence Methods ---

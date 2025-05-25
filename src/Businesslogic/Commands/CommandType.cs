@@ -33,6 +33,12 @@ public enum CommandType
     ViewRaw,
     /// <summary> View the payload as a JSON tree. </summary>
     ViewJson,
+    /// <summary> Set the MQTT username. </summary>
+    SetUser,
+    /// <summary> Set the MQTT password. </summary>
+    SetPassword,
+    /// <summary> Set the MQTT authentication mode. </summary>
+    SetAuthMode,
     /// <summary> Represents an unrecognized or invalid command. </summary>
     Unknown
 }

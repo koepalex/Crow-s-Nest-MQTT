@@ -1,5 +1,6 @@
 namespace CrowsNestMqtt.BusinessLogic;
 
+using CrowsNestMqtt.BusinessLogic.Configuration; // Required for AuthenticationMode
 using MQTTnet;
 using MQTTnet.Protocol;
 using System.Collections.Concurrent;
@@ -118,7 +119,23 @@ public class MqttEngine : IMqttService // Implement the interface
                  builder.WithSessionExpiryInterval(_settings.SessionExpiryInterval.Value);
             }
         }
-        // Add other options like TLS, Credentials here if needed
+
+        // Add credentials based on AuthMode
+        switch (_settings.AuthMode)
+        {
+            case UsernamePasswordAuthenticationMode upa:
+                if (!string.IsNullOrWhiteSpace(upa.Username)) // Optional: only set if username is not blank
+                {
+                    builder.WithCredentials(upa.Username, upa.Password);
+                }
+                break;
+            case AnonymousAuthenticationMode:
+                // No credentials to add for anonymous mode
+                break;
+            // Default case can be omitted if all AuthenticationMode types are handled
+        }
+
+        // Add other options like TLS here if needed
         return builder.Build();
     }
 

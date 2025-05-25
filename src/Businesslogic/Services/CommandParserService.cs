@@ -188,6 +188,31 @@ public class CommandParserService : ICommandParserService
                 }
                 return CommandResult.Failure("Invalid arguments for :view. Expected: :view <raw|json>");
 
+            case "setuser":
+                if (arguments.Count == 1)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.SetUser, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :setuser. Expected: :setuser <username>");
+
+            case "setpass":
+                if (arguments.Count == 1)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.SetPassword, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :setpass. Expected: :setpass <password>");
+
+            case "setauthmode":
+                if (arguments.Count == 1)
+                {
+                    string mode = arguments[0].ToLowerInvariant();
+                    if (mode == "anonymous" || mode == "userpass")
+                    {
+                        return CommandResult.SuccessCommand(new ParsedCommand(CommandType.SetAuthMode, arguments));
+                    }
+                }
+                return CommandResult.Failure("Invalid arguments for :setauthmode. Expected: :setauthmode <anonymous|userpass>");
+
             default:
                 return CommandResult.Failure($"Unknown command: '{commandKeyword}'");
         }
