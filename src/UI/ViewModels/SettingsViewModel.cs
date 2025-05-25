@@ -39,7 +39,7 @@ public class SettingsViewModel : ReactiveObject
         UsernamePassword
     }
 
-    private static readonly string _settingsFilePath = Path.Combine(
+    private static string _settingsFilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "CrowsNestMqtt", 
         "settings.json");
@@ -62,6 +62,7 @@ public class SettingsViewModel : ReactiveObject
 
     public SettingsViewModel()
     {
+        ExportPath = _exportFolderPath; // Set default before loading
         _isLoading = true; // Set flag before loading
         LoadSettings();
         _isLoading = false; // Clear flag after loading
@@ -90,7 +91,7 @@ public class SettingsViewModel : ReactiveObject
             new ObservableCollection<ExportTypes>(Enum.GetValues(typeof(ExportTypes)).Cast<ExportTypes>()));
         _availableAuthenticationModes = new ReadOnlyObservableCollection<AuthModeSelection>(
             new ObservableCollection<AuthModeSelection>(Enum.GetValues(typeof(AuthModeSelection)).Cast<AuthModeSelection>()));
-        ExportPath = _exportFolderPath;
+        // ExportPath = _exportFolderPath; // Moved to the beginning of the constructor
     }
     private string _hostname = "localhost";
     public string Hostname

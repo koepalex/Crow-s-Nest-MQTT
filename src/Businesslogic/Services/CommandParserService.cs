@@ -57,140 +57,82 @@ public class CommandParserService : ICommandParserService
         {
             case "connect":
                 {
-                    List<string> finalConnectArgs = new List<string>();
-                    string serverAddress = null;
-                    int portVal = 0; 
-                    string username = null;
-                    string password = null;
-
                     string serverPortPattern = @"^([a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9]|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})$";
                     Func<string, bool> isValidServerPortFormat = (arg) => System.Text.RegularExpressions.Regex.IsMatch(arg, serverPortPattern);
                     Func<string, bool> isValidPortRange = (portStr) => int.TryParse(portStr, out int p) && p > 0 && p <= 65535;
 
                     if (arguments.Count == 0)
                     {
-                        // Usage: :connect
-                        if (!string.IsNullOrEmpty(settingsData.Hostname))
+                        // :connect (use all from settings)
+                        return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, new List<string>()));
+                    }
+                    else if (arguments.Count == 1)
+                    {
+                        // :connect <arg1>
+                        // <arg1> must be server:port
+                        if (isValidServerPortFormat(arguments[0]))
                         {
-                            serverAddress = settingsData.Hostname;
-                            portVal = settingsData.Port; // Assuming settingsData.Port is int
-                            if (settingsData.AuthMode is UsernamePasswordAuthenticationMode userPassAuth)
+                            string[] sp = arguments[0].Split(':');
+                            if (sp.Length == 2 && isValidPortRange(sp[1]))
                             {
-                                username = userPassAuth.Username ?? string.Empty;
-                                password = userPassAuth.Password ?? string.Empty;
+                                return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, new List<string> { arguments[0] }));
                             }
                             else
                             {
-                                username = string.Empty;
-                                password = string.Empty;
+                                return CommandResult.Failure("Invalid server:port format in :connect command. Port must be between 1 and 65535.");
                             }
                         }
                         else
                         {
-                            return CommandResult.Failure("Cannot connect: No server specified and no default server in settings.");
+                            return CommandResult.Failure("Invalid arguments for :connect. If one argument is provided, it must be in 'server:port' format.");
                         }
                     }
-                    else if (arguments.Count >= 1 && arguments.Count <= 3)
+                    else if (arguments.Count == 2)
                     {
-                        bool firstArgIsServerPort = isValidServerPortFormat(arguments[0]);
-
-                        if (firstArgIsServerPort)
+                        // :connect <arg1> <arg2>
+                        // <arg1> must be server:port, <arg2> is username
+                        if (isValidServerPortFormat(arguments[0]))
                         {
-                            // First argument is server:port
-                            // Usage: :connect <server:port> [username] [password]
-                            string[] sp = arguments[0].Split(':'); 
+                             string[] sp = arguments[0].Split(':');
+                             if (sp.Length == 2 && isValidPortRange(sp[1]))
+                             {
+                                return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, new List<string> { arguments[0], arguments[1] }));
+                             }
+                             else
+                             {
+                                return CommandResult.Failure("Invalid server:port format in :connect command. Port must be between 1 and 65535.");
+                             }
+                        }
+                        else
+                        {
+                             return CommandResult.Failure("Invalid arguments for :connect. First argument must be in 'server:port' format when providing username.");
+                        }
+                    }
+                    else if (arguments.Count == 3)
+                    {
+                        // :connect <arg1> <arg2> <arg3>
+                        // <arg1> server:port, <arg2> username, <arg3> password
+                        if (isValidServerPortFormat(arguments[0]))
+                        {
+                            string[] sp = arguments[0].Split(':');
                             if (sp.Length == 2 && isValidPortRange(sp[1]))
                             {
-                                serverAddress = sp[0];
-                                portVal = int.Parse(sp[1]);
-
-                                if (arguments.Count == 1) // :connect <server:port>
-                                {
-                                    if (settingsData.AuthMode is UsernamePasswordAuthenticationMode userPassAuth)
-                                    {
-                                        username = userPassAuth.Username ?? string.Empty;
-                                        password = userPassAuth.Password ?? string.Empty;
-                                    }
-                                    else
-                                    {
-                                        username = string.Empty;
-                                        password = string.Empty;
-                                    }
-                                }
-                                else if (arguments.Count == 2) // :connect <server:port> <username>
-                                {
-                                    username = arguments[1];
-                                    if (settingsData.AuthMode is UsernamePasswordAuthenticationMode userPassAuth)
-                                    {
-                                        password = userPassAuth.Password ?? string.Empty;
-                                    }
-                                    else
-                                    {
-                                        password = string.Empty;
-                                    }
-                                }
-                                else // arguments.Count == 3: :connect <server:port> <username> <password>
-                                {
-                                    username = arguments[1];
-                                    password = arguments[2];
-                                }
+                                return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, new List<string> { arguments[0], arguments[1], arguments[2] }));
                             }
                             else
                             {
-                                 return CommandResult.Failure("Invalid server:port format in :connect command.");
+                                return CommandResult.Failure("Invalid server:port format in :connect command. Port must be between 1 and 65535.");
                             }
                         }
-                        else 
+                        else
                         {
-                            // First argument is not server:port, so it must be username. Server must come from settings.
-                            // Usage: :connect <username> [password]
-                            if (arguments.Count > 2) 
-                            {
-                                 return CommandResult.Failure("Invalid arguments for :connect. Too many arguments when providing username/password with server from settings.");
-                            }
-
-                            if (!string.IsNullOrEmpty(settingsData.Hostname))
-                            {
-                                serverAddress = settingsData.Hostname;
-                                portVal = settingsData.Port;
-                                username = arguments[0]; 
-
-                                if (arguments.Count == 1) // :connect <username>
-                                {
-                                    if (settingsData.AuthMode is UsernamePasswordAuthenticationMode userPassAuth)
-                                    {
-                                        password = userPassAuth.Password ?? string.Empty;
-                                    }
-                                    else
-                                    {
-                                        password = string.Empty;
-                                    }
-                                }
-                                else // arguments.Count == 2: :connect <username> <password>
-                                {
-                                    password = arguments[1]; 
-                                }
-                            }
-                            else
-                            {
-                                return CommandResult.Failure("Invalid arguments for :connect. First argument is not a valid server:port, and no default server is configured in settings.");
-                            }
+                            return CommandResult.Failure("Invalid arguments for :connect. First argument must be in 'server:port' format when providing username and password.");
                         }
                     }
-                    else 
+                    else // arguments.Count > 3
                     {
-                        return CommandResult.Failure("Invalid arguments for :connect. Too many arguments.");
+                        return CommandResult.Failure("Invalid arguments for :connect. Too many arguments. Expected: :connect [<server:port>] [<username>] [<password>]");
                     }
-
-                    if (!string.IsNullOrEmpty(serverAddress) && portVal > 0)
-                    {
-                        finalConnectArgs.Add($"{serverAddress}:{portVal}");
-                        finalConnectArgs.Add(username ?? string.Empty); 
-                        finalConnectArgs.Add(password ?? string.Empty);
-                        return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, finalConnectArgs));
-                    }
-                    
-                    return CommandResult.Failure("Invalid arguments or configuration for :connect. Please check command and settings.");
                 }
 
             case "disconnect":

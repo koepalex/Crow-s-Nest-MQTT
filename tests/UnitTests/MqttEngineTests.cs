@@ -162,9 +162,9 @@ namespace CrowsNestMqtt.UnitTests
 
             // Assert
             Assert.NotNull(options);
-            Assert.Equal("testuser", options.Credentials?.UserName);
+            Assert.Equal("testuser", options.Credentials?.GetUserName(options));
             // Note: MQTTnet.MqttClientOptions stores password as byte[]
-            Assert.Equal("testpass", System.Text.Encoding.UTF8.GetString(options.Credentials?.Password ?? Array.Empty<byte>()));
+            Assert.Equal("testpass", System.Text.Encoding.UTF8.GetString(options.Credentials?.GetPassword(options) ?? Array.Empty<byte>()));
         }
 
         [Fact]
