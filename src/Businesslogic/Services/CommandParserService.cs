@@ -56,25 +56,84 @@ public class CommandParserService : ICommandParserService
         switch (commandKeyword)
         {
             case "connect":
-                // Validate that the argument follows the format server_address:port
-                if (arguments.Count == 1)
                 {
-                    // Check if the argument matches the pattern server_address:port
-                    if (System.Text.RegularExpressions.Regex.IsMatch(arguments[0], @"^([a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9]|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})$"))
+                    string serverPortPattern = @"^([a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9]|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})$";
+                    Func<string, bool> isValidServerPortFormat = (arg) => System.Text.RegularExpressions.Regex.IsMatch(arg, serverPortPattern);
+                    Func<string, bool> isValidPortRange = (portStr) => int.TryParse(portStr, out int p) && p > 0 && p <= 65535;
+
+                    if (arguments.Count == 0)
                     {
-                        // Ensure port is in valid range (optional additional check)
-                        string[] connectParameters = arguments[0].Split(':');
-                        if (connectParameters.Length == 2 && int.TryParse(connectParameters[1], out int port) && port > 0 && port <= 65535)
+                        // :connect (use all from settings)
+                        return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, new List<string>()));
+                    }
+                    else if (arguments.Count == 1)
+                    {
+                        // :connect <arg1>
+                        // <arg1> must be server:port
+                        if (isValidServerPortFormat(arguments[0]))
                         {
-                            return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, arguments));
+                            string[] sp = arguments[0].Split(':');
+                            if (sp.Length == 2 && isValidPortRange(sp[1]))
+                            {
+                                return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, new List<string> { arguments[0] }));
+                            }
+                            else
+                            {
+                                return CommandResult.Failure("Invalid server:port format in :connect command. Port must be between 1 and 65535.");
+                            }
+                        }
+                        else
+                        {
+                            return CommandResult.Failure("Invalid arguments for :connect. If one argument is provided, it must be in 'server:port' format.");
                         }
                     }
+                    else if (arguments.Count == 2)
+                    {
+                        // :connect <arg1> <arg2>
+                        // <arg1> must be server:port, <arg2> is username
+                        if (isValidServerPortFormat(arguments[0]))
+                        {
+                             string[] sp = arguments[0].Split(':');
+                             if (sp.Length == 2 && isValidPortRange(sp[1]))
+                             {
+                                return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, new List<string> { arguments[0], arguments[1] }));
+                             }
+                             else
+                             {
+                                return CommandResult.Failure("Invalid server:port format in :connect command. Port must be between 1 and 65535.");
+                             }
+                        }
+                        else
+                        {
+                             return CommandResult.Failure("Invalid arguments for :connect. First argument must be in 'server:port' format when providing username.");
+                        }
+                    }
+                    else if (arguments.Count == 3)
+                    {
+                        // :connect <arg1> <arg2> <arg3>
+                        // <arg1> server:port, <arg2> username, <arg3> password
+                        if (isValidServerPortFormat(arguments[0]))
+                        {
+                            string[] sp = arguments[0].Split(':');
+                            if (sp.Length == 2 && isValidPortRange(sp[1]))
+                            {
+                                return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, new List<string> { arguments[0], arguments[1], arguments[2] }));
+                            }
+                            else
+                            {
+                                return CommandResult.Failure("Invalid server:port format in :connect command. Port must be between 1 and 65535.");
+                            }
+                        }
+                        else
+                        {
+                            return CommandResult.Failure("Invalid arguments for :connect. First argument must be in 'server:port' format when providing username and password.");
+                        }
+                    }
+                    else // arguments.Count > 3
+                    {
+                        return CommandResult.Failure("Invalid arguments for :connect. Too many arguments. Expected: :connect [<server:port>] [<username>] [<password>]");
+                    }
                 }
-                else if (arguments.Count == 0 && !string.IsNullOrEmpty(settingsData.Hostname))
-                {
-                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, [$"{settingsData.Hostname}:{settingsData.Port}"]));
-                }
-                return CommandResult.Failure("Invalid arguments for :connect. Expected: :connect <server_address:port>");
 
             case "disconnect":
                 if (arguments.Count == 0)
@@ -187,6 +246,31 @@ public class CommandParserService : ICommandParserService
                     }
                 }
                 return CommandResult.Failure("Invalid arguments for :view. Expected: :view <raw|json>");
+
+            case "setuser":
+                if (arguments.Count == 1)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.SetUser, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :setuser. Expected: :setuser <username>");
+
+            case "setpass":
+                if (arguments.Count == 1)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.SetPassword, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :setpass. Expected: :setpass <password>");
+
+            case "setauthmode":
+                if (arguments.Count == 1)
+                {
+                    string mode = arguments[0].ToLowerInvariant();
+                    if (mode == "anonymous" || mode == "userpass")
+                    {
+                        return CommandResult.SuccessCommand(new ParsedCommand(CommandType.SetAuthMode, arguments));
+                    }
+                }
+                return CommandResult.Failure("Invalid arguments for :setauthmode. Expected: :setauthmode <anonymous|userpass>");
 
             default:
                 return CommandResult.Failure($"Unknown command: '{commandKeyword}'");

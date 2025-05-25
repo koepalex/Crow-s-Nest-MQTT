@@ -1,5 +1,7 @@
 namespace CrowsNestMqtt.BusinessLogic;
 
+using CrowsNestMqtt.BusinessLogic.Configuration; // Required for AuthenticationMode
+
 /// <summary>
 /// Holds configuration settings for establishing an MQTT connection.
 /// This class is independent of the UI layer.
@@ -12,6 +14,7 @@ public class MqttConnectionSettings
     public TimeSpan KeepAliveInterval { get; set; } = TimeSpan.FromSeconds(60);
     public bool CleanSession { get; set; } = true;
     public uint? SessionExpiryInterval { get; set; } = 0;// Null means session never expires
+    public AuthenticationMode AuthMode { get; set; } = new AnonymousAuthenticationMode();
 
     // Consider adding properties for TLS, Credentials, etc. later
 }

@@ -308,5 +308,146 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.True(hasClearSuggestion);
             Assert.False(hasHelpSuggestion);
         }
+
+        // Helper method to invoke DispatchCommand via reflection
+        private void DispatchCommand(MainViewModel viewModel, CommandType type, params string[] args)
+        {
+            var parsedCommand = new ParsedCommand(type, new List<string>(args).AsReadOnly());
+            var dispatchMethod = typeof(MainViewModel).GetMethod("DispatchCommand", BindingFlags.NonPublic | BindingFlags.Instance);
+            dispatchMethod?.Invoke(viewModel, new object[] { parsedCommand });
+        }
+
+        [Fact]
+        public void DispatchCommand_SetAuthMode_UserPass_ShouldUpdateSettings()
+        {
+            // Arrange
+            var commandParser = new CommandParserService(); // Use real parser
+            var viewModel = new MainViewModel(commandParser);
+            viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous; // Start as anonymous
+
+            // Act
+            DispatchCommand(viewModel, CommandType.SetAuthMode, "userpass");
+
+            // Assert
+            Assert.Equal(SettingsViewModel.AuthModeSelection.UsernamePassword, viewModel.Settings.SelectedAuthMode);
+            Assert.Contains("Authentication mode set to Username/Password", viewModel.StatusBarText);
+        }
+
+        [Fact]
+        public void DispatchCommand_SetAuthMode_Anonymous_ShouldUpdateSettings()
+        {
+            // Arrange
+            var commandParser = new CommandParserService();
+            var viewModel = new MainViewModel(commandParser);
+            viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword; // Start as userpass
+            viewModel.Settings.AuthUsername = "test"; // Ensure it's not empty for full switch effect
+
+            // Act
+            DispatchCommand(viewModel, CommandType.SetAuthMode, "anonymous");
+
+            // Assert
+            Assert.Equal(SettingsViewModel.AuthModeSelection.Anonymous, viewModel.Settings.SelectedAuthMode);
+            Assert.Contains("Authentication mode set to Anonymous", viewModel.StatusBarText);
+        }
+        
+        [Fact]
+        public void DispatchCommand_SetAuthMode_UserPass_EmptyUsername_ShouldWarn()
+        {
+            // Arrange
+            var commandParser = new CommandParserService();
+            var viewModel = new MainViewModel(commandParser);
+            viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
+            viewModel.Settings.AuthUsername = ""; // Ensure username is empty
+
+            // Act
+            DispatchCommand(viewModel, CommandType.SetAuthMode, "userpass");
+
+            // Assert
+            Assert.Equal(SettingsViewModel.AuthModeSelection.UsernamePassword, viewModel.Settings.SelectedAuthMode);
+            Assert.Contains("Please set a username using :setuser", viewModel.StatusBarText);
+        }
+
+
+        [Fact]
+        public void DispatchCommand_SetUser_FromAnonymous_ShouldSwitchModeAndUpdateUser()
+        {
+            // Arrange
+            var commandParser = new CommandParserService();
+            var viewModel = new MainViewModel(commandParser);
+            viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
+            viewModel.Settings.AuthUsername = "";
+            viewModel.Settings.AuthPassword = "";
+
+            // Act
+            DispatchCommand(viewModel, CommandType.SetUser, "newuser");
+
+            // Assert
+            Assert.Equal(SettingsViewModel.AuthModeSelection.UsernamePassword, viewModel.Settings.SelectedAuthMode);
+            Assert.Equal("newuser", viewModel.Settings.AuthUsername);
+            Assert.Empty(viewModel.Settings.AuthPassword); // Password should remain unchanged
+            Assert.Contains("Username set. Auth mode switched to Username/Password", viewModel.StatusBarText);
+        }
+
+        [Fact]
+        public void DispatchCommand_SetPassword_FromAnonymous_ShouldSwitchModeAndUpdatePassword()
+        {
+            // Arrange
+            var commandParser = new CommandParserService();
+            var viewModel = new MainViewModel(commandParser);
+            viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
+            viewModel.Settings.AuthUsername = "";
+            viewModel.Settings.AuthPassword = "";
+
+            // Act
+            DispatchCommand(viewModel, CommandType.SetPassword, "newpass");
+
+            // Assert
+            Assert.Equal(SettingsViewModel.AuthModeSelection.UsernamePassword, viewModel.Settings.SelectedAuthMode);
+            Assert.Equal("newpass", viewModel.Settings.AuthPassword);
+            Assert.Empty(viewModel.Settings.AuthUsername); // Username should remain unchanged
+            Assert.Contains("Password set. Auth mode switched to Username/Password", viewModel.StatusBarText);
+        }
+
+        [Fact]
+        public void DispatchCommand_SetUser_WhenUserPass_ShouldUpdateUserAndKeepMode()
+        {
+            // Arrange
+            var commandParser = new CommandParserService();
+            var viewModel = new MainViewModel(commandParser);
+            viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword;
+            viewModel.Settings.AuthUsername = "olduser";
+            viewModel.Settings.AuthPassword = "oldpass";
+
+            // Act
+            DispatchCommand(viewModel, CommandType.SetUser, "updateduser");
+
+            // Assert
+            Assert.Equal(SettingsViewModel.AuthModeSelection.UsernamePassword, viewModel.Settings.SelectedAuthMode);
+            Assert.Equal("updateduser", viewModel.Settings.AuthUsername);
+            Assert.Equal("oldpass", viewModel.Settings.AuthPassword); // Password should remain unchanged
+            Assert.Contains("Username set. Settings will be saved.", viewModel.StatusBarText);
+            Assert.DoesNotContain("Auth mode switched", viewModel.StatusBarText);
+        }
+
+        [Fact]
+        public void DispatchCommand_SetPassword_WhenUserPass_ShouldUpdatePasswordAndKeepMode()
+        {
+            // Arrange
+            var commandParser = new CommandParserService();
+            var viewModel = new MainViewModel(commandParser);
+            viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword;
+            viewModel.Settings.AuthUsername = "olduser";
+            viewModel.Settings.AuthPassword = "oldpass";
+
+            // Act
+            DispatchCommand(viewModel, CommandType.SetPassword, "updatedpass");
+
+            // Assert
+            Assert.Equal(SettingsViewModel.AuthModeSelection.UsernamePassword, viewModel.Settings.SelectedAuthMode);
+            Assert.Equal("updatedpass", viewModel.Settings.AuthPassword);
+            Assert.Equal("olduser", viewModel.Settings.AuthUsername); // Username should remain unchanged
+            Assert.Contains("Password set. Settings will be saved.", viewModel.StatusBarText);
+            Assert.DoesNotContain("Auth mode switched", viewModel.StatusBarText);
+        }
     }
 }

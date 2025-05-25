@@ -245,20 +245,20 @@
           </Grid> <!-- End of Main Content Grid -->
 
           <Panel Grid.Row="0" Grid.Column="1" IsVisible="{Binding IsSettingsVisible}" Background="{DynamicResource ApplicationBackgroundBrush}">
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="5"> <!-- Added rows for General Settings header, Export Format, Export Path -->
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="5"> <!-- Increased to 13 rows for Auth Mode + User/Pass + General Header -->
                 <Grid.Styles>
                     <Style Selector="TextBlock">
                         <Setter Property="VerticalAlignment" Value="Center"/>
                         <Setter Property="Margin" Value="0,0,5,0"/> <!-- Right margin for labels -->
                     </Style>
-                    <Style Selector="TextBox, NumericUpDown, CheckBox">
+                    <Style Selector="TextBox, NumericUpDown, CheckBox, ComboBox">
                         <Setter Property="VerticalAlignment" Value="Center"/>
                         <Setter Property="Margin" Value="0,0,0,5"/> <!-- Bottom margin for controls -->
                     </Style>
                     <Style Selector="Grid > :nth-child(n)" x:SetterTargetType="Grid">
                         <Setter Property="Grid.Column" Value="0"/> <!-- Default to first column -->
                     </Style>
-                    <Style Selector="Grid > TextBox, Grid > NumericUpDown, Grid > CheckBox">
+                    <Style Selector="Grid > TextBox, Grid > NumericUpDown, Grid > CheckBox, Grid > Grid > ComboBox">
                         <Setter Property="Grid.Column" Value="1"/> <!-- Inputs go to second column -->
                     </Style>
                     <Style Selector="Grid > StackPanel" x:SetterTargetType="Grid">
@@ -296,16 +296,37 @@
                     <TextBlock Text="(0 = expires immediately, empty = infinite)" FontSize="10"/>
                 </StackPanel>
 
+                <!-- Authentication Mode -->
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="Auth Mode:"/>
+                <ComboBox Grid.Row="7" Grid.Column="1"
+                            ItemsSource="{Binding Settings.AvailableAuthenticationModes}"
+                            SelectedItem="{Binding Settings.SelectedAuthMode, Mode=TwoWay}"
+                            MinWidth="220"/>
+
+                <!-- Auth Username (Conditionally Visible) -->
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="Username:" IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
+                <TextBox Grid.Row="8" Grid.Column="1"
+                         Text="{Binding Settings.AuthUsername, Mode=TwoWay}"
+                         Watermark="Enter username"
+                         IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
+
+                <!-- Auth Password (Conditionally Visible) -->
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="Password:" IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
+                <TextBox  Grid.Row="9" Grid.Column="1"
+                             Text="{Binding Settings.AuthPassword, Mode=TwoWay}"
+                             Watermark="Enter password" PasswordChar="*"
+                             IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
+                
                 <!-- General Settings Header -->
-                <TextBlock Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" Text="General Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/> <!-- Added top margin -->
+                <TextBlock Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2" Text="General Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
 
                 <!-- Export Format -->
-                <TextBlock Grid.Row="8" Grid.Column="0" Text="Export Format:"/>
-                <ComboBox Grid.Row="8" Grid.Column="1" ItemsSource="{Binding Settings.AvailableExportTypes}" SelectedItem="{Binding Settings.ExportFormat, Mode=TwoWay}" MinWidth="220" />
+                <TextBlock Grid.Row="11" Grid.Column="0" Text="Export Format:"/>
+                <ComboBox Grid.Row="11" Grid.Column="1" ItemsSource="{Binding Settings.AvailableExportTypes}" SelectedItem="{Binding Settings.ExportFormat, Mode=TwoWay}" MinWidth="220" />
 
                 <!-- Export Path -->
-                <TextBlock Grid.Row="9" Grid.Column="0" Text="Export Path:"/>
-                <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding Settings.ExportPath, Mode=TwoWay}" />
+                <TextBlock Grid.Row="12" Grid.Column="0" Text="Export Path:"/>
+                <TextBox Grid.Row="12" Grid.Column="1" Text="{Binding Settings.ExportPath, Mode=TwoWay}" />
 
             </Grid>
         </Panel>
