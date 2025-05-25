@@ -251,14 +251,14 @@
                         <Setter Property="VerticalAlignment" Value="Center"/>
                         <Setter Property="Margin" Value="0,0,5,0"/> <!-- Right margin for labels -->
                     </Style>
-                    <Style Selector="TextBox, NumericUpDown, CheckBox, PasswordBox, ComboBox">
+                    <Style Selector="TextBox, NumericUpDown, CheckBox, ComboBox">
                         <Setter Property="VerticalAlignment" Value="Center"/>
                         <Setter Property="Margin" Value="0,0,0,5"/> <!-- Bottom margin for controls -->
                     </Style>
                     <Style Selector="Grid > :nth-child(n)" x:SetterTargetType="Grid">
                         <Setter Property="Grid.Column" Value="0"/> <!-- Default to first column -->
                     </Style>
-                    <Style Selector="Grid > TextBox, Grid > NumericUpDown, Grid > CheckBox, Grid > PasswordBox, Grid > ComboBox">
+                    <Style Selector="Grid > TextBox, Grid > NumericUpDown, Grid > CheckBox, Grid > Grid > ComboBox">
                         <Setter Property="Grid.Column" Value="1"/> <!-- Inputs go to second column -->
                     </Style>
                     <Style Selector="Grid > StackPanel" x:SetterTargetType="Grid">
@@ -299,7 +299,7 @@
                 <!-- Authentication Mode -->
                 <TextBlock Grid.Row="7" Grid.Column="0" Text="Auth Mode:"/>
                 <ComboBox Grid.Row="7" Grid.Column="1"
-                            ItemsSource="{x:Static Member=vm:SettingsViewModel+AuthModeSelection.GetValues}"
+                            ItemsSource="{Binding Settings.AvailableAuthenticationModes}"
                             SelectedItem="{Binding Settings.SelectedAuthMode, Mode=TwoWay}"
                             MinWidth="220"/>
 
@@ -312,7 +312,7 @@
 
                 <!-- Auth Password (Conditionally Visible) -->
                 <TextBlock Grid.Row="9" Grid.Column="0" Text="Password:" IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
-                <PasswordBox Grid.Row="9" Grid.Column="1"
+                <TextBox  Grid.Row="9" Grid.Column="1"
                              Text="{Binding Settings.AuthPassword, Mode=TwoWay}"
                              Watermark="Enter password" PasswordChar="*"
                              IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>

@@ -53,6 +53,9 @@ public class SettingsViewModel : ReactiveObject
     private readonly ReadOnlyObservableCollection<ExportTypes> _availableExportTypes;
     public ReadOnlyObservableCollection<ExportTypes> AvailableExportTypes => _availableExportTypes; // Changed type and name
 
+    private readonly ReadOnlyObservableCollection<AuthModeSelection> _availableAuthenticationModes;
+    public ReadOnlyObservableCollection<AuthModeSelection> AvailableAuthenticationModes => _availableAuthenticationModes; 
+
 #pragma warning disable IDE0044 // Add readonly modifier
     private bool _isLoading = false; // Flag to prevent saving during initial load
 #pragma warning restore IDE0044 // Add readonly modifier
@@ -64,7 +67,6 @@ public class SettingsViewModel : ReactiveObject
         _isLoading = false; // Clear flag after loading
 
         // Auto-save settings when properties change (with throttling)
-        // Auto-save settings when properties change (with throttling)
         // Use CombineLatest for robustness with multiple properties
         Observable.CombineLatest(
                 this.WhenAnyValue(x => x.Hostname),
@@ -75,7 +77,6 @@ public class SettingsViewModel : ReactiveObject
                 this.WhenAnyValue(x => x.SessionExpiryIntervalSeconds),
                 this.WhenAnyValue(x => x.ExportFormat),
                 this.WhenAnyValue(x => x.ExportPath),
-                // Old Username/Password removed, new auth properties added
                 this.WhenAnyValue(x => x.SelectedAuthMode),
                 this.WhenAnyValue(x => x.AuthUsername),
                 this.WhenAnyValue(x => x.AuthPassword),
@@ -87,6 +88,8 @@ public class SettingsViewModel : ReactiveObject
         // Populate with enum values
         _availableExportTypes = new ReadOnlyObservableCollection<ExportTypes>(
             new ObservableCollection<ExportTypes>(Enum.GetValues(typeof(ExportTypes)).Cast<ExportTypes>()));
+        _availableAuthenticationModes = new ReadOnlyObservableCollection<AuthModeSelection>(
+            new ObservableCollection<AuthModeSelection>(Enum.GetValues(typeof(AuthModeSelection)).Cast<AuthModeSelection>()));
         ExportPath = _exportFolderPath;
     }
     private string _hostname = "localhost";
@@ -179,11 +182,21 @@ public class SettingsViewModel : ReactiveObject
    }
     public SettingsData Into()
     {
-        AuthenticationMode authMode = SelectedAuthMode switch
+        AuthenticationMode authModeSetting;
+        string? usernameSetting = null;
+        string? passwordSetting = null;
+
+        if (SelectedAuthMode == AuthModeSelection.UsernamePassword)
         {
-            AuthModeSelection.UsernamePassword => new UsernamePasswordAuthenticationMode(AuthUsername, AuthPassword),
-            _ => new AnonymousAuthenticationMode(),
-        };
+            authModeSetting = new UsernamePasswordAuthenticationMode(AuthUsername, AuthPassword);
+            usernameSetting = AuthUsername;
+            passwordSetting = AuthPassword;
+        }
+        else
+        {
+            authModeSetting = new AnonymousAuthenticationMode();
+            // usernameSetting and passwordSetting remain null for Anonymous mode
+        }
 
         return new SettingsData(
             Hostname,
@@ -192,9 +205,11 @@ public class SettingsViewModel : ReactiveObject
             KeepAliveIntervalSeconds,
             CleanSession,
             SessionExpiryIntervalSeconds,
-            authMode, // Pass the constructed AuthenticationMode
+            // usernameSetting, // Removed
+            // passwordSetting, // Removed
+            authModeSetting, 
             ExportFormat,
-            ExportPath    
+            ExportPath
         );
     }
 
@@ -209,20 +224,18 @@ public class SettingsViewModel : ReactiveObject
         ExportFormat = settingsData.ExportFormat;
         ExportPath = settingsData.ExportPath;
 
-        // Handle AuthMode
-        switch (settingsData.AuthMode)
+        // Handle AuthMode and credentials
+        if (settingsData.AuthMode is UsernamePasswordAuthenticationMode userPassAuth)
         {
-            case UsernamePasswordAuthenticationMode upa:
-                SelectedAuthMode = AuthModeSelection.UsernamePassword;
-                AuthUsername = upa.Username;
-                AuthPassword = upa.Password;
-                break;
-            case AnonymousAuthenticationMode:
-            default: // Also handles null from older settings files if AuthMode wasn't present
-                SelectedAuthMode = AuthModeSelection.Anonymous;
-                AuthUsername = string.Empty;
-                AuthPassword = string.Empty;
-                break;
+            SelectedAuthMode = AuthModeSelection.UsernamePassword;
+            AuthUsername = userPassAuth.Username ?? string.Empty;
+            AuthPassword = userPassAuth.Password ?? string.Empty;
+        }
+        else // Covers AnonymousAuthenticationMode and null (for older settings if AuthMode wasn't present)
+        {
+            SelectedAuthMode = AuthModeSelection.Anonymous;
+            AuthUsername = string.Empty;
+            AuthPassword = string.Empty;
         }
     }
 
@@ -242,7 +255,7 @@ public class SettingsViewModel : ReactiveObject
             }
 
             // Use the generated context for serialization
-            string json = JsonSerializer.Serialize(this, SettingsViewModelJsonContext.Default.SettingsViewModel);
+            string json = JsonSerializer.Serialize(this.Into(), SettingsViewModelJsonContext.Default.SettingsData);
             File.WriteAllText(_settingsFilePath, json);
             AppLogger.Information("Settings saved to {FilePath}", _settingsFilePath);
         }
