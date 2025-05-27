@@ -279,5 +279,50 @@ namespace CrowsNestMqtt.UnitTests
             await publisher.DisconnectAsync();
             await engine.DisconnectAsync();
         }
+
+        [Fact]
+        public void BuildMqttOptions_WithUsernamePasswordAuth_ShouldSetCredentials()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = "localhost",
+                Port = 1883,
+                AuthMode = new CrowsNestMqtt.BusinessLogic.Configuration.UsernamePasswordAuthenticationMode("testuser", "testpass")
+            };
+            var engine = new MqttEngine(settings);
+
+            // Act
+            // Use reflection to access the private method BuildMqttOptions
+            var methodInfo = typeof(MqttEngine).GetMethod("BuildMqttOptions", BindingFlags.NonPublic | BindingFlags.Instance);
+            var options = methodInfo?.Invoke(engine, null) as MqttClientOptions;
+
+            // Assert
+            Assert.NotNull(options);
+            Assert.Equal("testuser", options.Credentials?.GetUserName(options));
+            // Note: MQTTnet.MqttClientOptions stores password as byte[]
+            Assert.Equal("testpass", System.Text.Encoding.UTF8.GetString(options.Credentials?.GetPassword(options) ?? Array.Empty<byte>()));
+        }
+
+        [Fact]
+        public void BuildMqttOptions_WithAnonymousAuth_ShouldNotSetCredentials()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = "localhost",
+                Port = 1883,
+                AuthMode = new CrowsNestMqtt.BusinessLogic.Configuration.AnonymousAuthenticationMode()
+            };
+            var engine = new MqttEngine(settings);
+
+            // Act
+            var methodInfo = typeof(MqttEngine).GetMethod("BuildMqttOptions", BindingFlags.NonPublic | BindingFlags.Instance);
+            var options = methodInfo?.Invoke(engine, null) as MqttClientOptions;
+
+            // Assert
+            Assert.NotNull(options);
+            Assert.Null(options.Credentials); // Or check if UserName/Password are null/empty if Credentials object is always created
+        }
     }
 }

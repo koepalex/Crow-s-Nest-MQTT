@@ -4,12 +4,12 @@ using System.Runtime.CompilerServices; // Added for InternalsVisibleTo
 
 namespace CrowsNestMqtt.BusinessLogic;
 
+using CrowsNestMqtt.BusinessLogic.Configuration; // Required for AuthenticationMode
 using MQTTnet;
 using MQTTnet.Protocol;
 using System.Collections.Concurrent;
 using CrowsNestMqtt.Utils;
-using CrowsNestMqtt.BusinessLogic.Configuration; // Added for TopicBufferLimit
-using System.Collections.Generic; // Added for IList
+using System.Collections.Generic;
 
 // New EventArgs class including MessageId and Topic
 public class IdentifiedMqttApplicationMessageReceivedEventArgs : EventArgs // Not inheriting from MqttApplicationMessageReceivedEventArgs to avoid confusion
@@ -30,7 +30,6 @@ public class IdentifiedMqttApplicationMessageReceivedEventArgs : EventArgs // No
     }
 }
 
-
 public class MqttEngine : IMqttService // Implement the interface
 {
     private readonly IMqttClient _client;
@@ -39,7 +38,7 @@ public class MqttEngine : IMqttService // Implement the interface
     private MqttClientOptions? _currentOptions;
     private bool _connecting;
     private readonly ConcurrentDictionary<string, TopicRingBuffer> _topicBuffers;
-    private IList<TopicBufferLimit> _topicSpecificBufferLimits = new List<TopicBufferLimit>(); // Added field
+    private IList<TopicBufferLimit> _topicSpecificBufferLimits = new List<TopicBufferLimit>();
     internal const long DefaultMaxTopicBufferSize = 1 * 1024 * 1024; // Changed to internal const
 
     // Modified event signature
@@ -50,7 +49,7 @@ public class MqttEngine : IMqttService // Implement the interface
     public MqttEngine(MqttConnectionSettings settings)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        _topicSpecificBufferLimits = settings.TopicSpecificBufferLimits ?? new List<TopicBufferLimit>(); // Initialize field
+        _topicSpecificBufferLimits = settings.TopicSpecificBufferLimits;
         var factory = new MqttClientFactory();
         _client = factory.CreateMqttClient();
         _topicBuffers = new ConcurrentDictionary<string, TopicRingBuffer>();
@@ -65,7 +64,7 @@ public class MqttEngine : IMqttService // Implement the interface
     public void UpdateSettings(MqttConnectionSettings newSettings)
     {
         _settings = newSettings ?? throw new ArgumentNullException(nameof(newSettings));
-        _topicSpecificBufferLimits = newSettings.TopicSpecificBufferLimits ?? new List<TopicBufferLimit>(); // Update field
+        _topicSpecificBufferLimits = newSettings.TopicSpecificBufferLimits;
         LogMessage?.Invoke(this, "MqttEngine settings updated.");
     }
 
@@ -127,7 +126,23 @@ public class MqttEngine : IMqttService // Implement the interface
                  builder.WithSessionExpiryInterval(_settings.SessionExpiryInterval.Value);
             }
         }
-        // Add other options like TLS, Credentials here if needed
+
+        // Add credentials based on AuthMode
+        switch (_settings.AuthMode)
+        {
+            case UsernamePasswordAuthenticationMode upa:
+                if (!string.IsNullOrWhiteSpace(upa.Username)) // Optional: only set if username is not blank
+                {
+                    builder.WithCredentials(upa.Username, upa.Password);
+                }
+                break;
+            case AnonymousAuthenticationMode:
+                // No credentials to add for anonymous mode
+                break;
+            // Default case can be omitted if all AuthenticationMode types are handled
+        }
+
+        // Add other options like TLS here if needed
         return builder.Build();
     }
 
@@ -332,16 +347,16 @@ public class MqttEngine : IMqttService // Implement the interface
         {
             if (filterSegments[j] == "#")
             {
-                if (j == filterSegments.Length - 1) // '#' must be the last segment in the filter
+                if (j == filterSegments.Length - 1) // '#' must be the last segment in the filter.
                 {
-                    score += 1; // Small score for multi-level wildcard
-                    // Consider the rest of topic segments as matched
-                    i = topicSegments.Length; 
-                    break; 
+                    // The '#' matches the rest of the topic segments.
+                    // Score for '#' (1) will be added post-loop if this condition leads to a match.
+                    i = topicSegments.Length; // Mark all remaining topic segments as "matched" by '#'.
+                    break; // Exit loop; post-loop logic will determine final score.
                 }
                 else
                 {
-                    return -1; // '#' is not the last segment, invalid filter for this context
+                    return -1; // '#' is not the last segment, invalid filter for this context.
                 }
             }
 
@@ -355,36 +370,35 @@ public class MqttEngine : IMqttService // Implement the interface
             }
             else
             {
-                return -1; // Segments do not match
+                return -1; // Segments do not match.
             }
             i++;
             j++;
         }
 
-        // Check if all segments were matched
+        // After loop, check conditions for a valid match.
+
+        // Case 1: All segments in both topic and filter have been processed and matched.
         if (i == topicSegments.Length && j == filterSegments.Length)
         {
-            return score; // All segments matched, and lengths are equal
+            return score;
         }
 
-        // If filter ended with '#' and matched all topic segments
-        if (j == filterSegments.Length -1 && filterSegments[j] == "#" && i == topicSegments.Length) {
-             return score;
+        // Case 2: Filter ended with '#' (so j is at the '#' segment) and all topic segments were covered.
+        // This covers both "topic/sub" vs "topic/#" (where '#' matches "sub")
+        // and "topic" vs "topic/#" (where '#' matches zero levels).
+        if (j == filterSegments.Length - 1 && filterSegments[j] == "#" && i == topicSegments.Length)
+        {
+            return score + 1; // Add score for the '#' wildcard itself.
         }
         
-        // If filter is shorter and did not end with '#', but topic has more segments
-        if (j < filterSegments.Length && i == topicSegments.Length)
-        {
-            // e.g. topic "a/b", filter "a/b/#" - this is a match
-            if (j == filterSegments.Length - 1 && filterSegments[j] == "#") return score;
-            return -1; 
-        }
+        // Case 3: Topic has more segments, but filter ended before '#'. (e.g. "a/b/c" vs "a/b")
+        // This is implicitly handled as not a match by falling through if not covered above.
 
-        // If topic is shorter, but filter has more segments that are not '#' (already handled if it was #)
-        if (i < topicSegments.Length && j == filterSegments.Length) return -1;
+        // Case 4: Filter has more segments, but topic ended. (e.g. "a/b" vs "a/b/c")
+        // This is also implicitly handled as not a match.
 
-
-        return -1; // Not a full match for other cases
+        return -1; // No match based on the rules.
     }
 
     internal virtual long GetMaxBufferSizeForTopic(string topic) // Changed to internal virtual
@@ -445,7 +459,6 @@ public class MqttEngine : IMqttService // Implement the interface
         LogMessage?.Invoke(this, _client.IsConnected ? "Reconnection successful." : "Reconnection attempts stopped.");
     }
 
-
     // Modified message handling logic
     private Task HandleIncomingMessageAsync(MqttApplicationMessageReceivedEventArgs e)
     {
@@ -454,7 +467,6 @@ public class MqttEngine : IMqttService // Implement the interface
 
         long bufferSize = GetMaxBufferSizeForTopic(topic);
         LogMessage?.Invoke(this, $"Topic '{topic}': Using buffer size {bufferSize} bytes (Default: {DefaultMaxTopicBufferSize} bytes, Rules: {_topicSpecificBufferLimits?.Count ?? 0}). Matched score for rule: {MatchTopic(topic, _topicSpecificBufferLimits?.FirstOrDefault(r => GetMaxBufferSizeForTopic(topic) == r.MaxSizeBytes)?.TopicFilter ?? "")}");
-
 
         // Store message in buffer with the new ID
         var buffer = _topicBuffers.GetOrAdd(topic, _ => new TopicRingBuffer(bufferSize));
