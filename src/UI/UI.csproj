@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>CrowsNestMqtt.UnitTests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.2.8" />
     <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.2.0" />
     <PackageReference Include="Avalonia.ReactiveUI" Version="11.2.8" />
