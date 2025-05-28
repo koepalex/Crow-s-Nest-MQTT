@@ -81,10 +81,19 @@ public class SettingsViewModel : ReactiveObject
                 this.WhenAnyValue(x => x.SelectedAuthMode),
                 this.WhenAnyValue(x => x.AuthUsername),
                 this.WhenAnyValue(x => x.AuthPassword),
-                (_, _, _, _, _, _, _, _, _, _, _) => Unit.Default) // Adjusted lambda parameters
+                this.WhenAnyValue(x => x.ClientCertificatePath), // New property added
+                (_, _, _, _, _, _, _, _, _, _, _, _) => Unit.Default) // Adjusted lambda parameters
             .Throttle(TimeSpan.FromMilliseconds(500)) // Wait 500ms after the last change
             .ObserveOn(RxApp.TaskpoolScheduler) // Perform save on a background thread
             .Subscribe(_ => SaveSettings());
+
+        BrowseClientCertificateCommand = ReactiveCommand.Create(() =>
+        {
+            AppLogger.Information("BrowseClientCertificateCommand executed. (Placeholder: Dialog would open here)");
+            // For now, let's simulate selecting a file for testing purposes.
+            // In a real scenario, this would involve an Interaction to show a file dialog.
+            ClientCertificatePath = "simulated/path/to/certificate.pfx";
+        });
 
         // Populate with enum values
         _availableExportTypes = new ReadOnlyObservableCollection<ExportTypes>(
@@ -181,6 +190,16 @@ public class SettingsViewModel : ReactiveObject
        get => _exportPath;
        set => this.RaiseAndSetIfChanged(ref _exportPath, value);
    }
+
+    private string? _clientCertificatePath;
+    public string? ClientCertificatePath
+    {
+        get => _clientCertificatePath;
+        set => this.RaiseAndSetIfChanged(ref _clientCertificatePath, value);
+    }
+
+    public ReactiveCommand<Unit, Unit> BrowseClientCertificateCommand { get; }
+
     public SettingsData Into()
     {
         AuthenticationMode authModeSetting;
@@ -210,7 +229,8 @@ public class SettingsViewModel : ReactiveObject
             // passwordSetting, // Removed
             authModeSetting, 
             ExportFormat,
-            ExportPath
+            ExportPath,
+            ClientCertificatePath // New property added here
         );
     }
 
@@ -224,6 +244,7 @@ public class SettingsViewModel : ReactiveObject
         SessionExpiryIntervalSeconds = settingsData.SessionExpiryIntervalSeconds;
         ExportFormat = settingsData.ExportFormat;
         ExportPath = settingsData.ExportPath;
+        ClientCertificatePath = settingsData.ClientCertificatePath;
 
         // Handle AuthMode and credentials
         if (settingsData.AuthMode is UsernamePasswordAuthenticationMode userPassAuth)

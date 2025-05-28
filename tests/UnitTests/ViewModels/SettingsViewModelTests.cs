@@ -177,6 +177,29 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.Empty(loadViewModel.AuthPassword);
             Assert.False(loadViewModel.IsUsernamePasswordSelected);
         }
+
+        [Fact]
+        public void ClientCertificatePath_IsSavedAndLoadedCorrectly()
+        {
+            // Arrange - Save
+            var saveViewModel = new SettingsViewModel
+            {
+                Hostname = "certHost.com",
+                Port = 2000,
+                ClientCertificatePath = "test/cert.pfx" // Set the test path
+            };
+            var saveMethod = typeof(SettingsViewModel).GetMethod("SaveSettings",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            saveMethod?.Invoke(saveViewModel, null);
+
+            // Arrange - Load
+            var loadViewModel = new SettingsViewModel(); // Constructor calls LoadSettings
+
+            // Assert - Load
+            Assert.Equal("certHost.com", loadViewModel.Hostname); // Ensure other settings are still loaded
+            Assert.Equal(2000, loadViewModel.Port);
+            Assert.Equal("test/cert.pfx", loadViewModel.ClientCertificatePath); // Verify the new property
+        }
         
         [Fact]
         public void LoadSettings_NonExistentFile_ShouldUseDefaults()

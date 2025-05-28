@@ -245,7 +245,7 @@
           </Grid> <!-- End of Main Content Grid -->
 
           <Panel Grid.Row="0" Grid.Column="1" IsVisible="{Binding IsSettingsVisible}" Background="{DynamicResource ApplicationBackgroundBrush}">
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="5"> <!-- Increased to 13 rows for Auth Mode + User/Pass + General Header -->
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="5"> <!-- Increased to 14 rows for Client Certificate -->
                 <Grid.Styles>
                     <Style Selector="TextBlock">
                         <Setter Property="VerticalAlignment" Value="Center"/>
@@ -328,6 +328,18 @@
                 <TextBlock Grid.Row="12" Grid.Column="0" Text="Export Path:"/>
                 <TextBox Grid.Row="12" Grid.Column="1" Text="{Binding Settings.ExportPath, Mode=TwoWay}" />
 
+                <!-- Client Certificate Path -->
+                <TextBlock Grid.Row="13" Grid.Column="0" Text="Client Certificate:"/>
+                <Grid Grid.Row="13" Grid.Column="1" ColumnDefinitions="*,Auto">
+                    <TextBox Grid.Column="0"
+                             Text="{Binding Settings.ClientCertificatePath, Mode=OneWay}"
+                             IsReadOnly="True"
+                             Watermark="Select certificate file..."/>
+                    <Button Grid.Column="1"
+                            Content="Browse..."
+                            Command="{Binding Settings.BrowseClientCertificateCommand}"
+                            Margin="5,0,0,0"/>
+                </Grid>
             </Grid>
         </Panel>
 

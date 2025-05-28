@@ -15,6 +15,7 @@ public class MqttConnectionSettings
     public bool CleanSession { get; set; } = true;
     public uint? SessionExpiryInterval { get; set; } = 0;// Null means session never expires
     public AuthenticationMode AuthMode { get; set; } = new AnonymousAuthenticationMode();
+    public string? ClientCertificatePath { get; set; }
 
     // Consider adding properties for TLS, Credentials, etc. later
 }

@@ -11,7 +11,8 @@ public  record SettingsData(
     uint? SessionExpiryIntervalSeconds = 300,
     AuthenticationMode? AuthMode = null, // Added AuthMode, default to null to be handled by constructor logic
     ExportTypes? ExportFormat = null, // Changed type to ExportTypes?
-    string? ExportPath = null
+    string? ExportPath = null,
+    string? ClientCertificatePath = null
 )
 {
     // Ensure AuthMode is never null, defaulting to Anonymous if not provided.

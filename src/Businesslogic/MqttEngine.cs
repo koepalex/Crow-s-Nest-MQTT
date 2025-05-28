@@ -2,8 +2,11 @@ namespace CrowsNestMqtt.BusinessLogic;
 
 using CrowsNestMqtt.BusinessLogic.Configuration; // Required for AuthenticationMode
 using MQTTnet;
+using MQTTnet.Client.Options; // Added for MqttClientOptionsBuilderTlsParameters
 using MQTTnet.Protocol;
 using System.Collections.Concurrent;
+using System.Security.Cryptography.X509Certificates; // Added for X509Certificate2
+using System.IO; // Added for File.Exists
 using CrowsNestMqtt.Utils;
 
 // New EventArgs class including MessageId and Topic
@@ -136,6 +139,47 @@ public class MqttEngine : IMqttService // Implement the interface
         }
 
         // Add other options like TLS here if needed
+
+        var tlsParameters = new MqttClientOptionsBuilderTlsParameters
+        {
+            UseTls = true, // Enable TLS by default
+            AllowUntrustedCertificates = false, 
+            IgnoreCertificateChainErrors = false,
+            // Consider SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13,
+        };
+
+        if (!string.IsNullOrEmpty(_settings.ClientCertificatePath))
+        {
+            LogMessage?.Invoke(this, $"Attempting to load client certificate from: {_settings.ClientCertificatePath}");
+            try
+            {
+                if (File.Exists(_settings.ClientCertificatePath))
+                {
+                    // Assuming PFX without password or a PEM file.
+                    // X509Certificate2 constructor can often auto-detect or use CreateFromPemFile for PEM.
+                    var clientCertificate = new X509Certificate2(_settings.ClientCertificatePath);
+                    tlsParameters.ClientCertificates = new List<X509Certificate2> { clientCertificate };
+                    LogMessage?.Invoke(this, "Client certificate loaded successfully.");
+                }
+                else
+                {
+                    LogMessage?.Invoke(this, $"Client certificate file not found at: '{_settings.ClientCertificatePath}'. Proceeding with TLS but without client certificate.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log more detailed error, potentially with stack trace for debugging in real scenarios
+                LogMessage?.Invoke(this, $"Error loading client certificate from '{_settings.ClientCertificatePath}': {ex.Message}. Proceeding with TLS but without client certificate.");
+                tlsParameters.ClientCertificates = null; // Ensure no partial/failed certificate is used
+            }
+        }
+        else
+        {
+            LogMessage?.Invoke(this, "No client certificate path configured. Proceeding with TLS but without client certificate.");
+        }
+
+        builder.WithTls(tlsParameters);
+
         return builder.Build();
     }
 
