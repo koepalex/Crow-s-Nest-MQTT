@@ -48,7 +48,7 @@ public class SettingsViewModel : ReactiveObject
 
     internal static string _settingsFilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "CrowsNestMqtt", 
+        "CrowsNestMqtt",
         "settings.json");
 
     private static readonly string _exportFolderPath = Path.Combine(
@@ -62,7 +62,10 @@ public class SettingsViewModel : ReactiveObject
 
     public ObservableCollection<TopicBufferLimitViewModel> TopicSpecificLimits { get; } = new();
     private readonly ReadOnlyObservableCollection<AuthModeSelection> _availableAuthenticationModes;
-    public ReadOnlyObservableCollection<AuthModeSelection> AvailableAuthenticationModes => _availableAuthenticationModes; 
+    public ReadOnlyObservableCollection<AuthModeSelection> AvailableAuthenticationModes => _availableAuthenticationModes;
+
+    public ReactiveCommand<Unit, Unit> AddTopicLimitCommand { get; }
+    public ReactiveCommand<TopicBufferLimitViewModel, Unit> RemoveTopicLimitCommand { get; }
 
 #pragma warning disable IDE0044 // Add readonly modifier
     private bool _isLoading = false; // Flag to prevent saving during initial load
@@ -73,26 +76,78 @@ public class SettingsViewModel : ReactiveObject
         ExportPath = _exportFolderPath; // Set default before loading
         _isLoading = true; // Set flag before loading
         LoadSettings(); // This calls From() which populates TopicSpecificLimits
+
+        // Ensure a default topic limit if the list is empty
+        if (!TopicSpecificLimits.Any())
+        {
+            TopicSpecificLimits.Add(new TopicBufferLimitViewModel { TopicFilter = "#", MaxSizeBytes = 1024 * 1024 }); // 1MB default
+        }
         _isLoading = false; // Clear flag after loading
 
-        // Use CombineLatest for robustness with multiple properties
-        Observable.CombineLatest(
-                this.WhenAnyValue(x => x.Hostname),
-                this.WhenAnyValue(x => x.Port),
-                this.WhenAnyValue(x => x.ClientId),
-                this.WhenAnyValue(x => x.KeepAliveIntervalSeconds),
-                this.WhenAnyValue(x => x.CleanSession),
-                this.WhenAnyValue(x => x.SessionExpiryIntervalSeconds),
-                this.WhenAnyValue(x => x.ExportFormat),
-                this.WhenAnyValue(x => x.ExportPath),
-                this.WhenAnyValue(x => x.SelectedAuthMode),
-                this.WhenAnyValue(x => x.AuthUsername),
-                this.WhenAnyValue(x => x.AuthPassword),
-                this.WhenAnyValue(x => x.TopicSpecificLimits),
-                (_, _, _, _, _, _, _, _, _, _, _, _) => Unit.Default) // Adjusted lambda parameters
-            .Throttle(TimeSpan.FromMilliseconds(500)) // Wait 500ms after the last change
-            .ObserveOn(RxApp.TaskpoolScheduler) // Perform save on a background thread
+        AddTopicLimitCommand = ReactiveCommand.Create(() =>
+        {
+            TopicSpecificLimits.Add(new TopicBufferLimitViewModel { TopicFilter = "new/topic/filter", MaxSizeBytes = 1024 * 1024 });
+        });
+
+        RemoveTopicLimitCommand = ReactiveCommand.Create<TopicBufferLimitViewModel>(limit =>
+        {
+            TopicSpecificLimits.Remove(limit);
+        });
+
+        // Observable for simple property changes
+        var simplePropertiesChanged = Observable.CombineLatest(
+            this.WhenAnyValue(x => x.Hostname),
+            this.WhenAnyValue(x => x.Port),
+            this.WhenAnyValue(x => x.ClientId),
+            this.WhenAnyValue(x => x.KeepAliveIntervalSeconds),
+            this.WhenAnyValue(x => x.CleanSession),
+            this.WhenAnyValue(x => x.SessionExpiryIntervalSeconds),
+            this.WhenAnyValue(x => x.ExportFormat),
+            this.WhenAnyValue(x => x.ExportPath),
+            this.WhenAnyValue(x => x.SelectedAuthMode),
+            this.WhenAnyValue(x => x.AuthUsername),
+            this.WhenAnyValue(x => x.AuthPassword),
+            (_, _, _, _, _, _, _, _, _, _, _) => Unit.Default);
+
+        // Observable for changes within the TopicSpecificLimits collection (add/remove)
+        var collectionChanged = Observable.FromEventPattern<System.Collections.Specialized.NotifyCollectionChangedEventHandler, System.Collections.Specialized.NotifyCollectionChangedEventArgs>(
+            h => TopicSpecificLimits.CollectionChanged += h,
+            h => TopicSpecificLimits.CollectionChanged -= h)
+            .Select(_ => Unit.Default);
+
+        // Observable for changes to properties of items within TopicSpecificLimits
+        var itemPropertiesChanged = Observable
+            .FromEventPattern<System.Collections.Specialized.NotifyCollectionChangedEventHandler, System.Collections.Specialized.NotifyCollectionChangedEventArgs>(
+                h => TopicSpecificLimits.CollectionChanged += h,
+                h => TopicSpecificLimits.CollectionChanged -= h)
+            .Select(pattern => pattern.EventArgs) // We use the event firing as a trigger
+            .StartWith((System.Collections.Specialized.NotifyCollectionChangedEventArgs?)null) // Trigger initially for current items
+            .Select(_ => // Invoked when collection changes or initially
+            {
+                if (!TopicSpecificLimits.Any())
+                {
+                    return Observable.Empty<Unit>(); // No items, no properties to observe
+                }
+                // For all items currently in the collection, create an observable that fires when their properties change.
+                // Merge these observables.
+                return TopicSpecificLimits
+                    .Select(item => item.WhenAnyValue(i => i.TopicFilter, i => i.MaxSizeBytes)
+                                        .Select(__ => Unit.Default)) // Signal a change
+                    .Merge(); // Merge all item property change observables
+            })
+            .Switch(); // Always use the latest set of merged item observables
+
+
+        // Merge all change signals
+        Observable.Merge(
+                simplePropertiesChanged,
+                collectionChanged,
+                itemPropertiesChanged.StartWith(Unit.Default) // StartWith to ensure initial state is considered if items exist
+            )
+            .Throttle(TimeSpan.FromMilliseconds(500))
+            .ObserveOn(RxApp.TaskpoolScheduler)
             .Subscribe(_ => SaveSettings());
+
 
         // Populate with enum values
         _availableExportTypes = new ReadOnlyObservableCollection<ExportTypes>(

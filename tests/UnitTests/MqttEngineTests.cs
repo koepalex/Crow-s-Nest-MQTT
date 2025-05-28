@@ -67,12 +67,12 @@ namespace CrowsNestMqtt.UnitTests
         {
             var rules = new List<TopicBufferLimit>
             {
-                new TopicBufferLimit { TopicFilter = "exact/match", MaxSizeBytes = 100 },
-                new TopicBufferLimit { TopicFilter = "wildcard/+/one", MaxSizeBytes = 200 },
-                new TopicBufferLimit { TopicFilter = "wildcard/multi/#", MaxSizeBytes = 300 },
-                new TopicBufferLimit { TopicFilter = "long/specific/filter/then/plus/+", MaxSizeBytes = 350 },
-                new TopicBufferLimit { TopicFilter = "long/specific/filter/then/hash/#", MaxSizeBytes = 380 },
-                new TopicBufferLimit { TopicFilter = "#", MaxSizeBytes = 50 } // Least specific
+                new TopicBufferLimit(TopicFilter: "exact/match", MaxSizeBytes: 100 ),
+                new TopicBufferLimit(TopicFilter: "wildcard/+/one", MaxSizeBytes: 200 ),
+                new TopicBufferLimit(TopicFilter: "wildcard/multi/#", MaxSizeBytes: 300 ),
+                new TopicBufferLimit(TopicFilter: "long/specific/filter/then/plus/+", MaxSizeBytes: 350 ),
+                new TopicBufferLimit(TopicFilter: "long/specific/filter/then/hash/#", MaxSizeBytes: 380 ),
+                new TopicBufferLimit(TopicFilter: "#", MaxSizeBytes: 50 ) // Least specific
             };
             var engine = CreateEngineWithRules(rules);
 
@@ -90,7 +90,7 @@ namespace CrowsNestMqtt.UnitTests
         {
             var rules = new List<TopicBufferLimit>
             {
-                new TopicBufferLimit { TopicFilter = "specific/topic", MaxSizeBytes = 100 }
+                new TopicBufferLimit(TopicFilter: "specific/topic", MaxSizeBytes: 100),
                 // No "#" rule
             };
             var engine = CreateEngineWithRules(rules);
@@ -118,10 +118,10 @@ namespace CrowsNestMqtt.UnitTests
         {
             var rules = new List<TopicBufferLimit>
             {
-                new TopicBufferLimit { TopicFilter = "foo/bar", MaxSizeBytes = 10 },      // Most specific for foo/bar
-                new TopicBufferLimit { TopicFilter = "foo/+", MaxSizeBytes = 20 },       // Specific for foo/anything
-                new TopicBufferLimit { TopicFilter = "foo/#", MaxSizeBytes = 30 },       // General for foo/anything/anddeeper
-                new TopicBufferLimit { TopicFilter = "#", MaxSizeBytes = 5 }             // Catch all
+                new TopicBufferLimit(TopicFilter: "foo/bar", MaxSizeBytes: 10 ),      // Most specific for foo/bar
+                new TopicBufferLimit(TopicFilter: "foo/+", MaxSizeBytes: 20 ),       // Specific for foo/anything
+                new TopicBufferLimit(TopicFilter: "foo/#", MaxSizeBytes: 30 ),       // General for foo/anything/anddeeper
+                new TopicBufferLimit(TopicFilter: "#", MaxSizeBytes: 5 ),             // Catch all
             };
             var engine = CreateEngineWithRules(rules);
 
@@ -136,8 +136,8 @@ namespace CrowsNestMqtt.UnitTests
         {
             var rules = new List<TopicBufferLimit>
             {
-                new TopicBufferLimit { TopicFilter = "", MaxSizeBytes = 10000 }, // Empty filter
-                new TopicBufferLimit { TopicFilter = "real/topic", MaxSizeBytes = 200 }
+                new TopicBufferLimit(TopicFilter: "", MaxSizeBytes: 10000 ), // Empty filter
+                new TopicBufferLimit(TopicFilter: "real/topic", MaxSizeBytes: 200 )
             };
             var engine = CreateEngineWithRules(rules);
 
@@ -213,7 +213,8 @@ namespace CrowsNestMqtt.UnitTests
             await publisher.DisconnectAsync();
             await engine.DisconnectAsync();
         }
-[Fact]
+
+        [Fact]
         [Trait("Category", "LocalOnly")]
         public async Task MqttEngine_Should_Handle_Empty_Payload_Message()
         {

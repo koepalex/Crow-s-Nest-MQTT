@@ -245,7 +245,7 @@
           </Grid> <!-- End of Main Content Grid -->
 
           <Panel Grid.Row="0" Grid.Column="1" IsVisible="{Binding IsSettingsVisible}" Background="{DynamicResource ApplicationBackgroundBrush}">
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="5"> <!-- Increased to 13 rows for Auth Mode + User/Pass + General Header -->
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="5"> <!-- Increased to 16 rows for Application Settings -->
                 <Grid.Styles>
                     <Style Selector="TextBlock">
                         <Setter Property="VerticalAlignment" Value="Center"/>
@@ -327,6 +327,25 @@
                 <!-- Export Path -->
                 <TextBlock Grid.Row="12" Grid.Column="0" Text="Export Path:"/>
                 <TextBox Grid.Row="12" Grid.Column="1" Text="{Binding Settings.ExportPath, Mode=TwoWay}" />
+
+                <!-- Application Settings Header -->
+                <TextBlock Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2" Text="Application Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
+
+                <!-- Topic Buffer Limits List -->
+                <ItemsControl Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding Settings.TopicSpecificLimits}" Margin="0,0,0,5">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:TopicBufferLimitViewModel}">
+                            <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto" Margin="0,2">
+                                <TextBox Grid.Column="0" Text="{Binding TopicFilter, Mode=TwoWay}" Watermark="Topic Filter (e.g., # or /some/topic)" Margin="0,0,5,0" MinWidth="150"/>
+                                <NumericUpDown Grid.Column="1" Value="{Binding MaxSizeBytes, Mode=TwoWay, StringFormat=N0}" ParsingNumberStyle="Integer" Minimum="0" Watermark="Bytes" Margin="0,0,5,0" MinWidth="100"/>
+                                <Button Grid.Column="2" Content="Remove" Command="{Binding $parent[ItemsControl].DataContext.Settings.RemoveTopicLimitCommand}" CommandParameter="{Binding}" Padding="5,2"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                
+                <!-- Add New Limit Button -->
+                <Button Grid.Row="15" Grid.Column="0" Grid.ColumnSpan="2" Content="Add New Limit" Command="{Binding Settings.AddTopicLimitCommand}" HorizontalAlignment="Left" Margin="0,5,0,0"/>
 
             </Grid>
         </Panel>

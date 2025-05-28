@@ -1,8 +1,3 @@
-namespace Businesslogic.Configuration
-{
-    public record TopicBufferLimit
-    {
-        public string TopicFilter { get; init; }
-        public long MaxSizeBytes { get; init; }
-    }
-}
+namespace CrowsNestMqtt.BusinessLogic.Configuration;
+
+public record TopicBufferLimit(string TopicFilter, long MaxSizeBytes);
