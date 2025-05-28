@@ -108,6 +108,11 @@ public class MqttEngine : IMqttService // Implement the interface
             .WithProtocolVersion(MQTTnet.Formatter.MqttProtocolVersion.V500)
             .WithKeepAlivePeriod(_settings.KeepAliveInterval);
 
+        if (_settings.SessionExpiryInterval.HasValue)
+        {
+                builder.WithSessionExpiryInterval(_settings.SessionExpiryInterval.Value);
+        }
+
         if (!string.IsNullOrWhiteSpace(_settings.ClientId))
         {
             builder.WithClientId(_settings.ClientId);
@@ -116,15 +121,11 @@ public class MqttEngine : IMqttService // Implement the interface
         if (_settings.CleanSession)
         {
             builder.WithCleanSession(true);
-            builder.WithSessionExpiryInterval(0);
         }
         else
         {
             builder.WithCleanSession(false);
-            if (_settings.SessionExpiryInterval.HasValue)
-            {
-                 builder.WithSessionExpiryInterval(_settings.SessionExpiryInterval.Value);
-            }
+            
         }
 
         // Add credentials based on AuthMode
