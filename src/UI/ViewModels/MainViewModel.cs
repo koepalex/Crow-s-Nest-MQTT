@@ -996,6 +996,9 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                         Log.Warning("Invalid arguments for SetAuthMode command.");
                     }
                     break;
+                case CommandType.Settings:
+                    OpenSettings();
+                    break;
                 default:
                     StatusBarText = $"Error: Unknown command type '{command.Type}'.";
                     Log.Warning("Unknown command type encountered: {CommandType}", command.Type);
@@ -1027,7 +1030,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         { "view", (":view <raw|json>", "Switches the payload view between raw text and JSON tree.") },
         { "setuser", (":setuser <username>", "Sets MQTT username. Switches to Username/Password auth if current mode is Anonymous.") },
         { "setpass", (":setpass <password>", "Sets MQTT password. Switches to Username/Password auth if current mode is Anonymous.") },
-        { "setauthmode", (":setauthmode <anonymous|userpass>", "Sets the MQTT authentication mode.") }
+        { "setauthmode", (":setauthmode <anonymous|userpass>", "Sets the MQTT authentication mode.") },
+        { "settings", (":settings", "Toggles the visibility of the settings pane.") }
     };
 
     private void DisplayHelpInformation(string? commandName = null)
