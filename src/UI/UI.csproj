@@ -24,7 +24,7 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0" /> <!-- Added Fluent Theme -->
   </ItemGroup>
 
-  <ItemGroup Condition="!$(DefineConstants.Contains('BROWSER'))">
+  <ItemGroup>
     <PackageReference Include="Serilog" Version="4.2.0" />
   </ItemGroup>
 
@@ -34,14 +34,9 @@
  </ItemGroup>
 
  <!-- Conditionally include SharpHook only for non-WASM targets -->
- <ItemGroup Condition="!$(DefineConstants.Contains('BROWSER'))">
+ <ItemGroup>
    <PackageReference Include="SharpHook" Version="5.2.0" />
    <PackageReference Include="SharpHook.Reactive" Version="5.2.0" /> <!-- Add reactive extensions -->
  </ItemGroup>
 
- <!-- Conditionally include Microsoft.Extensions.Logging for WASM targets -->
- <ItemGroup Condition="$(DefineConstants.Contains('BROWSER'))">
-   <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.4" />
-   <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.4" />
- </ItemGroup>
 </Project>
