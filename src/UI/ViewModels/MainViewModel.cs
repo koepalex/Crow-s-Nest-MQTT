@@ -326,7 +326,19 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             .ObserveOn(RxApp.MainThreadScheduler) // Ensure updates are on the UI thread
             .Bind(out _filteredMessageHistory) // Bind the results to the ReadOnlyObservableCollection
             .DisposeMany() // Dispose items when they are removed from the collection
-            .Subscribe(_ => { }, ex => Log.Error(ex, "Error in MessageHistory DynamicData pipeline")); // Log errors
+            .Subscribe(_ =>
+            {
+                // The collection is created by the Bind operator, so it shouldn't be null here,
+                // but the compiler can't know that. A check is safe.
+                if (_filteredMessageHistory is null) return;
+
+                // If the current selection is no longer in the filtered list (e.g., due to topic change),
+                // select the first item in the new list automatically.
+                if (SelectedMessage == null || !_filteredMessageHistory.Contains(SelectedMessage))
+                {
+                    SelectedMessage = _filteredMessageHistory.FirstOrDefault();
+                }
+            }, ex => Log.Error(ex, "Error in MessageHistory DynamicData pipeline"));
 
         FilteredMessageHistory = _filteredMessageHistory; // Assign the bound collection
 
@@ -743,6 +755,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     private async Task ConnectAsync()
     {
+        ClearHistory();
         Log.Information("Connect command executed.");
         // Rebuild connection settings from ViewModel just before connecting
         var connectionSettings = new MqttConnectionSettings
@@ -769,21 +782,12 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private void ClearHistory()
     {
         Log.Information("Clear history command executed.");
-        // Update ClearHistory to potentially use SelectedNode if needed,
-        // or clear based on a different criteria. For now, clearing based on selected node path.
-        if (SelectedNode != null)
-        {
-            // Optionally clear buffer in engine too?
-            // _mqttEngine.ClearBufferForTopic(SelectedNode.FullPath);
-            _messageHistorySource.Clear(); // Clear the source list
-                                           // MessageHistory.Clear(); // Removed - _messageHistorySource.Clear() handles it
-            SelectedMessage = null;
-            StatusBarText = $"History cleared for {SelectedNode.FullPath}."; // Update status
-        }
-        else
-        {
-            StatusBarText = "Select a topic node to clear its history."; // Update status
-        }
+        _messageHistorySource.Clear(); // Clear the source list
+        TopicTreeNodes.Clear();        // Clear the topic tree
+        SelectedMessage = null;        // Deselect any active message
+        SelectedNode = null;           // Deselect any active node
+        Log.Information("Message history and topic tree cleared.");
+        ShowStatus("Message history and topic tree cleared.");
     }
 
     private void TogglePause()
@@ -992,6 +996,9 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                         Log.Warning("Invalid arguments for SetAuthMode command.");
                     }
                     break;
+                case CommandType.Settings:
+                    OpenSettings();
+                    break;
                 default:
                     StatusBarText = $"Error: Unknown command type '{command.Type}'.";
                     Log.Warning("Unknown command type encountered: {CommandType}", command.Type);
@@ -1023,7 +1030,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         { "view", (":view <raw|json>", "Switches the payload view between raw text and JSON tree.") },
         { "setuser", (":setuser <username>", "Sets MQTT username. Switches to Username/Password auth if current mode is Anonymous.") },
         { "setpass", (":setpass <password>", "Sets MQTT password. Switches to Username/Password auth if current mode is Anonymous.") },
-        { "setauthmode", (":setauthmode <anonymous|userpass>", "Sets the MQTT authentication mode.") }
+        { "setauthmode", (":setauthmode <anonymous|userpass>", "Sets the MQTT authentication mode.") },
+        { "settings", (":settings", "Toggles the visibility of the settings pane.") }
     };
 
     private void DisplayHelpInformation(string? commandName = null)

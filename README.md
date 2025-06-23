@@ -8,18 +8,21 @@ Whether you're a seasoned developer or a newcomer to IoT, Crow’s NestMQTT prov
 
 Crow's Nest MQTT provides a command interface (likely accessible via a dedicated input field) for quick actions. Commands are typically prefixed with a colon (`:`). You can quickly access this input field using the `Ctrl + Shift + P` keyboard shortcut.
 
-*   `:connect [arguments]` - Connect to an MQTT broker. (Arguments can be specified or are loaded from settings).
+*   `:connect [<server:port>] [<username>] [<password>]` - Connect to an MQTT broker. If arguments are omitted, connection details are loaded from settings.
 *   `:disconnect` - Disconnect from the current MQTT broker.
-*   `:export [format filepath]` - Export messages to a file. (available formats are json and txt and file path, defaults are loaded from settings).
-*   `:filter [regex_pattern]` - Filter displayed messages based on a regex pattern applied to topics or payloads.
-*   `:clear` - Clear all displayed messages from the message view.
-*   `:help` - Show diagnostic information or help about commands.
-*   `:copy` - Copy selected messages to the clipboard.
-*   `:pause` - Pause the display of new incoming messages.
-*   `:resume` - Resume displaying new incoming messages if paused.
-*   `:expand` - Expand all nodes in the topic tree view.
-*   `:collapse` - Collapse all nodes in the topic tree view.
-*   `:view raw` - Force the selected message's payload to be displayed as raw text.
-*   `:view json` - Force the selected message's payload to be displayed as a formatted JSON tree.
-*   `[search_term]` - Entering text without a `:` prefix likely performs a search/filter operation (equivalent to `:filter [search_term]` or a dedicated search function).
+*   `:export <json|txt> <filepath>` - Export messages to a file in JSON or plain text format. If arguments are omitted, the path and format are loaded from settings.
+*   `:filter [regex_pattern]` - Filter messages based on a regex pattern. Clears the filter if no pattern is provided.
+*   `:clear` - Clear all messages from the display.
+*   `:help [command]` - Show information about available commands.
+*   `:copy` - Copy the selected messages to the clipboard.
+*   `:pause` - Pause the display of new messages.
+*   `:resume` - Resume the display of new messages.
+*   `:expand` - Expand all nodes in the topic tree.
+*   `:collapse` - Collapse all nodes in the topic tree.
+*   `:view <raw|json>` - Set the payload view to either raw text or a formatted JSON tree.
+*   `:settings` - Toggle the visibility of the settings panel.
+*   `:setuser <username>` - Set the username for MQTT authentication.
+*   `:setpass <password>` - Set the password for MQTT authentication.
+*   `:setauthmode <anonymous|userpass>` - Set the authentication mode.
+*   `[search_term]` - Any text entered without a `:` prefix is treated as a search term to filter messages.
 
