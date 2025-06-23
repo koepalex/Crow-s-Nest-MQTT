@@ -9,7 +9,7 @@ We are building a cross-platform MQTT v5 client application with a graphical use
 ### Key Points
 - **MQTT v5** client (via `MQTTnet`).
 - Subscribes to a configurable topic (defaults to `#`) with **QoS 1** by default.
-- Cross-platform (Windows, Linux, macOS) using **AvaloniaUI**, with a **WasmApp** target.
+- Cross-platform (Windows, Linux, macOS) using **AvaloniaUI**.
 - Focus on message handling and visualization.
 - **Dark mode** by default (common AvaloniaUI capability, to be confirmed in UI implementation).
 - Keyboard navigation.
@@ -228,7 +228,7 @@ A thorough testing approach should validate both **functionality** and **perform
 5.  **Error Handling Tests**
     *   Simulate broker disconnections, invalid commands.
     *   Confirm status notifications and logging.
-6.  **Cross-Platform Validation**: Windows, Linux, macOS, Wasm.
+6.  **Cross-Platform Validation**: Windows, Linux, macOS.
 
 ---
 

@@ -9,19 +9,6 @@
             "type": "dotnet",
             "request": "launch",
             "projectPath": "${workspaceFolder}/src/MainApp/CrowsNestMqtt.App.csproj"
-        },
-        {
-            "name": "C#: Crow'S NestMQTT WASM Debug",
-            "type": "pwa-chrome",
-            "request": "launch",
-            "preLaunchTask": "dotnet: watch CrowsNestMqtt.Wasm",
-            "webRoot": "${workspaceFolder}/src/WasmApp/wwwroot",
-            "url": "http://localhost:5235?arg=--c&arg=Debug",
-            "runtimeExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-            "runtimeArgs": [
-                "--remote-debugging-port=9222",
-                "--user-data-dir=C:\\blazor-debug"
-            ]
         }
     ]
 }

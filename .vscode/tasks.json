@@ -21,29 +21,6 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "dotnet: watch CrowsNestMqtt.Wasm",
-            "command": "dotnet",
-            "type": "shell",
-            "args": [
-                "watch",
-                "run",
-                "--no-hot-reload",
-                "-c",
-                "Debug",
-                // Ask dotnet build to generate full paths for file names.
-                //"/property:GenerateFullPaths=true",
-                // Do not generate summary otherwise it leads to duplicate errors in Problems panel
-                //"/consoleloggerparameters:NoSummary",
-                "--project",
-                "${workspaceFolder}/src/WasmApp/CrowsNestMqtt.Wasm.csproj"
-            ],
-            "isBackground": true,
-            "presentation": {
-                "reveal": "always"
-            },
-            "problemMatcher": "$msCompile"
-        },
-        {
             "label": "Publish Crow'S NestMQTT App",
             "command": "dotnet",
             "type": "shell",
