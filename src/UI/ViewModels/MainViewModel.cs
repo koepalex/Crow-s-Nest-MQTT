@@ -743,6 +743,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     private async Task ConnectAsync()
     {
+        ClearHistory();
         Log.Information("Connect command executed.");
         // Rebuild connection settings from ViewModel just before connecting
         var connectionSettings = new MqttConnectionSettings
