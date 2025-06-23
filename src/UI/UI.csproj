@@ -2,7 +2,7 @@
   <PropertyGroup>
     <RootNamespace>CrowsNestMqtt.UI</RootNamespace>
     <AssemblyName>CrowsNestMqtt.UI</AssemblyName>
-    <TargetFrameworks>$(LibTargetFramework)</TargetFrameworks> <!-- Multi-target for WASM and Desktop -->
+    <TargetFrameworks>$(LibTargetFramework)</TargetFrameworks>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 

@@ -31,10 +31,8 @@ using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using DynamicData; // Added for SourceList and reactive filtering
 using DynamicData.Binding; // Added for Bind()
 using FuzzySharp; // Added for fuzzy search
-#if !BROWSER
 using SharpHook.Native; // Added SharpHook Native for KeyCode and ModifierMask
 using SharpHook.Reactive; // Added SharpHook Reactive
-#endif
 
 namespace CrowsNestMqtt.UI.ViewModels;
 
@@ -63,10 +61,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly ReadOnlyObservableCollection<MessageViewModel> _filteredMessageHistory; // Field for the bound collection
     private string _currentSearchTerm = string.Empty; // Backing field for search term
     private readonly List<string> _availableCommands; // Added list of commands for suggestions
-#if !BROWSER
     private readonly IReactiveGlobalHook? _globalHook; // Added SharpHook global hook
     private readonly IDisposable? _globalHookSubscription; // Added subscription for the hook
-#endif
     private bool _disposedValue; // For IDisposable pattern
     private readonly CancellationTokenSource _cts = new(); // Added cancellation token source for graceful shutdown
     private bool _isWindowFocused; // Added to track window focus for global hook
@@ -383,7 +379,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 .ObserveOn(RxApp.MainThreadScheduler) // Ensure UI update is on the correct thread
                 .Subscribe(text => UpdateCommandSuggestions(text));
 
-#if !BROWSER
             // --- Global Hook Setup ---
             try
             {
@@ -437,7 +432,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 _globalHook = null; // Ensure hook is null if initialization failed
                 _globalHookSubscription = null;
             }
-#endif
     }
 
     private void OnLogMessage(object? sender, string log)
@@ -1509,10 +1503,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 }
                 StopTimer();
                 _messageHistorySubscription?.Dispose();
-#if !BROWSER
                 _globalHookSubscription?.Dispose(); // Dispose hook subscription
                 _globalHook?.Dispose(); // Dispose the hook itself
-#endif
                 // MqttEngine's Dispose method now handles the final disconnect attempt.
                 // We rely on _cts.Cancel() being called first, then _mqttEngine.Dispose() below.
                 // Removed explicit synchronous DisconnectAsync call here.
