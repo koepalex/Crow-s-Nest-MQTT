@@ -44,7 +44,7 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "Publish Crow'S NestMQTT App",
+            "label": "Publish Crow's NestMQTT App",
             "command": "dotnet",
             "type": "shell",
             "args": [

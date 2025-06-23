@@ -769,21 +769,12 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private void ClearHistory()
     {
         Log.Information("Clear history command executed.");
-        // Update ClearHistory to potentially use SelectedNode if needed,
-        // or clear based on a different criteria. For now, clearing based on selected node path.
-        if (SelectedNode != null)
-        {
-            // Optionally clear buffer in engine too?
-            // _mqttEngine.ClearBufferForTopic(SelectedNode.FullPath);
-            _messageHistorySource.Clear(); // Clear the source list
-                                           // MessageHistory.Clear(); // Removed - _messageHistorySource.Clear() handles it
-            SelectedMessage = null;
-            StatusBarText = $"History cleared for {SelectedNode.FullPath}."; // Update status
-        }
-        else
-        {
-            StatusBarText = "Select a topic node to clear its history."; // Update status
-        }
+        _messageHistorySource.Clear(); // Clear the source list
+        TopicTreeNodes.Clear();        // Clear the topic tree
+        SelectedMessage = null;        // Deselect any active message
+        SelectedNode = null;           // Deselect any active node
+        Log.Information("Message history and topic tree cleared.");
+        ShowStatus("Message history and topic tree cleared.");
     }
 
     private void TogglePause()
