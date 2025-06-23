@@ -326,7 +326,19 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             .ObserveOn(RxApp.MainThreadScheduler) // Ensure updates are on the UI thread
             .Bind(out _filteredMessageHistory) // Bind the results to the ReadOnlyObservableCollection
             .DisposeMany() // Dispose items when they are removed from the collection
-            .Subscribe(_ => { }, ex => Log.Error(ex, "Error in MessageHistory DynamicData pipeline")); // Log errors
+            .Subscribe(_ =>
+            {
+                // The collection is created by the Bind operator, so it shouldn't be null here,
+                // but the compiler can't know that. A check is safe.
+                if (_filteredMessageHistory is null) return;
+
+                // If the current selection is no longer in the filtered list (e.g., due to topic change),
+                // select the first item in the new list automatically.
+                if (SelectedMessage == null || !_filteredMessageHistory.Contains(SelectedMessage))
+                {
+                    SelectedMessage = _filteredMessageHistory.FirstOrDefault();
+                }
+            }, ex => Log.Error(ex, "Error in MessageHistory DynamicData pipeline"));
 
         FilteredMessageHistory = _filteredMessageHistory; // Assign the bound collection
 
