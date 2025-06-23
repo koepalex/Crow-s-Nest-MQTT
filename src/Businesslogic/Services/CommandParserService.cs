@@ -272,6 +272,13 @@ public class CommandParserService : ICommandParserService
                 }
                 return CommandResult.Failure("Invalid arguments for :setauthmode. Expected: :setauthmode <anonymous|userpass>");
 
+            case "settings":
+                if (arguments.Count == 0)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Settings, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :settings. Expected: :settings");
+
             default:
                 return CommandResult.Failure($"Unknown command: '{commandKeyword}'");
         }

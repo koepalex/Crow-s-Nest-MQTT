@@ -51,7 +51,7 @@
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5">
               <Button Content="Connect" Command="{Binding ConnectCommand}" />
               <Button Content="Disconnect" Command="{Binding DisconnectCommand}" />
-              <Button Content="Clear History" Command="{Binding ClearHistoryCommand}" />
+              <Button Content="Clear" Command="{Binding ClearHistoryCommand}" />
               <Button Content="Pause/Resume" Command="{Binding PauseResumeCommand}" />
               <TextBlock Text="Status:" VerticalAlignment="Center" Margin="10,0,0,0"/>
               <PathIcon VerticalAlignment="Center" Margin="5,0" ToolTip.Tip="{Binding IsConnected, StringFormat='Connected: {0}'}" Classes.IsConnected="{Binding IsConnected}" Classes.IsNotConnected="{Binding !IsConnected}">
