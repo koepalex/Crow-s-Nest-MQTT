@@ -2,7 +2,7 @@
   <PropertyGroup>
     <RootNamespace>CrowsNestMqtt.BusinessLogic</RootNamespace>
     <AssemblyName>CrowsNestMqtt.BusinessLogic</AssemblyName>
-    <TargetFrameworks>net9.0;net9.0-browser</TargetFrameworks> <!-- Multi-target for Desktop and WASM -->
+    <TargetFrameworks>net9.0</TargetFrameworks> 
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>

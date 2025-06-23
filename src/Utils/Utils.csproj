@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>$(LibTargetFramework)</TargetFrameworks> <!-- Multi-target for WASM and Desktop -->
+    <TargetFrameworks>$(LibTargetFramework)</TargetFrameworks>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
@@ -9,12 +9,4 @@
     <PackageReference Include="Serilog" Version="4.2.0" />
   </ItemGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)'=='net9.0-browser'">
-    <DefineConstants>$(DefineConstants);BROWSER</DefineConstants>
-  </PropertyGroup>
-
-  <ItemGroup Condition="'$(TargetFramework)'=='net9.0-browser'">
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.4" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.4" />
-  </ItemGroup>
 </Project>
