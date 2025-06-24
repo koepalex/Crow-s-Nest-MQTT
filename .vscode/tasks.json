@@ -37,6 +37,21 @@
                 "reveal": "always"
             },
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Generate code coverage",
+            "type": "shell",
+            "args": [
+                "dotnet test --collect:\"XPlat Code Coverage;Format=json,cobertura\" --filter \"Category!=LocalOnly\" && reportgenerator -reports:\"./tests/**/coverage.cobertura.xml\" -targetdir:\"./TestResults/CoverageReport\" -reporttypes:\"Html;Cobertura;JsonSummary\"",
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always"
+            },
+            "problemMatcher": "$msCompile"
         }
     ]
 }
