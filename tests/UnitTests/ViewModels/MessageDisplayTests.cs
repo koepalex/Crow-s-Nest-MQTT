@@ -47,7 +47,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, payload, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, payload, Encoding.UTF8.GetBytes(payload).Length, _mqttServiceMock, _statusBarServiceMock);
 
            // Act
             viewModel.SelectedMessage = testMessage;
@@ -78,7 +78,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, jsonPayload, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, jsonPayload, Encoding.UTF8.GetBytes(jsonPayload).Length, _mqttServiceMock, _statusBarServiceMock);
 
            // Act
             viewModel.SelectedMessage = testMessage;
@@ -110,7 +110,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, xmlPayload, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, xmlPayload, Encoding.UTF8.GetBytes(xmlPayload).Length, _mqttServiceMock, _statusBarServiceMock);
 
            // Act
             viewModel.SelectedMessage = testMessage;
@@ -156,7 +156,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, payload, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, payload, Encoding.UTF8.GetBytes(payload).Length, _mqttServiceMock, _statusBarServiceMock);
 
            // Act
             viewModel.SelectedMessage = testMessage;
@@ -184,19 +184,19 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
            var msg1_topic = "sensor/temperature";
            var msg1_payload = "25.5";
            var msg1_time = DateTime.Now;
-           messageSource?.Add(new MessageViewModel(msg1_id, msg1_topic, msg1_time, msg1_payload, _mqttServiceMock, _statusBarServiceMock));
+           messageSource?.Add(new MessageViewModel(msg1_id, msg1_topic, msg1_time, msg1_payload, Encoding.UTF8.GetBytes(msg1_payload).Length, _mqttServiceMock, _statusBarServiceMock));
 
            var msg2_id = Guid.NewGuid();
            var msg2_topic = "sensor/humidity";
            var msg2_payload = "60%";
            var msg2_time = DateTime.Now;
-           messageSource?.Add(new MessageViewModel(msg2_id, msg2_topic, msg2_time, msg2_payload, _mqttServiceMock, _statusBarServiceMock));
+           messageSource?.Add(new MessageViewModel(msg2_id, msg2_topic, msg2_time, msg2_payload, Encoding.UTF8.GetBytes(msg2_payload).Length, _mqttServiceMock, _statusBarServiceMock));
 
            var msg3_id = Guid.NewGuid();
            var msg3_topic = "light/status";
            var msg3_payload = "ON";
            var msg3_time = DateTime.Now;
-           messageSource?.Add(new MessageViewModel(msg3_id, msg3_topic, msg3_time, msg3_payload, _mqttServiceMock, _statusBarServiceMock));
+           messageSource?.Add(new MessageViewModel(msg3_id, msg3_topic, msg3_time, msg3_payload, Encoding.UTF8.GetBytes(msg3_payload).Length, _mqttServiceMock, _statusBarServiceMock));
 
            // Act
             viewModel.CurrentSearchTerm = "sensor";

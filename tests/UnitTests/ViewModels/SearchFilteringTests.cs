@@ -369,7 +369,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                var messageId = Guid.NewGuid();
                var timestamp = DateTime.Now;
                // No need to mock TryGetMessage here as these messages aren't selected in these specific tests
-               var message = new MessageViewModel(messageId, topic, timestamp, payload, _mqttServiceMock, _statusBarServiceMock);
+               var message = new MessageViewModel(messageId, topic, timestamp, payload, Encoding.UTF8.GetBytes(payload).Length, _mqttServiceMock, _statusBarServiceMock);
 
                messageSource.Add(message);
             }

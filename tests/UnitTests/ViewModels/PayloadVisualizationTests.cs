@@ -47,7 +47,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, jsonPayload, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, jsonPayload, Encoding.UTF8.GetBytes(jsonPayload).Length, _mqttServiceMock, _statusBarServiceMock);
 
            // Act
             viewModel.SelectedMessage = testMessage;
@@ -79,7 +79,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, invalidJsonPayload, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, invalidJsonPayload, Encoding.UTF8.GetBytes(invalidJsonPayload).Length, _mqttServiceMock, _statusBarServiceMock);
 
            // Act
             viewModel.SelectedMessage = testMessage;
@@ -123,7 +123,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, complexJsonPayload, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, complexJsonPayload, Encoding.UTF8.GetBytes(complexJsonPayload).Length, _mqttServiceMock, _statusBarServiceMock);
 
            // Act
             viewModel.SelectedMessage = testMessage;
@@ -167,7 +167,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                   return true;
               });
 
-          var testMessage = new MessageViewModel(messageId, topic, timestamp, arrayJsonPayload, _mqttServiceMock, _statusBarServiceMock);
+          var testMessage = new MessageViewModel(messageId, topic, timestamp, arrayJsonPayload, Encoding.UTF8.GetBytes(arrayJsonPayload).Length, _mqttServiceMock, _statusBarServiceMock);
 
           // Act
             viewModel.SelectedMessage = testMessage;
@@ -204,7 +204,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, textPayload, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, textPayload, Encoding.UTF8.GetBytes(textPayload).Length, _mqttServiceMock, _statusBarServiceMock);
 
            // Act
             viewModel.SelectedMessage = testMessage;
@@ -235,7 +235,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, jsonPayload, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, jsonPayload, Encoding.UTF8.GetBytes(jsonPayload).Length, _mqttServiceMock, _statusBarServiceMock);
            viewModel.SelectedMessage = testMessage;
             
             // Initially JSON viewer should be visible for valid JSON
@@ -321,7 +321,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, textPayload, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, textPayload, Encoding.UTF8.GetBytes(textPayload).Length, _mqttServiceMock, _statusBarServiceMock);
 
            bool interactionTriggered = false;
             

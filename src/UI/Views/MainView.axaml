@@ -226,16 +226,10 @@
                                      <PathIcon Data="{StaticResource copy_regular}" Width="12" Height="12"/>
                                  </Button>
 
-                                <!-- Timestamp (Left Aligned) -->
-                               <TextBlock DockPanel.Dock="Left"
-                                         Text="{Binding Timestamp, StringFormat='yyyy-MM-dd HH:mm:ss.fff'}"
-                                         FontWeight="Bold"
-                                         Margin="0,0,10,0" VerticalAlignment="Center"/>
-
-                                 <!-- Payload Preview (Fills remaining space) -->
-                                 <TextBlock Text="{Binding PayloadPreview}"
-                                            TextTrimming="CharacterEllipsis"
-                                            VerticalAlignment="Center"/>
+                                <!-- DisplayText (Fills remaining space) -->
+                                <TextBlock Text="{Binding DisplayText}"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center"/>
                              </DockPanel>
                          </DataTemplate>
                      </ListBox.ItemTemplate>

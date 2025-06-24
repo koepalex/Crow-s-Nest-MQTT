@@ -507,6 +507,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 topic,
                 DateTime.Now, // Use arrival time
                 preview.Replace(Environment.NewLine, " "), // Remove newlines for preview
+                (int)e.ApplicationMessage.Payload.Length,
                 _mqttService, // Pass the injected MQTT service
                 this); // Pass this MainViewModel as the IStatusBarService
             _messageHistorySource.Add(messageVm); // Add to the source list
