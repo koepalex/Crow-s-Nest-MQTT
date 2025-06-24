@@ -3,7 +3,6 @@ using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.BusinessLogic.Configuration;
 using CrowsNestMqtt.BusinessLogic.Commands;
 using CrowsNestMqtt.BusinessLogic.Exporter;
-using Xunit.Sdk; // Required for LINQ operations like SequenceEqual
 
 namespace CrowsNestMQTT.UnitTests;
 

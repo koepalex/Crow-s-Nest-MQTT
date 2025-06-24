@@ -1,8 +1,4 @@
-using System;
 using System.Reflection;
-using System.Collections.Generic; // Added for List
-using System.Threading;
-using System.Threading.Tasks;
 using MQTTnet;
 using MQTTnet.Protocol;
 using Xunit;
@@ -177,7 +173,7 @@ namespace CrowsNestMqtt.UnitTests
                 }
             };
 
-            await engine.ConnectAsync();
+            await engine.ConnectAsync(CancellationToken.None);
 
             // Act: Publish a test message using a publisher client.
             var factory = new MqttClientFactory();
@@ -199,7 +195,7 @@ namespace CrowsNestMqtt.UnitTests
             await publisher.PublishAsync(message, CancellationToken.None);
 
             // Wait for the message to be received
-            if (!messageReceivedEvent.Wait(TimeSpan.FromSeconds(10)))
+            if (!messageReceivedEvent.Wait(TimeSpan.FromSeconds(10), CancellationToken.None))
             {
                 Assert.Fail("Timeout waiting for message.");
             }
@@ -210,8 +206,8 @@ namespace CrowsNestMqtt.UnitTests
             Assert.Equal(payload, receivedArgs.ApplicationMessage.ConvertPayloadToString());
 
             // Cleanup
-            await publisher.DisconnectAsync();
-            await engine.DisconnectAsync();
+            await publisher.DisconnectAsync(new MqttClientDisconnectOptions(), CancellationToken.None);
+            await engine.DisconnectAsync(CancellationToken.None);
         }
 
         [Fact]
@@ -242,7 +238,7 @@ namespace CrowsNestMqtt.UnitTests
                 }
             };
 
-            await engine.ConnectAsync();
+            await engine.ConnectAsync(CancellationToken.None);
 
             // Act: Publish a test message with an empty payload.
             var factory = new MqttClientFactory();
@@ -263,7 +259,7 @@ namespace CrowsNestMqtt.UnitTests
             await publisher.PublishAsync(message, CancellationToken.None);
 
             // Wait for the message to be received
-            if (!messageReceivedEvent.Wait(TimeSpan.FromSeconds(10)))
+            if (!messageReceivedEvent.Wait(TimeSpan.FromSeconds(10), CancellationToken.None))
             {
                 Assert.Fail("Timeout waiting for message with empty payload.");
             }
@@ -277,8 +273,8 @@ namespace CrowsNestMqtt.UnitTests
             Assert.Null(receivedArgs.ApplicationMessage.ConvertPayloadToString());
 
             // Cleanup
-            await publisher.DisconnectAsync();
-            await engine.DisconnectAsync();
+            await publisher.DisconnectAsync(new MqttClientDisconnectOptions(), CancellationToken.None);
+            await engine.DisconnectAsync(CancellationToken.None);
         }
 
         [Fact]

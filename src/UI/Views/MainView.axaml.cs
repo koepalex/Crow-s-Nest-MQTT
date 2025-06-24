@@ -1,19 +1,15 @@
 using Avalonia; // Added for VisualTreeAttachmentEventArgs
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Input.Platform; // Added for IClipboard
 using Avalonia.Interactivity; // Added for RoutedEventArgs
-using Avalonia.ReactiveUI; // If using ReactiveUI bindings in code-behind
 using Avalonia.Threading; // Added for Dispatcher
 using CrowsNestMqtt.UI.ViewModels; // Namespace for MainViewModel
 
 using ReactiveUI;
 
 using System.Collections.Specialized; // Added for INotifyCollectionChanged
-using System.ComponentModel;
 using System.Reactive.Linq; // Added for INotifyPropertyChanged (optional but good practice)
 using System.Reactive; // Added for Unit
-using System; // Added for IDisposable
 using AvaloniaEdit.Editing; // Added for Selection
 namespace CrowsNestMqtt.UI.Views;
 

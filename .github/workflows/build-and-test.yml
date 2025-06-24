@@ -49,7 +49,7 @@ jobs:
       run: dotnet build src/MainApp/CrowsNestMqtt.App.csproj --no-restore --configuration Release
 
     - name: Test with coverage
-      run: dotnet test --configuration Release --verbosity normal --filter "Category!=LocalOnly" /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=./TestResults/coverage/
+      run: dotnet test --collect:"XPlat Code Coverage;Format=json,cobertura" --filter "Category!=LocalOnly"
     
     - name: Generate coverage report
       run: |

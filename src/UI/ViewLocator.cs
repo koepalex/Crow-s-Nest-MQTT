@@ -1,11 +1,9 @@
-using System;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using CrowsNestMqtt.UI.Views;
 using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.UI.ViewModels;
 using ReactiveUI;
-using System.Reactive;
 
 namespace CrowsNestMqtt.UI;
 

@@ -6,13 +6,9 @@ using CrowsNestMqtt.UI.ViewModels;
 using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using NSubstitute;
 using MQTTnet;
-using System;
-using System.Buffers;
-using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using Xunit;
-using System.Threading.Tasks;
 
 namespace CrowsNestMqtt.UnitTests.ViewModels
 {
@@ -56,7 +52,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             _commandParserService.Received(1).ParseInput(commandText, Arg.Any<SettingsData>()); // Use Arg.Any for Received check too
             // Should update settings and connect as a result of the :connect command
             // _mqttEngine.Received(1).UpdateSettings(Arg.Is<MqttConnectionSettings>(s => s != null)); // Cannot verify non-virtual method on class substitute
-            await _mqttEngine.Received(1).ConnectAsync();
+            await _mqttEngine.Received(1).ConnectAsync(Arg.Any<CancellationToken>());
         }
 
         [Fact]

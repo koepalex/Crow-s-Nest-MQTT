@@ -4,11 +4,8 @@ using CrowsNestMqtt.UI.ViewModels;
 using NSubstitute;
 using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using MQTTnet;
-using System;
-using System.Buffers;
 using System.Reflection;
 using System.Text;
-using System.Reactive;
 using Xunit;
 using System.Text.Json; // Added for JsonValueKind
 

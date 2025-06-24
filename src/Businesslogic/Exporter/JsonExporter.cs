@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq; // Added for LINQ operations on UserProperties
 using MQTTnet;
 using CrowsNestMqtt.Utils; // For AppLogger
-using System.Text.Encodings.Web;
 using System.Text.Json.Serialization;
 
 // Define the JsonSerializerContext

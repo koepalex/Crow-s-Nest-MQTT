@@ -1,5 +1,3 @@
-using System;
-
 namespace CrowsNestMqtt.UI.Services;
 
 /// <summary>

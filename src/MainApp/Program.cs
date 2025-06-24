@@ -1,16 +1,15 @@
 using Avalonia;
 using Avalonia.ReactiveUI;
 using Serilog;
-using System;
-using System.IO;
-using System.Threading.Tasks;
 using Avalonia.Controls.ApplicationLifetimes;
-using CrowsNestMqtt.UI; // Use the App from UI project
 using CrowsNestMqtt.UI.ViewModels;
 using CrowsNestMqtt.UI.Views;
 using CrowsNestMqtt.BusinessLogic.Services;
 using System.Timers; // Added for Timer
 using System.Runtime; // Added for GCSettings
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("CrowsNestMqtt.UnitTests")]
 
 namespace CrowsNestMqtt.App;
 

@@ -1,7 +1,5 @@
 using ReactiveUI;
 using System.Collections.ObjectModel;
-using System.Reactive; // For Unit
-using System.Reactive.Linq; // For Select
 using System.Text.Json; // For JsonDocument, JsonElement
 using CrowsNestMqtt.Utils; // For AppLogger
 
