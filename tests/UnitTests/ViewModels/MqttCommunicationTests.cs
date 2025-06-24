@@ -9,7 +9,7 @@ using Xunit;
 
 namespace CrowsNestMqtt.UnitTests.ViewModels
 {
-    public class MqttCommunicationTests
+    public class MqttCommunicationTests : IDisposable
     {
         private readonly ICommandParserService _commandParserService;
         private readonly IMqttService _mqttServiceMock; // Changed to interface substitute
@@ -20,29 +20,36 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             _mqttServiceMock = Substitute.For<IMqttService>(); // Substitute the interface
         }
 
+        public void Dispose()
+        {
+            // No direct cleanup needed here as each test creates its own ViewModel
+            // and the finally block in the Aspire test handles its disposal.
+            // If a shared ViewModel were used, it would be disposed here.
+        }
+
         [Fact]
         public void ConnectAsync_ShouldUpdateSettingsAndConnect()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
            // Use reflection to set the mocked IMqttService
            var fieldInfo = typeof(MainViewModel).GetField("_mqttService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); // Field name changed in MainViewModel
            fieldInfo?.SetValue(viewModel, _mqttServiceMock);
 
            // Act - use Subscribe() instead of await for ReactiveCommand
-            viewModel.ConnectCommand.Execute().Subscribe();
+            viewModel.ConnectCommand.Execute(CancellationToken.None).Subscribe();
 
            // Assert
            _mqttServiceMock.Received(1).UpdateSettings(Arg.Any<MqttConnectionSettings>()); // Can verify this now on the interface
-           _mqttServiceMock.Received(1).ConnectAsync();
+           _mqttServiceMock.Received(1).ConnectAsync(CancellationToken.None);
        }
 
         [Fact]
         public void DisconnectAsync_ShouldDisconnect()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
            // Use reflection to set the mocked IMqttService and set IsConnected to true
            var mqttServiceField = typeof(MainViewModel).GetField("_mqttService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); // Field name changed
@@ -52,7 +59,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             isConnectedProperty?.SetValue(viewModel, true);
 
             // Act - use Subscribe() instead of await for ReactiveCommand
-            viewModel.DisconnectCommand.Execute().Subscribe();
+            viewModel.DisconnectCommand.Execute(CancellationToken.None).Subscribe();
 
            // Assert
            _mqttServiceMock.Received(1).DisconnectAsync(Arg.Any<CancellationToken>()); // Can verify this now
@@ -62,7 +69,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void ConnectionStateChanged_ShouldUpdateConnectionState()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
            // Use reflection to set the mocked IMqttService
            var mqttServiceField = typeof(MainViewModel).GetField("_mqttService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); // Field name changed
@@ -91,7 +98,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void MessageReceived_ShouldHandleMessageAndUpdateTopicTree()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
            // Use reflection to set the mocked IMqttService
            var mqttServiceField = typeof(MainViewModel).GetField("_mqttService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); // Field name changed
@@ -140,7 +147,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void MessageReceived_WhenPaused_ShouldNotUpdateUI()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
            // Use reflection to set the mocked IMqttService
            var mqttServiceField = typeof(MainViewModel).GetField("_mqttService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); // Field name changed
@@ -204,7 +211,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void Dispose_ShouldCleanUpResources()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
            // Use reflection to set the mocked IMqttService
            var mqttServiceField = typeof(MainViewModel).GetField("_mqttService", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); // Field name changed
@@ -243,7 +250,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                fieldInfo?.SetValue(viewModel, _mqttServiceMock);
 
                // Act
-               viewModel.ConnectCommand.Execute().Subscribe();
+               viewModel.ConnectCommand.Execute(CancellationToken.None).Subscribe();
 
                // Assert
                // This assertion checks if the MainViewModel.ConnectAsync method correctly uses the
@@ -258,7 +265,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    s.CleanSession == viewModel.Settings.CleanSession &&
                    s.SessionExpiryInterval == viewModel.Settings.SessionExpiryInterval
                ));
-               _mqttServiceMock.Received(1).ConnectAsync();
+               _mqttServiceMock.Received(1).ConnectAsync(CancellationToken.None);
            }
            finally
            {

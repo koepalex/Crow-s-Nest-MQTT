@@ -52,7 +52,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             _commandParserService.Received(1).ParseInput(commandText, Arg.Any<SettingsData>()); // Use Arg.Any for Received check too
             // Should update settings and connect as a result of the :connect command
             // _mqttEngine.Received(1).UpdateSettings(Arg.Is<MqttConnectionSettings>(s => s != null)); // Cannot verify non-virtual method on class substitute
-            await _mqttEngine.Received(1).ConnectAsync();
+            await _mqttEngine.Received(1).ConnectAsync(Arg.Any<CancellationToken>());
         }
 
         [Fact]

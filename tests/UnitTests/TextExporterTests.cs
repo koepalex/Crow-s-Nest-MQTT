@@ -147,7 +147,7 @@ public class TextExporterTests : IDisposable
         Assert.NotNull(filePath);
         Assert.True(File.Exists(filePath), $"File should exist at {filePath}");
         Assert.Equal(expectedFilename, Path.GetFileName(filePath));
-        var actualContent = await File.ReadAllTextAsync(filePath); // Await file read
+        var actualContent = await File.ReadAllTextAsync(filePath, CancellationToken.None); // Await file read
         Assert.Equal(expectedContent.TrimEnd().Replace("\r\n", "\n"), actualContent.TrimEnd().Replace("\r\n", "\n"));
     }
 
@@ -168,7 +168,7 @@ public class TextExporterTests : IDisposable
         Assert.NotNull(filePath);
         Assert.True(File.Exists(filePath));
         Assert.Equal(expectedFilename, Path.GetFileName(filePath));
-        var actualContent = await File.ReadAllTextAsync(filePath); // Await file read
+        var actualContent = await File.ReadAllTextAsync(filePath, CancellationToken.None); // Await file read
         Assert.Equal(expectedContent.TrimEnd().Replace("\r\n", "\n"), actualContent.TrimEnd().Replace("\r\n", "\n"));
         Assert.Contains("[No Payload]", actualContent);
     }
@@ -190,7 +190,7 @@ public class TextExporterTests : IDisposable
         Assert.NotNull(filePath);
         Assert.True(File.Exists(filePath));
         Assert.Equal(expectedFilename, Path.GetFileName(filePath));
-        var actualContent = await File.ReadAllTextAsync(filePath); // Await file read
+        var actualContent = await File.ReadAllTextAsync(filePath, CancellationToken.None); // Await file read
         Assert.Equal(expectedContent.TrimEnd().Replace("\r\n", "\n"), actualContent.TrimEnd().Replace("\r\n", "\n"));
         Assert.DoesNotContain("--- User Properties ---", actualContent);
     }
@@ -213,7 +213,7 @@ public class TextExporterTests : IDisposable
         Assert.NotNull(filePath);
         Assert.True(File.Exists(filePath));
         Assert.Equal(expectedFilename, Path.GetFileName(filePath));
-        var actualContent = await File.ReadAllTextAsync(filePath); // Await file read
+        var actualContent = await File.ReadAllTextAsync(filePath, CancellationToken.None); // Await file read
         Assert.Equal(expectedContent.TrimEnd().Replace("\r\n", "\n"), actualContent.TrimEnd().Replace("\r\n", "\n"));
         // Check the line specifically, accounting for potential line ending differences
         Assert.Contains($"Correlation Data: \n", actualContent.Replace("\r\n", "\n"));

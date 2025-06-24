@@ -209,8 +209,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     }
 
     // --- Commands ---
-    public ReactiveCommand<Unit, Unit> ConnectCommand { get; }
-    public ReactiveCommand<Unit, Unit> DisconnectCommand { get; }
+    public ReactiveCommand<CancellationToken, Unit> ConnectCommand { get; }
+    public ReactiveCommand<CancellationToken, Unit> DisconnectCommand { get; }
     public ReactiveCommand<Unit, Unit> ClearHistoryCommand { get; }
     public ReactiveCommand<Unit, Unit> PauseResumeCommand { get; }
     public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; } // Added Settings Command
@@ -345,8 +345,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
         // --- Command Implementations ---
         // Rebuild connection settings before connecting if they might change after initial setup
-        ConnectCommand = ReactiveCommand.CreateFromTask(ConnectAsync); // Connect uses current settings via MqttEngine
-        DisconnectCommand = ReactiveCommand.CreateFromTask(DisconnectAsync, this.WhenAnyValue(x => x.IsConnected));
+        ConnectCommand = ReactiveCommand.CreateFromTask<CancellationToken, Unit>(ConnectAsync);
+        DisconnectCommand = ReactiveCommand.CreateFromTask<CancellationToken, Unit>(DisconnectAsync, this.WhenAnyValue(x => x.IsConnected));
         ClearHistoryCommand = ReactiveCommand.Create(ClearHistory);
         PauseResumeCommand = ReactiveCommand.Create(TogglePause);
         OpenSettingsCommand = ReactiveCommand.Create(OpenSettings); // Initialize Settings Command
@@ -732,7 +732,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     // --- Command Methods ---
 
-    private async Task ConnectAsync()
+    private async Task<Unit> ConnectAsync(CancellationToken token)
     {
         ClearHistory();
         Log.Information("Connect command executed.");
@@ -749,13 +749,15 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         };
         // Update the engine with the latest settings before connecting
         _mqttService.UpdateSettings(connectionSettings); // Use _mqttService
-        await _mqttService.ConnectAsync(); // Use _mqttService
+        await _mqttService.ConnectAsync(token); // Use _mqttService
+        return Unit.Default;
     }
 
-    private async Task DisconnectAsync()
+    private async Task<Unit> DisconnectAsync(CancellationToken token)
     {
         Log.Information("Disconnect command executed.");
-        await _mqttService.DisconnectAsync(_cts.Token); // Use _mqttService, Pass cancellation token
+        await _mqttService.DisconnectAsync(token); // Use _mqttService, Pass cancellation token
+        return Unit.Default;
     }
 
     private void ClearHistory()
