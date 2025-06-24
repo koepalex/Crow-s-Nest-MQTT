@@ -170,7 +170,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessageExport = new MessageViewModel(messageIdExport, topicExport, timestampExport, payloadExport, _mqttServiceMock, _statusBarServiceMock);
+           var testMessageExport = new MessageViewModel(messageIdExport, topicExport, timestampExport, payloadExport, Encoding.UTF8.GetBytes(payloadExport).Length, _mqttServiceMock, _statusBarServiceMock);
            viewModel.SelectedMessage = testMessageExport;
             
             // Create export command with format and path
@@ -207,7 +207,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessageViewRaw = new MessageViewModel(messageIdViewRaw, topicViewRaw, timestampViewRaw, payloadViewRaw, _mqttServiceMock, _statusBarServiceMock);
+           var testMessageViewRaw = new MessageViewModel(messageIdViewRaw, topicViewRaw, timestampViewRaw, payloadViewRaw, Encoding.UTF8.GetBytes(payloadViewRaw).Length, _mqttServiceMock, _statusBarServiceMock);
            viewModel.SelectedMessage = testMessageViewRaw;
             
             // Initially JSON viewer should be visible for valid JSON
@@ -248,7 +248,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessageViewJson = new MessageViewModel(messageIdViewJson, topicViewJson, timestampViewJson, payloadViewJson, _mqttServiceMock, _statusBarServiceMock);
+           var testMessageViewJson = new MessageViewModel(messageIdViewJson, topicViewJson, timestampViewJson, payloadViewJson, Encoding.UTF8.GetBytes(payloadViewJson).Length, _mqttServiceMock, _statusBarServiceMock);
            viewModel.SelectedMessage = testMessageViewJson;
             
             // First switch to raw view

@@ -16,9 +16,10 @@ public class MessageViewModel : ReactiveObject
     public string Topic { get; }
     public DateTime Timestamp { get; } // Keep the timestamp when the VM was created
     public string PayloadPreview { get; } // Store the generated preview
+    public int Size { get; }
 
     // Display text remains the same, based on stored preview
-    public string DisplayText => $"{Timestamp:HH:mm:ss.fff}: {PayloadPreview}";
+    public string DisplayText => $"{Timestamp:HH:mm:ss.fff} ({Size,10} B): {PayloadPreview}";
 
     // Constructor accepting necessary data and injected services
     public MessageViewModel(
@@ -26,6 +27,7 @@ public class MessageViewModel : ReactiveObject
         string topic,
         DateTime timestamp,
         string payloadPreview,
+        int size,
         IMqttService mqttService,
         IStatusBarService statusBarService)
     {
@@ -33,6 +35,7 @@ public class MessageViewModel : ReactiveObject
         Topic = topic ?? throw new ArgumentNullException(nameof(topic));
         Timestamp = timestamp;
         PayloadPreview = payloadPreview ?? string.Empty;
+        Size = size;
         _mqttService = mqttService ?? throw new ArgumentNullException(nameof(mqttService));
         _statusBarService = statusBarService ?? throw new ArgumentNullException(nameof(statusBarService));
     }
