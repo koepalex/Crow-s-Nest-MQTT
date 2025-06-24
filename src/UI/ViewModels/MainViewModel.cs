@@ -1,31 +1,18 @@
 using CrowsNestMqtt.BusinessLogic.Exporter;
 using Avalonia;
-using Avalonia.Input.Platform; // For IClipboard
-using Avalonia.Platform.Storage; // Potentially needed for other storage operations
 using Avalonia.Controls; // For TopLevel
-using Avalonia.VisualTree; // For GetVisualRoot
-using Avalonia.Interactivity; // For RoutedEventArgs (if needed later)
 using Avalonia.Threading; // Already present
 using ReactiveUI;
-using ReactiveUI.Fody.Helpers; // For [Reactive] attribute if needed, but also for Interaction
 using Serilog; // Added Serilog
-using System;
-using System.Collections.Generic; // Added for List<string>
 using System.Collections.ObjectModel;
-using System.Linq; // For LINQ operations
 using System.Reactive; // Required for Unit
-using System.Reactive.Concurrency; // For RxApp.MainThreadScheduler
 using System.Reactive.Linq; // Required for Select, ObserveOn, Throttle, DistinctUntilChanged
 using System.Text; // For Encoding and StringBuilder
 using System.Text.Json; // Added for JSON formatting
-using System.Text.Json.Serialization; // Added for JSON formatting options
-using System.Threading;
-using System.Threading.Tasks; // For Task
 using AvaloniaEdit.Document; // Added for TextDocument
 using AvaloniaEdit.Highlighting; // Added for Syntax Highlighting
 using CrowsNestMqtt.BusinessLogic; // Required for MqttEngine, MqttConnectionStateChangedEventArgs, IMqttService
 using CrowsNestMqtt.BusinessLogic.Commands; // Added for command parsing
-using CrowsNestMqtt.BusinessLogic.Configuration; // Required for SettingsData
 using CrowsNestMqtt.BusinessLogic.Services; // Added for command parsing
 using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using DynamicData; // Added for SourceList and reactive filtering
@@ -35,16 +22,6 @@ using SharpHook.Native; // Added SharpHook Native for KeyCode and ModifierMask
 using SharpHook.Reactive; // Added SharpHook Reactive
 
 namespace CrowsNestMqtt.UI.ViewModels;
-
-// Define the JsonSerializerContext for MainViewModel
-[JsonSourceGenerationOptions(WriteIndented = true)]
-[JsonSerializable(typeof(JsonElement))]
-internal partial class MainViewModelJsonContext : JsonSerializerContext
-{
-}
-
-// Simple record for DataGrid items
-public record MetadataItem(string Key, string Value);
 
 /// <summary>
 /// ViewModel for the main application window.
@@ -237,12 +214,12 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     public ReactiveCommand<Unit, Unit> ClearHistoryCommand { get; }
     public ReactiveCommand<Unit, Unit> PauseResumeCommand { get; }
     public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; } // Added Settings Command
-   public ReactiveCommand<Unit, Unit> SubmitInputCommand { get; } // Added for command/search input
-  public ReactiveCommand<Unit, Unit> FocusCommandBarCommand { get; } // Added command to trigger focus
-  public ReactiveCommand<object?, Unit> CopyPayloadCommand { get; } // Added command to copy payload
+    public ReactiveCommand<Unit, Unit> SubmitInputCommand { get; } // Added for command/search input
+    public ReactiveCommand<Unit, Unit> FocusCommandBarCommand { get; } // Added command to trigger focus
+    public ReactiveCommand<object?, Unit> CopyPayloadCommand { get; } // Added command to copy payload
 
-  // Interaction for requesting clipboard copy from the View
-  public Interaction<string, Unit> CopyTextToClipboardInteraction { get; }
+    // Interaction for requesting clipboard copy from the View
+    public Interaction<string, Unit> CopyTextToClipboardInteraction { get; }
 
     /// <summary>
     /// Gets or sets a value indicating whether the main application window currently has focus.
@@ -264,8 +241,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         _commandParserService = commandParserService ?? throw new ArgumentNullException(nameof(commandParserService)); // Store injected service
         _syncContext = SynchronizationContext.Current; // Capture sync context
         Settings = new SettingsViewModel(); // Instantiate settings
-       JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
-       CopyTextToClipboardInteraction = new Interaction<string, Unit>(); // Initialize the interaction
+        JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
+        CopyTextToClipboardInteraction = new Interaction<string, Unit>(); // Initialize the interaction
 
         // Populate the list of available commands (using the help dictionary keys)
         _availableCommands = CommandHelpDetails.Keys
@@ -360,11 +337,11 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             // TODO: Map other settings like TLS, Credentials if added
         };
 
-         _mqttService = new MqttEngine(connectionSettings); 
+        _mqttService = new MqttEngine(connectionSettings);
 
-        _mqttService.ConnectionStateChanged += OnConnectionStateChanged; 
-        _mqttService.MessageReceived += OnMessageReceived;             
-        _mqttService.LogMessage += OnLogMessage;                     
+        _mqttService.ConnectionStateChanged += OnConnectionStateChanged;
+        _mqttService.MessageReceived += OnMessageReceived;
+        _mqttService.LogMessage += OnLogMessage;
 
         // --- Command Implementations ---
         // Rebuild connection settings before connecting if they might change after initial setup
@@ -373,77 +350,77 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         ClearHistoryCommand = ReactiveCommand.Create(ClearHistory);
         PauseResumeCommand = ReactiveCommand.Create(TogglePause);
         OpenSettingsCommand = ReactiveCommand.Create(OpenSettings); // Initialize Settings Command
-       SubmitInputCommand = ReactiveCommand.Create(ExecuteSubmitInput); // Allow execution even when text is empty (handled inside method)
-       FocusCommandBarCommand = ReactiveCommand.Create(() => { Log.Debug("FocusCommandBarCommand executed by global hook."); /* Actual focus happens in View code-behind */ });
-       CopyPayloadCommand = ReactiveCommand.CreateFromTask<object?>(CopyPayloadToClipboardAsync); // Initialize copy payload command
+        SubmitInputCommand = ReactiveCommand.Create(ExecuteSubmitInput); // Allow execution even when text is empty (handled inside method)
+        FocusCommandBarCommand = ReactiveCommand.Create(() => { Log.Debug("FocusCommandBarCommand executed by global hook."); /* Actual focus happens in View code-behind */ });
+        CopyPayloadCommand = ReactiveCommand.CreateFromTask<object?>(CopyPayloadToClipboardAsync); // Initialize copy payload command
 
-            // --- Property Change Reactions ---
+        // --- Property Change Reactions ---
 
-            // When SelectedMessage changes, update the MessageDetails
-            this.WhenAnyValue(x => x.SelectedMessage)
-               .ObserveOn(RxApp.MainThreadScheduler)
-               .Subscribe(selected => UpdateMessageDetails(selected));
+        // When SelectedMessage changes, update the MessageDetails
+        this.WhenAnyValue(x => x.SelectedMessage)
+           .ObserveOn(RxApp.MainThreadScheduler)
+           .Subscribe(selected => UpdateMessageDetails(selected));
 
-            // When CommandText changes, update the CommandSuggestions
-            this.WhenAnyValue(x => x.CommandText)
-                .Throttle(TimeSpan.FromMilliseconds(150), RxApp.MainThreadScheduler) // Small debounce
-                .DistinctUntilChanged() // Only update if text actually changed
-                .ObserveOn(RxApp.MainThreadScheduler) // Ensure UI update is on the correct thread
-                .Subscribe(text => UpdateCommandSuggestions(text));
+        // When CommandText changes, update the CommandSuggestions
+        this.WhenAnyValue(x => x.CommandText)
+            .Throttle(TimeSpan.FromMilliseconds(150), RxApp.MainThreadScheduler) // Small debounce
+            .DistinctUntilChanged() // Only update if text actually changed
+            .ObserveOn(RxApp.MainThreadScheduler) // Ensure UI update is on the correct thread
+            .Subscribe(text => UpdateCommandSuggestions(text));
 
-            // --- Global Hook Setup ---
-            try
-            {
-                _globalHook = new SimpleReactiveGlobalHook();
-                _globalHookSubscription = _globalHook.KeyPressed
-                    .Do(e => {})
-                    .Where(e =>
+        // --- Global Hook Setup ---
+        try
+        {
+            _globalHook = new SimpleReactiveGlobalHook();
+            _globalHookSubscription = _globalHook.KeyPressed
+                .Do(e => { })
+                .Where(e =>
+                {
+                    // Check for either Left or Right Ctrl/Shift explicitly
+                    bool ctrl = e.RawEvent.Mask.HasFlag(ModifierMask.LeftCtrl) || e.RawEvent.Mask.HasFlag(ModifierMask.RightCtrl);
+                    bool shift = e.RawEvent.Mask.HasFlag(ModifierMask.LeftShift) || e.RawEvent.Mask.HasFlag(ModifierMask.RightShift);
+                    bool pKey = e.Data.KeyCode == KeyCode.VcP;
+
+                    // NEW: Check if the window is focused
+                    bool focused = IsWindowFocused;
+
+                    bool match = focused && ctrl && shift && pKey;
+
+                    // Log details for debugging
+                    if (match)
                     {
-                        // Check for either Left or Right Ctrl/Shift explicitly
-                        bool ctrl = e.RawEvent.Mask.HasFlag(ModifierMask.LeftCtrl) || e.RawEvent.Mask.HasFlag(ModifierMask.RightCtrl);
-                        bool shift = e.RawEvent.Mask.HasFlag(ModifierMask.LeftShift) || e.RawEvent.Mask.HasFlag(ModifierMask.RightShift);
-                        bool pKey = e.Data.KeyCode == KeyCode.VcP;
+                        Log.Debug("Ctrl+Shift+P MATCHED inside Where filter (Window Focused: {IsFocused}).", focused);
+                    }
+                    else if (ctrl && shift && pKey) // Log if keys match but focus doesn't
+                    {
+                        Log.Verbose("Ctrl+Shift+P detected but window not focused. Hook suppressed.");
+                    }
+                    // else Log.Verbose("Keypress did not match Ctrl+Shift+P: Focused={Focused}, Ctrl={Ctrl}, Shift={Shift}, Key={Key}", focused, ctrl, shift, e.Data.KeyCode); // Optional: Log non-matches verbosely
 
-                        // NEW: Check if the window is focused
-                        bool focused = IsWindowFocused;
+                    // Log the state being evaluated
+                    Log.Verbose("Global Hook Filter Check: Key={Key}, Modifiers={Modifiers}, IsWindowFocused={IsFocused}, Result={Match}", e.Data.KeyCode, e.RawEvent.Mask, focused, match);
 
-                        bool match = focused && ctrl && shift && pKey;
+                    return match;
+                })
+                .ObserveOn(RxApp.MainThreadScheduler) // Ensure command execution is on the UI thread
+                .Do(_ => Log.Debug("Ctrl+Shift+P detected by SharpHook pipeline (after Where filter).")) // Changed log message slightly
+                .Select(_ => Unit.Default) // We don't need the event args anymore
+                .InvokeCommand(FocusCommandBarCommand); // Invoke the focus command
 
-                        // Log details for debugging
-                        if (match)
-                        {
-                            Log.Debug("Ctrl+Shift+P MATCHED inside Where filter (Window Focused: {IsFocused}).", focused);
-                        }
-                        else if (ctrl && shift && pKey) // Log if keys match but focus doesn't
-                        {
-                            Log.Verbose("Ctrl+Shift+P detected but window not focused. Hook suppressed.");
-                        }
-                        // else Log.Verbose("Keypress did not match Ctrl+Shift+P: Focused={Focused}, Ctrl={Ctrl}, Shift={Shift}, Key={Key}", focused, ctrl, shift, e.Data.KeyCode); // Optional: Log non-matches verbosely
-
-                        // Log the state being evaluated
-                        Log.Verbose("Global Hook Filter Check: Key={Key}, Modifiers={Modifiers}, IsWindowFocused={IsFocused}, Result={Match}", e.Data.KeyCode, e.RawEvent.Mask, focused, match);
-
-                        return match;
-                    })
-                    .ObserveOn(RxApp.MainThreadScheduler) // Ensure command execution is on the UI thread
-                    .Do(_ => Log.Debug("Ctrl+Shift+P detected by SharpHook pipeline (after Where filter).")) // Changed log message slightly
-                    .Select(_ => Unit.Default) // We don't need the event args anymore
-                    .InvokeCommand(FocusCommandBarCommand); // Invoke the focus command
-
-                // Start the hook asynchronously
-                _globalHook.RunAsync().Subscribe(
-                    _ => { }, // OnNext (not used)
-                    ex => Log.Error(ex, "Error during Global Hook execution (RunAsync OnError)"), // Log errors during hook runtime
-                    () => Log.Information("Global Hook stopped.") // OnCompleted
-                );
-                Log.Information("SharpHook Global Hook RunAsync called."); // Log that startup was attempted
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Failed to initialize or run SharpHook global hook. Hotkey might not work.");
-                _globalHook = null; // Ensure hook is null if initialization failed
-                _globalHookSubscription = null;
-            }
+            // Start the hook asynchronously
+            _globalHook.RunAsync().Subscribe(
+                _ => { }, // OnNext (not used)
+                ex => Log.Error(ex, "Error during Global Hook execution (RunAsync OnError)"), // Log errors during hook runtime
+                () => Log.Information("Global Hook stopped.") // OnCompleted
+            );
+            Log.Information("SharpHook Global Hook RunAsync called."); // Log that startup was attempted
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to initialize or run SharpHook global hook. Hotkey might not work.");
+            _globalHook = null; // Ensure hook is null if initialization failed
+            _globalHookSubscription = null;
+        }
     }
 
     private void OnLogMessage(object? sender, string log)
@@ -626,38 +603,45 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         }
         else
         {
-             payloadAsString = "[No Payload]";
-             isPayloadValidUtf8 = true; // Treat no payload as valid for JSON viewer (it will show nothing)
+            payloadAsString = "[No Payload]";
+            isPayloadValidUtf8 = true; // Treat no payload as valid for JSON viewer (it will show nothing)
         }
 
         // Set document text regardless of UTF-8 validity for the raw viewer
-        if (isPayloadValidUtf8) {
+        if (isPayloadValidUtf8)
+        {
             // Try to format the JSON if it appears to be valid JSON
-            if (payloadAsString.Trim().StartsWith("{") || payloadAsString.Trim().StartsWith("[")) {
-                try {
+            if (payloadAsString.Trim().StartsWith("{") || payloadAsString.Trim().StartsWith("["))
+            {
+                try
+                {
                     // Parse and format JSON with indentation
                     var jsonDoc = JsonDocument.Parse(payloadAsString);
                     // Options are now defined in MainViewModelJsonContext
                     RawPayloadDocument.Text = JsonSerializer.Serialize(jsonDoc.RootElement, MainViewModelJsonContext.Default.JsonElement);
                     Log.Debug("Formatted JSON payload for raw text display");
                 }
-                catch (JsonException) {
+                catch (JsonException)
+                {
                     // If JSON parsing fails, just use the raw text
                     RawPayloadDocument.Text = payloadAsString;
                     Log.Verbose("Payload looks like JSON but could not be parsed, displaying as plain text");
                 }
-                catch (Exception ex) {
+                catch (Exception ex)
+                {
                     // Handle any other formatting errors
                     RawPayloadDocument.Text = payloadAsString;
                     Log.Warning(ex, "Error formatting JSON payload");
                 }
             }
-            else {
+            else
+            {
                 // Not JSON-like, use as is
                 RawPayloadDocument.Text = payloadAsString;
             }
         }
-        else {
+        else
+        {
             RawPayloadDocument.Text = $"[Binary Data: {msg?.Payload.Length ?? -1} bytes]";
         }
 
@@ -1202,22 +1186,22 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     {
         if (string.IsNullOrWhiteSpace(filter))
         {
-           // Clear filter: Make all nodes visible
-           // Update synchronously for testability and direct command feedback
-           int dummyMatchCount = 0; // Need a variable for the ref parameter
-           SetNodeVisibilityRecursive(TopicTreeNodes, isVisible: true, clearFilter: true, ref dummyMatchCount); // Pass the ref parameter
-           StatusBarText = "Topic filter cleared.";
-           IsTopicFilterActive = false; // Update filter state
-           Log.Information("Topic filter cleared.");
-           return;
+            // Clear filter: Make all nodes visible
+            // Update synchronously for testability and direct command feedback
+            int dummyMatchCount = 0; // Need a variable for the ref parameter
+            SetNodeVisibilityRecursive(TopicTreeNodes, isVisible: true, clearFilter: true, ref dummyMatchCount); // Pass the ref parameter
+            StatusBarText = "Topic filter cleared.";
+            IsTopicFilterActive = false; // Update filter state
+            Log.Information("Topic filter cleared.");
+            return;
         }
 
-       Log.Information("Applying topic filter: '{Filter}'", filter);
-       // Update synchronously for testability and direct command feedback
-       int matchCount = 0;
-       SetNodeVisibilityRecursive(TopicTreeNodes, isVisible: false, clearFilter: false, ref matchCount, filter); // Start recursion (matchCount before optional filter)
-       StatusBarText = $"Topic filter applied: '{filter}'. Found {matchCount} matching node(s).";
-       IsTopicFilterActive = true; // Update filter state
+        Log.Information("Applying topic filter: '{Filter}'", filter);
+        // Update synchronously for testability and direct command feedback
+        int matchCount = 0;
+        SetNodeVisibilityRecursive(TopicTreeNodes, isVisible: false, clearFilter: false, ref matchCount, filter); // Start recursion (matchCount before optional filter)
+        StatusBarText = $"Topic filter applied: '{filter}'. Found {matchCount} matching node(s).";
+        IsTopicFilterActive = true; // Update filter state
     }
 
     /// <summary>
@@ -1399,54 +1383,54 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         {
             CommandSuggestions.Add(cmd);
         }
-       Log.Verbose("Updated command suggestions for '{InputText}'. Found {Count} matches.", currentText, CommandSuggestions.Count);
-   }
+        Log.Verbose("Updated command suggestions for '{InputText}'. Found {Count} matches.", currentText, CommandSuggestions.Count);
+    }
 
-   /// <summary>
-   /// Switches the active payload viewer between JSON and Raw Text.
-   /// </summary>
-   /// <param name="showRaw">True to show the raw text viewer, false to show the JSON viewer.</param>
-   private void SwitchPayloadView(bool showRaw)
-   {
-       if (SelectedMessage == null)
-       {
-           StatusBarText = "No message selected to view.";
-           return;
-       }
+    /// <summary>
+    /// Switches the active payload viewer between JSON and Raw Text.
+    /// </summary>
+    /// <param name="showRaw">True to show the raw text viewer, false to show the JSON viewer.</param>
+    private void SwitchPayloadView(bool showRaw)
+    {
+        if (SelectedMessage == null)
+        {
+            StatusBarText = "No message selected to view.";
+            return;
+        }
 
-       if (showRaw)
-       {
-           IsRawTextViewerVisible = true;
-           IsJsonViewerVisible = false;
-           StatusBarText = "Switched to Raw Text view.";
-           Log.Information("Switched payload view to Raw Text.");
-       }
-       else
-       {
-           // Only switch to JSON view if the JSON was parsed correctly or payload was empty
-           if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
-           {
-               IsRawTextViewerVisible = false;
-               IsJsonViewerVisible = true;
-               StatusBarText = "Switched to JSON Tree view.";
-               Log.Information("Switched payload view to JSON Tree.");
-           }
-           else
-           {
-               StatusBarText = $"Cannot switch to JSON view: {JsonViewer.JsonParseError}";
-               Log.Warning("Attempted to switch to JSON view, but JSON parsing failed.");
-               // Keep the raw view visible in this case
-               IsRawTextViewerVisible = true;
-               IsJsonViewerVisible = false;
-           }
-       }
-       this.RaisePropertyChanged(nameof(ShowJsonParseError)); // Notify computed property change
-       this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible)); // Notify computed property change
-   }
+        if (showRaw)
+        {
+            IsRawTextViewerVisible = true;
+            IsJsonViewerVisible = false;
+            StatusBarText = "Switched to Raw Text view.";
+            Log.Information("Switched payload view to Raw Text.");
+        }
+        else
+        {
+            // Only switch to JSON view if the JSON was parsed correctly or payload was empty
+            if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
+            {
+                IsRawTextViewerVisible = false;
+                IsJsonViewerVisible = true;
+                StatusBarText = "Switched to JSON Tree view.";
+                Log.Information("Switched payload view to JSON Tree.");
+            }
+            else
+            {
+                StatusBarText = $"Cannot switch to JSON view: {JsonViewer.JsonParseError}";
+                Log.Warning("Attempted to switch to JSON view, but JSON parsing failed.");
+                // Keep the raw view visible in this case
+                IsRawTextViewerVisible = true;
+                IsJsonViewerVisible = false;
+            }
+        }
+        this.RaisePropertyChanged(nameof(ShowJsonParseError)); // Notify computed property change
+        this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible)); // Notify computed property change
+    }
 
-   // --- Helper Methods ---
+    // --- Helper Methods ---
 
-   /// <summary>
+    /// <summary>
     /// Copies the full payload of the given message to the system clipboard using an Interaction.
     /// </summary>
     private async Task CopyPayloadToClipboardAsync(object? param) // Parameter changed to object?
@@ -1529,11 +1513,11 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 PauseResumeCommand?.Dispose();
                 OpenSettingsCommand?.Dispose();
                 SubmitInputCommand?.Dispose();
-               FocusCommandBarCommand?.Dispose();
-               CopyPayloadCommand?.Dispose(); // Dispose the new command
-               // Interactions don't typically need explicit disposal unless they hold heavy resources
-               _cts.Dispose(); // Dispose the CancellationTokenSource itself
-              }
+                FocusCommandBarCommand?.Dispose();
+                CopyPayloadCommand?.Dispose(); // Dispose the new command
+                                               // Interactions don't typically need explicit disposal unless they hold heavy resources
+                _cts.Dispose(); // Dispose the CancellationTokenSource itself
+            }
 
             // Free unmanaged resources (unmanaged objects) and override finalizer
             // Set large fields to null

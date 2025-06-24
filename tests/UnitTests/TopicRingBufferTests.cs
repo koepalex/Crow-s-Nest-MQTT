@@ -1,10 +1,7 @@
 using Xunit;
 using CrowsNestMqtt.Utils;
 using MQTTnet;
-using System;
-using System.Linq;
 using System.Text;
-using System.Collections.Generic;
 
 namespace CrowsNestMqtt.UnitTests
 {

@@ -1,16 +1,11 @@
 using CrowsNestMqtt.BusinessLogic;
-using CrowsNestMqtt.BusinessLogic.Commands;
 using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.UI.ViewModels;
 using NSubstitute;
 using MQTTnet;
-using System;
 using System.Buffers;
 using System.Reactive.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
-using CrowsNestMqtt.BusinessLogic.Configuration; // Required for MqttConnectionSettings
 
 namespace CrowsNestMqtt.UnitTests.ViewModels
 {

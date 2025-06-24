@@ -1,4 +1,3 @@
-using System; // Required for Guid and DateTime
 using MQTTnet; // Required for MqttApplicationMessage
 using ReactiveUI;
 using CrowsNestMqtt.BusinessLogic; // Assuming IMqttService is here

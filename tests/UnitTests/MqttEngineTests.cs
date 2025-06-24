@@ -1,8 +1,4 @@
-using System;
 using System.Reflection;
-using System.Collections.Generic; // Added for List
-using System.Threading;
-using System.Threading.Tasks;
 using MQTTnet;
 using MQTTnet.Protocol;
 using Xunit;

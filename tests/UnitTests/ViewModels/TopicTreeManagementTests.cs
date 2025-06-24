@@ -1,8 +1,8 @@
-using CrowsNestMqtt.BusinessLogic;
 using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.UI.ViewModels;
+
 using NSubstitute;
-using System.Linq;
+
 using Xunit;
 
 namespace CrowsNestMqtt.UnitTests.ViewModels

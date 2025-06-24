@@ -1,5 +1,4 @@
 using ReactiveUI;
-using System;
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using Avalonia.Media; // For Brushes

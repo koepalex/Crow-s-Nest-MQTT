@@ -6,13 +6,9 @@ using CrowsNestMqtt.UI.ViewModels;
 using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
 using NSubstitute;
 using MQTTnet;
-using System;
-using System.Buffers;
-using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using Xunit;
-using System.Threading.Tasks;
 
 namespace CrowsNestMqtt.UnitTests.ViewModels
 {
