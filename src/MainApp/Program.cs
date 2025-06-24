@@ -7,6 +7,9 @@ using CrowsNestMqtt.UI.Views;
 using CrowsNestMqtt.BusinessLogic.Services;
 using System.Timers; // Added for Timer
 using System.Runtime; // Added for GCSettings
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("CrowsNestMqtt.UnitTests")]
 
 namespace CrowsNestMqtt.App;
 
