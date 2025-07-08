@@ -23,6 +23,23 @@ Crow's Nest MQTT provides a command interface (likely accessible via a dedicated
 *   `:settings` - Toggle the visibility of the settings panel.
 *   `:setuser <username>` - Set the username for MQTT authentication.
 *   `:setpass <password>` - Set the password for MQTT authentication.
-*   `:setauthmode <anonymous|userpass>` - Set the authentication mode.
+*   `:setauthmode <anonymous|userpass|enhanced>` - Set the authentication mode.
 *   `[search_term]` - Any text entered without a `:` prefix is treated as a search term to filter messages.
+
+## Enhanced Authentication
+
+Crow's Nest MQTT supports Enhanced Authentication, as defined in the MQTT 5.0 specification. This allows for more advanced authentication mechanisms, such as Challenge/Response Authentication.
+
+To use Enhanced Authentication, you need to configure the following settings:
+
+*   **`AuthenticationMethod`**: The name of the authentication method (e.g., `SCRAM-SHA-1`, `K8S-SAT`).
+*   **`AuthenticationData`**: The authentication data, which is specific to the chosen authentication method.
+
+You can set the authentication mode to `enhanced` using the `:setauthmode` command:
+
+```
+:setauthmode enhanced
+```
+
+When connecting to a broker with Enhanced Authentication, the client and broker will exchange authentication data until the authentication process is complete.
 

@@ -18,4 +18,6 @@ public class MqttConnectionSettings
     public uint? SessionExpiryInterval { get; set; } = 3600;
     public IList<TopicBufferLimit> TopicSpecificBufferLimits { get; set; } = new List<TopicBufferLimit>();
     public AuthenticationMode AuthMode { get; set; } = new AnonymousAuthenticationMode();
+    public string? AuthenticationMethod { get; set; }
+    public string? AuthenticationData { get; set; }
 }

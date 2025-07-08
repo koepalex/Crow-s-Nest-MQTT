@@ -5,11 +5,13 @@ using System.Runtime.CompilerServices; // Added for InternalsVisibleTo
 namespace CrowsNestMqtt.BusinessLogic;
 
 using CrowsNestMqtt.BusinessLogic.Configuration; // Required for AuthenticationMode
+using CrowsNestMqtt.BusinessLogic.Services;
 using MQTTnet;
 using MQTTnet.Protocol;
 using System.Collections.Concurrent;
 using CrowsNestMqtt.Utils;
 using System.Collections.Generic;
+using System.Text;
 
 // New EventArgs class including MessageId and Topic
 public class IdentifiedMqttApplicationMessageReceivedEventArgs : EventArgs // Not inheriting from MqttApplicationMessageReceivedEventArgs to avoid confusion
@@ -144,6 +146,14 @@ public class MqttEngine : IMqttService // Implement the interface
         }
 
         // Add other options like TLS here if needed
+
+        if (_settings.AuthenticationMethod == "Enhanced Authentication" && !string.IsNullOrEmpty(_settings.AuthenticationData))
+        {
+            builder.WithEnhancedAuthentication(
+                _settings.AuthenticationMethod,
+                Encoding.UTF8.GetBytes(_settings.AuthenticationData));
+        }
+
         return builder.Build();
     }
 
@@ -159,6 +169,14 @@ public class MqttEngine : IMqttService // Implement the interface
         {
             _connecting = true; // Simplified locking for brevity
             _currentOptions = BuildMqttOptions();
+
+            if (_settings.AuthenticationMethod == "Enhanced Authentication")
+            {
+                LogMessage?.Invoke(this, "Using Enhanced Authentication handler.");
+                var enhancedAuthHandler = new EnhancedAuthenticationHandler(_currentOptions!);
+                await enhancedAuthHandler.ConnectAsync();
+            }
+
             LogMessage?.Invoke(this, $"Attempting to connect to {_currentOptions.ChannelOptions} with ClientId '{_currentOptions.ClientId ?? "<generated>"}'. CleanSession={_currentOptions.CleanSession}, SessionExpiry={_currentOptions.SessionExpiryInterval}");
             var connectionResult = await _client.ConnectAsync(_currentOptions, cancellationToken);
             LogMessage?.Invoke(this, $"Connection result: {connectionResult.ReasonString}:{connectionResult.ResultCode}");
