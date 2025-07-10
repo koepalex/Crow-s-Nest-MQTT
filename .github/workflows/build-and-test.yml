@@ -25,16 +25,17 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '9.0.203'
+        dotnet-version: '9.0.301'
+        dotnet-quality: 'preview'
 
     - name: Install GitVersion
-      uses: gittools/actions/gitversion/setup@v0.10.2 # Use a specific stable version
+      uses: gittools/actions/gitversion/setup@v4.0.1 # Use a specific stable version
       with:
-        versionSpec: '5.x'
+        versionSpec: '6.3.x'
 
     - name: Determine Version
       id: gitversion # Set an id to reference outputs like steps.gitversion.outputs.semVer
-      uses: gittools/actions/gitversion/execute@v0.10.2
+      uses: gittools/actions/gitversion/execute@v4.0.1
 
     - name: Display GitVersion outputs (optional debugging)
       run: |
