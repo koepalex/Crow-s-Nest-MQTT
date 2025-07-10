@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices; // Added for InternalsVisibleTo
+using System.Collections.Concurrent;
 
 [assembly: InternalsVisibleTo("UnitTests")] // Added for testing internal methods
 
@@ -7,7 +8,6 @@ namespace CrowsNestMqtt.BusinessLogic;
 using CrowsNestMqtt.BusinessLogic.Configuration; // Required for AuthenticationMode
 using MQTTnet;
 using MQTTnet.Protocol;
-using System.Collections.Concurrent;
 using CrowsNestMqtt.Utils;
 using System.Collections.Generic;
 
@@ -41,6 +41,11 @@ public class MqttEngine : IMqttService // Implement the interface
     private IList<TopicBufferLimit> _topicSpecificBufferLimits = new List<TopicBufferLimit>();
     internal const long DefaultMaxTopicBufferSize = 1 * 1024 * 1024; // Changed to internal const
 
+    // Batch processing for high-volume message scenarios  
+    private readonly ConcurrentQueue<MqttApplicationMessageReceivedEventArgs> _pendingMessages = new();
+    private readonly Timer _messageProcessingTimer;
+    private readonly Dictionary<string, long> _topicBufferSizeCache = new(); // Cache buffer sizes to avoid repeated calculations
+
     // Modified event signature
     public event EventHandler<IdentifiedMqttApplicationMessageReceivedEventArgs>? MessageReceived;
     public event EventHandler<MqttConnectionStateChangedEventArgs>? ConnectionStateChanged;
@@ -57,6 +62,8 @@ public class MqttEngine : IMqttService // Implement the interface
         _client.ApplicationMessageReceivedAsync += HandleIncomingMessageAsync;
         _client.ConnectedAsync += OnClientConnected;
         _client.DisconnectedAsync += OnClientDisconnected;
+
+        _messageProcessingTimer = new Timer(ProcessMessageBatch, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(200));
     }
 
     // ... (UpdateSettings, SubscribeToTopicsAsync, BuildMqttOptions, ConnectAsync, DisconnectAsync, PublishAsync, SubscribeAsync, UnsubscribeAsync remain largely the same) ...
@@ -106,7 +113,9 @@ public class MqttEngine : IMqttService // Implement the interface
         var builder = new MqttClientOptionsBuilder()
             .WithTcpServer(_settings.Hostname, _settings.Port)
             .WithProtocolVersion(MQTTnet.Formatter.MqttProtocolVersion.V500)
-            .WithKeepAlivePeriod(_settings.KeepAliveInterval);
+            .WithKeepAlivePeriod(_settings.KeepAliveInterval)
+            .WithCleanSession(_settings.CleanSession)
+            .WithWillQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce);
 
         if (_settings.SessionExpiryInterval.HasValue)
         {
@@ -116,16 +125,6 @@ public class MqttEngine : IMqttService // Implement the interface
         if (!string.IsNullOrWhiteSpace(_settings.ClientId))
         {
             builder.WithClientId(_settings.ClientId);
-        }
-
-        if (_settings.CleanSession)
-        {
-            builder.WithCleanSession(true);
-        }
-        else
-        {
-            builder.WithCleanSession(false);
-            
         }
 
         // Add credentials based on AuthMode
@@ -460,29 +459,104 @@ public class MqttEngine : IMqttService // Implement the interface
         LogMessage?.Invoke(this, _client.IsConnected ? "Reconnection successful." : "Reconnection attempts stopped.");
     }
 
-    // Modified message handling logic
+    // Modified message handling logic with batching for performance
     private Task HandleIncomingMessageAsync(MqttApplicationMessageReceivedEventArgs e)
     {
-        var messageId = Guid.NewGuid(); // Generate unique ID
-        var topic = e.ApplicationMessage.Topic;
-
-        long bufferSize = GetMaxBufferSizeForTopic(topic);
-        LogMessage?.Invoke(this, $"Topic '{topic}': Using buffer size {bufferSize} bytes (Default: {DefaultMaxTopicBufferSize} bytes, Rules: {_topicSpecificBufferLimits?.Count ?? 0}). Matched score for rule: {MatchTopic(topic, _topicSpecificBufferLimits?.FirstOrDefault(r => GetMaxBufferSizeForTopic(topic) == r.MaxSizeBytes)?.TopicFilter ?? "")}");
-
-        // Store message in buffer with the new ID
-        var buffer = _topicBuffers.GetOrAdd(topic, _ => new TopicRingBuffer(bufferSize));
-        buffer.AddMessage(e.ApplicationMessage, messageId); // Pass ID to buffer
-
-        // Notify external subscribers with the new event args
-        var identifiedArgs = new IdentifiedMqttApplicationMessageReceivedEventArgs(
-            messageId,
-            e.ApplicationMessage,
-            e.ClientId
-            // Map other properties from 'e' if needed
-        );
-        MessageReceived?.Invoke(this, identifiedArgs);
-
+        e.AutoAcknowledge = true;
+        // Add message to batch queue for processing
+        _pendingMessages.Enqueue(e);
+        
         return Task.CompletedTask;
+    }
+    
+    /// <summary>
+    /// Processes batched MQTT messages for improved performance during high-volume scenarios
+    /// </summary>
+    private void ProcessMessageBatch(object? state)
+    {
+        if (_pendingMessages.Count == 0) return;
+
+        var messagesToProcess = new List<MqttApplicationMessageReceivedEventArgs>();
+        
+        // Adaptive batch size - larger batches for high volume
+        int maxBatchSize = 75;
+        int count = 0;
+
+        while (_pendingMessages.TryDequeue(out var message) && count < maxBatchSize)
+        {
+            messagesToProcess.Add(message);
+            count++;
+        }
+        
+        // Process the batch
+        if (messagesToProcess.Count > 0)
+        {
+            ProcessMessageBatchInternal(messagesToProcess);
+        }
+    }
+    
+    /// <summary>
+    /// Internal method to process a batch of messages efficiently
+    /// </summary>
+    private void ProcessMessageBatchInternal(List<MqttApplicationMessageReceivedEventArgs> messages)
+    {
+        var eventArgsToFire = new List<IdentifiedMqttApplicationMessageReceivedEventArgs>();
+        var topicStats = new Dictionary<string, int>(); // For logging
+        
+        foreach (var e in messages)
+        {
+            var messageId = Guid.NewGuid(); // Generate unique ID
+            var topic = e.ApplicationMessage.Topic;
+            
+            // Use cached buffer size or calculate once per topic
+            if (!_topicBufferSizeCache.TryGetValue(topic, out var bufferSize))
+            {
+                bufferSize = GetMaxBufferSizeForTopic(topic);
+                _topicBufferSizeCache[topic] = bufferSize;
+            }
+            
+            // Store message in buffer with the new ID
+            var buffer = _topicBuffers.GetOrAdd(topic, _ => new TopicRingBuffer(bufferSize));
+            buffer.AddMessage(e.ApplicationMessage, messageId);
+            
+            // Prepare event args for batch firing
+            var identifiedArgs = new IdentifiedMqttApplicationMessageReceivedEventArgs(
+                messageId,
+                e.ApplicationMessage,
+                e.ClientId
+            );
+            eventArgsToFire.Add(identifiedArgs);
+            
+            // Track topic stats for efficient logging
+            topicStats.TryGetValue(topic, out var count);
+            topicStats[topic] = count + 1;
+        }
+        
+        // Batch fire events
+        foreach (var args in eventArgsToFire)
+        {
+            MessageReceived?.Invoke(this, args);
+        }
+        
+        // Efficient logging - log per topic instead of per message
+        if (topicStats.Count <= 10) // Only log details for reasonable number of topics
+        {
+            foreach (var kvp in topicStats)
+            {
+                var topic = kvp.Key;
+                var messageCount = kvp.Value;
+                var bufferSize = _topicBufferSizeCache[topic];
+                
+                LogMessage?.Invoke(this, $"Processed {messageCount} messages for topic '{topic}': Using buffer size {bufferSize} bytes");
+            }
+        }
+        else
+        {
+            // High topic diversity - log summary only
+            var totalMessages = messages.Count;
+            var uniqueTopics = topicStats.Count;
+            LogMessage?.Invoke(this, $"Processed batch: {totalMessages} messages across {uniqueTopics} topics");
+        }
     }
 
    // --- IDisposable Implementation ---
@@ -495,6 +569,9 @@ public class MqttEngine : IMqttService // Implement the interface
         {
             LogMessage?.Invoke(this, "Disposing MqttEngine...");
             _isDisposing = true;
+
+            _messageProcessingTimer.Dispose();
+            _pendingMessages.Clear();
 
             _client.ApplicationMessageReceivedAsync -= HandleIncomingMessageAsync;
             _client.DisconnectedAsync -= OnClientDisconnected;
