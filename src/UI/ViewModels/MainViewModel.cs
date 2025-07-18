@@ -44,6 +44,11 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly CancellationTokenSource _cts = new(); // Added cancellation token source for graceful shutdown
     private bool _isWindowFocused; // Added to track window focus for global hook
     private bool _isTopicFilterActive; // Added to track if the topic filter is active
+    
+    // Batch processing for high-volume message scenarios
+    private readonly Queue<IdentifiedMqttApplicationMessageReceivedEventArgs> _pendingMessages = new();
+    private readonly object _batchLock = new object();
+    private Timer? _batchProcessingTimer;
 
     /// <summary>
     /// Gets or sets the current search term used for filtering message history.
@@ -452,23 +457,91 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         });
     }
 
-    // Updated signature to use new EventArgs
+    // Updated signature to use new EventArgs with batching for high-volume scenarios
     private void OnMessageReceived(object? sender, IdentifiedMqttApplicationMessageReceivedEventArgs e)
     {
         if (IsPaused) return; // Don't update UI if paused
 
-        // Ensure UI updates happen on the UI thread
-        Dispatcher.UIThread.Post(() =>
+        // Add message to batch queue for processing
+        lock (_batchLock)
         {
-            var topic = e.Topic; // Use Topic from new EventArgs
-            var messageId = e.MessageId; // Get MessageId from new EventArgs
-            UpdateOrCreateNode(topic); // Update tree structure and counts
+            _pendingMessages.Enqueue(e);
+            
+            // Start batch processing timer if not already running
+            if (_batchProcessingTimer == null)
+            {
+                // Use very short initial delay for rapid startup scenarios (retained messages)
+                var initialDelay = _pendingMessages.Count > 10 ? TimeSpan.FromMilliseconds(5) : TimeSpan.FromMilliseconds(25);
+                _batchProcessingTimer = new Timer(ProcessMessageBatch, null, initialDelay, Timeout.InfiniteTimeSpan);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Processes batched messages on the UI thread to improve performance during high-volume scenarios
+    /// </summary>
+    private void ProcessMessageBatch(object? state)
+    {
+        var messagesToProcess = new List<IdentifiedMqttApplicationMessageReceivedEventArgs>();
+        bool hasMoreMessages = false;
+        
+        // Extract batch of messages from queue
+        lock (_batchLock)
+        {
+            // Adaptive batch size based on queue length
+            int maxBatchSize = Math.Min(100, Math.Max(10, _pendingMessages.Count / 2)); 
+            int count = 0;
+            while (_pendingMessages.Count > 0 && count < maxBatchSize)
+            {
+                messagesToProcess.Add(_pendingMessages.Dequeue());
+                count++;
+            }
+            
+            hasMoreMessages = _pendingMessages.Count > 0;
+            
+            // Reset timer if more messages remain
+            if (hasMoreMessages)
+            {
+                // Use shorter delay for high-volume scenarios
+                var delay = _pendingMessages.Count > 50 ? TimeSpan.FromMilliseconds(5) : TimeSpan.FromMilliseconds(25);
+                _batchProcessingTimer?.Change(delay, Timeout.InfiniteTimeSpan);
+            }
+            else
+            {
+                // No more messages, dispose timer
+                _batchProcessingTimer?.Dispose();
+                _batchProcessingTimer = null;
+            }
+        }
+        
+        // Process the batch on UI thread if we have messages
+        if (messagesToProcess.Count > 0)
+        {
+            Dispatcher.UIThread.Post(() => ProcessMessageBatchOnUIThread(messagesToProcess));
+        }
+    }
+    
+    /// <summary>
+    /// Processes a batch of messages on the UI thread
+    /// </summary>
+    private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessageReceivedEventArgs> messages)
+    {
+        var messageViewModels = new List<MessageViewModel>();
+        var topicCounts = new Dictionary<string, int>(); // Track message count per topic for batch updates
+        
+        // Process all messages in the batch
+        foreach (var e in messages)
+        {
+            var topic = e.Topic;
+            var messageId = e.MessageId;
+            
+            // Count messages per topic for efficient tree updates
+            topicCounts.TryGetValue(topic, out var currentCount);
+            topicCounts[topic] = currentCount + 1;
 
-            // Always add incoming messages to the source list. The DynamicData pipeline will filter it.
-            // Create and add the ViewModel directly to the source list
             // Basic payload preview (handle potential null/empty payload)
             string preview = e.ApplicationMessage.Payload.Length > 0
-                ? Encoding.UTF8.GetString(e.ApplicationMessage.Payload) // Use overload for ReadOnlySequence<byte>
+                ? Encoding.UTF8.GetString(e.ApplicationMessage.Payload)
                 : "[No Payload]";
 
             // Limit preview length
@@ -478,21 +551,34 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 preview = preview.Substring(0, maxPreviewLength) + "...";
             }
 
-            // Use the new constructor for MessageViewModel, passing required services
+            // Create MessageViewModel
             var messageVm = new MessageViewModel(
                 messageId,
                 topic,
-                DateTime.Now, // Use arrival time
-                preview.Replace(Environment.NewLine, " "), // Remove newlines for preview
+                DateTime.Now,
+                preview.Replace(Environment.NewLine, " "),
                 (int)e.ApplicationMessage.Payload.Length,
-                _mqttService, // Pass the injected MQTT service
-                this); // Pass this MainViewModel as the IStatusBarService
-            _messageHistorySource.Add(messageVm); // Add to the source list
-            Log.Verbose("Added message for topic '{Topic}'. Source count: {Count}", topic, _messageHistorySource.Count); // Log source count
-
-            // Removed artificial limit on _messageHistorySource.
-            // Memory is managed per-topic by TopicRingBuffer in MqttEngine.
-        });
+                _mqttService,
+                this);
+            
+            messageViewModels.Add(messageVm);
+        }
+        
+        // Batch add messages to source list
+        _messageHistorySource.AddRange(messageViewModels);
+        
+        // Batch update topic tree - update each topic only once with total count
+        foreach (var kvp in topicCounts)
+        {
+            string topic = kvp.Key;
+            int messageCount = kvp.Value;
+            
+            // Update tree structure and increment count by the total for this topic
+            UpdateOrCreateNodeWithCount(topic, messageCount);
+        }
+        
+        Log.Verbose("Processed batch of {Count} messages across {TopicCount} topics. Source count: {Total}", 
+            messages.Count, topicCounts.Count, _messageHistorySource.Count);
     }
 
     // --- UI Update Logic ---
@@ -1320,6 +1406,56 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     }
 
     /// <summary>
+    /// Updates or creates a node in the topic tree structure and increments the message count by a specific amount.
+    /// This is optimized for batch processing where multiple messages for the same topic are processed together.
+    /// </summary>
+    /// <param name="topic">The full MQTT topic string.</param>
+    /// <param name="incrementBy">The number to increment the message count by.</param>
+    private void UpdateOrCreateNodeWithCount(string topic, int incrementBy)
+    {
+        var parts = topic.Split('/');
+        ObservableCollection<NodeViewModel> currentLevel = TopicTreeNodes;
+        NodeViewModel? parentNode = null;
+
+        string currentPath = "";
+
+        for (int i = 0; i < parts.Length; i++)
+        {
+            var part = parts[i];
+            if (string.IsNullOrEmpty(part)) continue;
+
+            currentPath = (i == 0) ? part : $"{currentPath}/{part}";
+
+            var existingNode = currentLevel.FirstOrDefault(n => n.Name == part);
+
+            if (existingNode == null)
+            {
+                Log.Verbose("Creating new node '{Part}' under parent '{ParentName}' with path '{FullPath}'", part, parentNode?.Name ?? "[Root]", currentPath);
+                existingNode = new NodeViewModel(part, parentNode) { FullPath = currentPath };
+
+                int insertIndex = 0;
+                while (insertIndex < currentLevel.Count && string.Compare(currentLevel[insertIndex].Name, existingNode.Name, StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    insertIndex++;
+                }
+                currentLevel.Insert(insertIndex, existingNode);
+            }
+
+            // Increment count by specified amount only for the final node in the path
+            if (i == parts.Length - 1 && incrementBy > 0)
+            {
+                for (int j = 0; j < incrementBy; j++)
+                {
+                    existingNode.IncrementMessageCount();
+                }
+            }
+
+            currentLevel = existingNode.Children;
+            parentNode = existingNode;
+        }
+    }
+
+    /// <summary>
     /// Expands all nodes in the topic tree.
     /// </summary>
     private void ExpandAllNodes()
@@ -1503,6 +1639,15 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                     _cts.Cancel(); // Signal cancellation first
                 }
                 StopTimer();
+                
+                // Dispose batch processing timer and clear pending messages
+                lock (_batchLock)
+                {
+                    _batchProcessingTimer?.Dispose();
+                    _batchProcessingTimer = null;
+                    _pendingMessages.Clear();
+                }
+                
                 _messageHistorySubscription?.Dispose();
                 _globalHookSubscription?.Dispose(); // Dispose hook subscription
                 _globalHook?.Dispose(); // Dispose the hook itself
