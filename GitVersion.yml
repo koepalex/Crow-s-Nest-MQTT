@@ -1,18 +1,13 @@
 mode: ContinuousDelivery
 branches:
-  main:
-    tag: '' # Use the version directly from the commit, no tag prefix needed for main branch releases
-  develop:
-    tag: alpha # Prerelease tag for develop branch builds
+  main: {}
+  develop: {}
   feature:
-    tag: useBranchName # Use the branch name as the prerelease tag for feature branches
-    increment: Minor # Increment minor version for feature branches
+    increment: Minor
   pull-request:
-    tag: pr # Prerelease tag for pull request builds
-    increment: Inherit # Inherit increment mode from the base branch
+    increment: Inherit
   hotfix:
-    tag: beta # Prerelease tag for hotfix branches
-    increment: Patch # Increment patch version for hotfix branches
+    increment: Patch
 ignore:
   sha: []
 merge-message-formats: {}
