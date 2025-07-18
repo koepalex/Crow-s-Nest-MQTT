@@ -21,10 +21,13 @@ jobs:
         dotnet-version: '9.0.x'
         dotnet-quality: 'preview'
 
+    - name: Add NuGet Source
+      run: dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org
+
     - name: Install GitVersion
       uses: gittools/actions/gitversion/setup@v4.0.1
       with:
-        versionSpec: '6.3.x'
+        versionSpec: '5.12.x'
         includePrerelease: true
 
     - name: Determine Version
