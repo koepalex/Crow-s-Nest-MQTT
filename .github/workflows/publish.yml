@@ -23,7 +23,7 @@ jobs:
     - name: Install GitVersion
       uses: gittools/actions/gitversion/setup@v4.0.1
       with:
-        versionSpec: '5.12.x'
+        versionSpec: '6.3.x'
         includePrerelease: true
 
     - name: Determine Version
