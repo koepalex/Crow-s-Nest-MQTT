@@ -32,6 +32,7 @@ jobs:
       uses: gittools/actions/gitversion/setup@v4.0.1 # Use a specific stable version
       with:
         versionSpec: '6.3.x'
+        includePrerelease: true
 
     - name: Determine Version
       id: gitversion # Set an id to reference outputs like steps.gitversion.outputs.semVer
