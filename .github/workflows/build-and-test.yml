@@ -27,9 +27,6 @@ jobs:
       with:
         global-json-file: "./global.json"
 
-    - name: Add NuGet Source
-      run: dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org
-
     - name: Install GitVersion
       uses: gittools/actions/gitversion/setup@v4.0.1 # Use a specific stable version
       with:
