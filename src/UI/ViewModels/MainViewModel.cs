@@ -1727,12 +1727,19 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 
                 _messageHistorySubscription?.Dispose();
                 _globalHookSubscription?.Dispose(); // Dispose hook subscription
-                _globalHook?.Dispose(); // Dispose the hook itself
+                try
+                {
+                    _globalHook?.Dispose(); // Dispose the hook itself
+                }
+                catch
+                {
+                    
+                }
                 // MqttEngine's Dispose method now handles the final disconnect attempt.
                 // We rely on _cts.Cancel() being called first, then _mqttEngine.Dispose() below.
                 // Removed explicit synchronous DisconnectAsync call here.
                 // Dispose the MqttService instance if it implements IDisposable
-                if (_mqttService is IDisposable disposableMqttService)
+                    if (_mqttService is IDisposable disposableMqttService)
                 {
                     disposableMqttService.Dispose();
                 }
@@ -1747,7 +1754,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 CopyPayloadCommand?.Dispose(); // Dispose the new command
                                                // Interactions don't typically need explicit disposal unless they hold heavy resources
                 _cts.Dispose(); // Dispose the CancellationTokenSource itself
-            }
+                }
 
             // Free unmanaged resources (unmanaged objects) and override finalizer
             // Set large fields to null

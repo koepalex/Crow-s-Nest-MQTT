@@ -38,7 +38,9 @@ public class MqttEngine : IMqttService // Implement the interface
     private MqttConnectionSettings _settings;
     private bool _isDisposing;
     private MqttClientOptions? _currentOptions;
-    private bool _connecting;
+    private CancellationTokenSource? _connectionCts; // To control the entire connection/reconnection cycle
+    private readonly object _reconnectLock = new object();
+    private bool _isReconnectLoopRunning = false;
     private readonly ConcurrentDictionary<string, TopicRingBuffer> _topicBuffers;
     private IList<TopicBufferLimit> _topicSpecificBufferLimits = new List<TopicBufferLimit>();
     internal const long DefaultMaxTopicBufferSize = 1 * 1024 * 1024; // Changed to internal const
@@ -105,7 +107,7 @@ public class MqttEngine : IMqttService // Implement the interface
         catch (Exception ex)
         {
             LogMessage?.Invoke(this, $"Subscription failed: {ex.Message}");
-            ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, ex));
+            ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, ex, ConnectionStatusState.Disconnected));
         }
     }
 
@@ -173,53 +175,62 @@ public class MqttEngine : IMqttService // Implement the interface
 
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        if (_client.IsConnected || _connecting)
+        if (_client.IsConnected)
         {
-            LogMessage?.Invoke(this, _client.IsConnected ? "Already connected." : "Connecting already in progress.");
+            LogMessage?.Invoke(this, "Already connected.");
             return;
         }
 
+        // Cancel any previous attempts before starting a new one.
+        _connectionCts?.Cancel();
+        _connectionCts?.Dispose();
+        _connectionCts = new CancellationTokenSource();
+        var combinedToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _connectionCts.Token).Token;
+
         try
         {
-            _connecting = true; // Simplified locking for brevity
+            // Announce that we are starting the connection process.
+            ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, null, ConnectionStatusState.Connecting));
+            
             _currentOptions = BuildMqttOptions();
-
-            if (_settings.AuthMode is CrowsNestMqtt.BusinessLogic.Configuration.EnhancedAuthenticationMode)
-            {
-                LogMessage?.Invoke(this, "Using Enhanced Authentication handler.");
-                var enhancedAuthHandler = new EnhancedAuthenticationHandler(_currentOptions!);
-                enhancedAuthHandler.Configure();
-            }
-
-            LogMessage?.Invoke(this, $"Attempting to connect to {_currentOptions.ChannelOptions} with ClientId '{_currentOptions.ClientId ?? "<generated>"}'. CleanSession={_currentOptions.CleanSession}, SessionExpiry={_currentOptions.SessionExpiryInterval}");
-            var connectionResult = await _client.ConnectAsync(_currentOptions, cancellationToken);
-            LogMessage?.Invoke(this, $"Connection result: {connectionResult.ReasonString}:{connectionResult.ResultCode}");
-            // Subscription handled by OnClientConnected
+            LogMessage?.Invoke(this, $"Attempting to connect to {_currentOptions.ChannelOptions} with ClientId '{_currentOptions.ClientId ?? "<generated>"}'.");
+            
+            // This call will either succeed and trigger OnClientConnected,
+            // fail and trigger OnClientDisconnected, or be cancelled.
+            await _client.ConnectAsync(_currentOptions, combinedToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // This is expected if the user cancels. The OnClientDisconnected handler will set the final state.
+            LogMessage?.Invoke(this, "Connection attempt was cancelled.");
         }
         catch (Exception ex)
         {
+            // For any other exception, the OnClientDisconnected handler will be triggered by the library,
+            // where it will log the error and set the state.
             LogMessage?.Invoke(this, $"Connection attempt failed: {ex.Message}");
-            _currentOptions = null;
-            ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, ex));
-        }
-        finally
-        {
-            _connecting = false;
         }
     }
 
-     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
+public async Task DisconnectAsync(CancellationToken cancellationToken = default)
+{
+    // This method now has a single responsibility: to signal that the user wants to stop.
+    // It cancels the master token for this connection cycle.
+    LogMessage?.Invoke(this, "Disconnect/Cancel requested by user.");
+    _connectionCts?.Cancel();
+
+    // If the client is already connected, we can also initiate a graceful disconnect.
+    // The OnClientDisconnected handler will still fire, but this can speed up the process.
+    if (_client.IsConnected)
     {
-        if (!_client.IsConnected)
-        {
-             LogMessage?.Invoke(this, "Already disconnected.");
-             return;
-        }
         await _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build(), cancellationToken);
-        LogMessage?.Invoke(this, "Disconnect requested by user.");
-        _currentOptions = null;
-        // State change handled by OnClientDisconnected
     }
+    else
+    {
+        // If not connected (i.e., in Connecting state), immediately set state to Disconnected
+        ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, null, ConnectionStatusState.Disconnected));
+    }
+}
 
     public async Task PublishAsync(string topic, string payload, bool retain = false, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtMostOnce, CancellationToken cancellationToken = default)
     {
@@ -455,41 +466,72 @@ public class MqttEngine : IMqttService // Implement the interface
         return bestMatchSize;
     }
 
-    private async Task ReconnectAsync()
+    private async Task ReconnectAsync(CancellationToken cancellationToken)
     {
-        LogMessage?.Invoke(this, "Starting reconnection attempts...");
-        int reconnectCount = 1;
-        while (!_isDisposing && !_client.IsConnected)
+        try
         {
-            try
+            LogMessage?.Invoke(this, "Starting reconnection attempts...");
+            
+            // Initial delay before the first retry in the loop
+            await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+
+            int reconnectCount = 1;
+            while (!cancellationToken.IsCancellationRequested && !_isDisposing && !_client.IsConnected)
             {
-                LogMessage?.Invoke(this, $"Attempting to reconnect ({reconnectCount})...");
-                await ConnectAsync(CancellationToken.None); // ConnectAsync handles its own logging/state
+                try
+                {
+                    LogMessage?.Invoke(this, $"Attempting to reconnect ({reconnectCount})...");
+                    // Use the existing options, don't call the public ConnectAsync
+                    if (_currentOptions != null)
+                    {
+                        await _client.ConnectAsync(_currentOptions, cancellationToken);
+                    }
+                    else
+                    {
+                        LogMessage?.Invoke(this, "Cannot reconnect, options are not set. Aborting.");
+                        break;
+                    }
 
-                // Add delay even after attempt, before checking IsConnected again
-                await Task.Delay(TimeSpan.FromMilliseconds(250));
-
-                if (_client.IsConnected) break; // Exit if connected
-
-            }
-            catch (Exception ex) // Fallback catch
-            {
-                LogMessage?.Invoke(this, $"Reconnect attempt {reconnectCount} failed in outer loop: {ex.Message}");
-            }
-
-            // Wait before the next attempt
-            try
-            {
-                int delaySeconds = Math.Min(30, 5 * reconnectCount);
-                await Task.Delay(TimeSpan.FromSeconds(delaySeconds), CancellationToken.None); // Loop condition handles disposal
+                    if (_client.IsConnected) break; // Exit if connected
+                }
+                catch (OperationCanceledException)
+                {
+                    LogMessage?.Invoke(this, "Reconnection was cancelled.");
+                    break; // Exit the loop if cancellation is requested
+                }
+                catch (Exception ex)
+                {
+                    LogMessage?.Invoke(this, $"Reconnect attempt {reconnectCount} failed: {ex.Message}");
+                }
                 reconnectCount++;
-            } catch (TaskCanceledException)
+
+                if (cancellationToken.IsCancellationRequested) break;
+
+                // Wait before the next attempt
+                int delaySeconds = Math.Min(30, 5 * reconnectCount);
+                await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+            }
+
+            // The loop has exited. Now, determine the final state.
+            if (cancellationToken.IsCancellationRequested)
             {
-                 LogMessage?.Invoke(this, "Reconnect delay cancelled.");
-                 break;
+                LogMessage?.Invoke(this, "Reconnection attempts stopped due to user cancellation.");
+                // The state has already been set to Disconnected by the DisconnectAsync method.
+            }
+            else if (!_client.IsConnected)
+            {
+                LogMessage?.Invoke(this, "Reconnection attempts failed after multiple retries.");
+                // The loop finished without success and without being cancelled. We are now officially disconnected.
+                ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, null, ConnectionStatusState.Disconnected));
             }
         }
-        LogMessage?.Invoke(this, _client.IsConnected ? "Reconnection successful." : "Reconnection attempts stopped.");
+        finally
+        {
+            lock (_reconnectLock)
+            {
+                _isReconnectLoopRunning = false;
+            }
+        }
     }
 
     // Modified message handling logic with batching for performance
@@ -640,33 +682,46 @@ public class MqttEngine : IMqttService // Implement the interface
     private Task OnClientConnected(MqttClientConnectedEventArgs args)
     {
         LogMessage?.Invoke(this, "Connected successfully.");
-        ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(true, null));
-        _ = Task.Run(() => SubscribeToTopicsAsync(CancellationToken.None), CancellationToken.None);
+        ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(true, null, ConnectionStatusState.Connected));
+        
+        var token = _connectionCts?.Token ?? CancellationToken.None;
+        if (!token.IsCancellationRequested)
+        {
+            _ = Task.Run(() => SubscribeToTopicsAsync(token), token);
+        }
+        
         return Task.CompletedTask;
     }
 
-    private async Task OnClientDisconnected(MqttClientDisconnectedEventArgs e)
+    private Task OnClientDisconnected(MqttClientDisconnectedEventArgs e)
     {
         LogMessage?.Invoke(this, $"Disconnected: {e.ReasonString}. Client Was Connected: {e.ClientWasConnected}");
-        ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, e.Exception));
 
-        // Only attempt reconnect if not disposing and it wasn't a deliberate disconnect by us
-        if (!_isDisposing && e.Reason != MqttClientDisconnectReason.NormalDisconnection && e.ClientWasConnected)
+        // If the disconnect was intentional (user clicked Disconnect/Cancel) or we are disposing,
+        // then set the state to Disconnected and do not attempt to reconnect.
+        if (_isDisposing || (_connectionCts?.IsCancellationRequested ?? true))
         {
-             LogMessage?.Invoke(this, "Will attempt reconnection shortly...");
-             await Task.Delay(TimeSpan.FromSeconds(5)); // Initial delay before starting reconnect loop
-             if (!_isDisposing) // Check again after delay
-             {
-                 _ = Task.Run(ReconnectAsync);
-             }
+            ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, e.Exception, ConnectionStatusState.Disconnected));
+            return Task.CompletedTask;
         }
-         else if (!e.ClientWasConnected && !_isDisposing) // Handle case where initial connection might have failed implicitly
+
+        // If the disconnect was unintentional, start the reconnect process.
+        lock (_reconnectLock)
         {
-             LogMessage?.Invoke(this, "Initial connection likely failed or disconnected immediately. Attempting connection loop.");
-             if (!_isDisposing)
-             {
-                 _ = Task.Run(ReconnectAsync); // Start reconnect attempts
-             }
+            if (_isReconnectLoopRunning)
+            {
+                LogMessage?.Invoke(this, "Disconnected, but reconnect loop is already active.");
+                return Task.CompletedTask;
+            }
+            _isReconnectLoopRunning = true;
         }
+
+        LogMessage?.Invoke(this, "Will attempt reconnection shortly...");
+        ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, e.Exception, ConnectionStatusState.Connecting));
+
+        // Run the reconnect logic in a background task.
+        _ = Task.Run(() => ReconnectAsync(_connectionCts.Token), _connectionCts.Token);
+        
+        return Task.CompletedTask;
     }
 } // End of MqttEngine class
