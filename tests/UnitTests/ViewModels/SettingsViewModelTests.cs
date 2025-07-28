@@ -65,16 +65,16 @@ public class SettingsViewModelTests
         var settingsData = vm.Into();
 
         // Assert
-        Assert.Equal("Enhanced Authentication", settingsData.AuthenticationMethod);
+        Assert.Null(settingsData.AuthenticationMethod);
         Assert.Equal("my-token", settingsData.AuthenticationData);
-        Assert.IsType<AnonymousAuthenticationMode>(settingsData.AuthMode);
+        Assert.IsType<EnhancedAuthenticationMode>(settingsData.AuthMode);
     }
     
     [Fact]
     public void From_SettingsData_SetsCorrectAuthMode_ForEnhanced()
     {
         // Arrange
-        var settingsData = new SettingsData("host", 1, "client", 1, true, 1, new AnonymousAuthenticationMode(), null, null, "Enhanced Authentication", "my-token");
+        var settingsData = new SettingsData("host", 1, "client", 1, true, 1, new EnhancedAuthenticationMode("mode", "my-token"), null, null);
         var vm = new SettingsViewModel();
 
         // Act
@@ -82,7 +82,7 @@ public class SettingsViewModelTests
 
         // Assert
         Assert.Equal(SettingsViewModel.AuthModeSelection.Enhanced, vm.SelectedAuthMode);
-        Assert.Equal("Enhanced Authentication", vm.AuthenticationMethod);
+        Assert.Equal("mode", vm.AuthenticationMethod);
         Assert.Equal("my-token", vm.AuthenticationData);
     }
 }

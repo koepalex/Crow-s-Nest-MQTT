@@ -35,8 +35,7 @@ public class EnhancedAuthenticationHandlerTests
     {
         // Arrange
         var validToken = GenerateTestToken(DateTime.UtcNow.AddHours(1));
-        var userProperties = new MqttUserProperty[] { new("token", validToken) };
-        var options = new MqttClientOptions { UserProperties = userProperties.ToList() };
+        var options = new MqttClientOptions { AuthenticationMethod = "K8S-SAT", AuthenticationData = Encoding.UTF8.GetBytes(validToken) };
         var handler = new EnhancedAuthenticationHandler(options);
         
         var logMessages = new System.Collections.Generic.List<string>();
@@ -46,30 +45,29 @@ public class EnhancedAuthenticationHandlerTests
         handler.Configure();
 
         // Assert
-        Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token is valid"));
+        Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token is valid until"));
     }
 
     [Fact]
-    public async Task ConnectAsync_WithExpiredToken_LogsWarning()
+    public void  ConnectAsync_WithExpiredToken_LogsWarning()
     {
         // Arrange
         var expiredToken = GenerateTestToken(DateTime.UtcNow.AddHours(-1));
-        var userProperties = new MqttUserProperty[] { new("token", expiredToken) };
-        var options = new MqttClientOptions { UserProperties = userProperties.ToList() };
+        var options = new MqttClientOptions { AuthenticationMethod = "K8S-SAT", AuthenticationData = Encoding.UTF8.GetBytes(expiredToken) };
         var handler = new EnhancedAuthenticationHandler(options);
 
         var logMessages = new System.Collections.Generic.List<string>();
         AppLogger.OnLogMessage += (level, message) => { if (level == "Warning") logMessages.Add(message); };
 
         // Act
-        await handler.Configure();
+        handler.Configure();
 
         // Assert
-        Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token has expired"));
+        Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token has expired on"));
     }
 
     [Fact]
-    public async Task ConnectAsync_WithMissingToken_LogsWarning()
+    public void  ConnectAsync_WithMissingToken_LogsWarning()
     {
         // Arrange
         var options = new MqttClientOptions(); // No user properties
@@ -79,27 +77,26 @@ public class EnhancedAuthenticationHandlerTests
         AppLogger.OnLogMessage += (level, message) => { if (level == "Warning") logMessages.Add(message); };
 
         // Act
-        await handler.Configure();
+        handler.Configure();
 
         // Assert
-        Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token not found"));
+        Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token not found in UserProperties."));
     }
     
     [Fact]
-    public async Task ConnectAsync_WithEmptyToken_LogsWarning()
+    public void ConnectAsync_WithEmptyToken_LogsWarning()
     {
         // Arrange
-        var userProperties = new MqttUserProperty[] { new("token", "") };
-        var options = new MqttClientOptions { UserProperties = userProperties.ToList() };
+        var options = new MqttClientOptions { AuthenticationData = Encoding.UTF8.GetBytes(string.Empty) };
         var handler = new EnhancedAuthenticationHandler(options);
 
         var logMessages = new System.Collections.Generic.List<string>();
         AppLogger.OnLogMessage += (level, message) => { if (level == "Warning") logMessages.Add(message); };
 
         // Act
-        await handler.Configure();
+        handler.Configure();
 
         // Assert
-        Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token not found"));
+        Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token not found in UserProperties."));
     }
 }

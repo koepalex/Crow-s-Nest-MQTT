@@ -330,8 +330,7 @@ namespace CrowsNestMqtt.UnitTests
             {
                 Hostname = "localhost",
                 Port = 1883,
-                AuthenticationMethod = "Enhanced Authentication",
-                AuthenticationData = "my-jwt-token"
+                AuthMode = new EnhancedAuthenticationMode("Enhanced Authentication", "my-jwt-token"),
             };
             var engine = new MqttEngine(settings);
 
