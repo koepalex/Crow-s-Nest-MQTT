@@ -80,6 +80,8 @@ Crow's Nest MQTT provides a command interface (likely accessible via a dedicated
 *   `:setuser <username>` - Set the username for MQTT authentication.
 *   `:setpass <password>` - Set the password for MQTT authentication.
 *   `:setauthmode <anonymous|userpass|enhanced>` - Set the authentication mode.
+*   `:setauthmethod <method>` - Set the authentication method for enhanced authentication (e.g., `SCRAM-SHA-1`, `K8S-SAT`).
+*   `:setauthdata <data>` - Set the authentication data for enhanced authentication (method-specific data).
 *   `[search_term]` - Any text entered without a `:` prefix is treated as a search term to filter messages.
 
 ## Enhanced Authentication

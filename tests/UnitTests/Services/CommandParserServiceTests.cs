@@ -158,5 +158,71 @@ namespace CrowsNestMqtt.UnitTests.Services
             Assert.Null(result.ParsedCommand);
             Assert.Equal("Invalid arguments for :setpass. Expected: :setpass <password>", result.ErrorMessage);
         }
+
+        // Tests for :setauthmethod
+        [Fact]
+        public void ParseCommand_SetAuthMethod_ValidArg_ShouldSucceed()
+        {
+            var input = ":setauthmethod SCRAM-SHA-1";
+            var result = _parser.ParseCommand(input, _defaultSettings);
+            Assert.True(result.IsSuccess);
+            Assert.NotNull(result.ParsedCommand);
+            Assert.Equal(CommandType.SetAuthMethod, result.ParsedCommand.Type);
+            Assert.Single(result.ParsedCommand.Arguments);
+            Assert.Equal("SCRAM-SHA-1", result.ParsedCommand.Arguments[0]);
+        }
+
+        [Fact]
+        public void ParseCommand_SetAuthMethod_NoArgs_ShouldFail()
+        {
+            var input = ":setauthmethod";
+            var result = _parser.ParseCommand(input, _defaultSettings);
+            Assert.False(result.IsSuccess);
+            Assert.Null(result.ParsedCommand);
+            Assert.Equal("Invalid arguments for :setauthmethod. Expected: :setauthmethod <method>", result.ErrorMessage);
+        }
+
+        [Fact]
+        public void ParseCommand_SetAuthMethod_MultipleArgs_ShouldFail()
+        {
+            var input = ":setauthmethod SCRAM-SHA-1 extra";
+            var result = _parser.ParseCommand(input, _defaultSettings);
+            Assert.False(result.IsSuccess);
+            Assert.Null(result.ParsedCommand);
+            Assert.Equal("Invalid arguments for :setauthmethod. Expected: :setauthmethod <method>", result.ErrorMessage);
+        }
+
+        // Tests for :setauthdata
+        [Fact]
+        public void ParseCommand_SetAuthData_ValidArg_ShouldSucceed()
+        {
+            var input = ":setauthdata someData";
+            var result = _parser.ParseCommand(input, _defaultSettings);
+            Assert.True(result.IsSuccess);
+            Assert.NotNull(result.ParsedCommand);
+            Assert.Equal(CommandType.SetAuthData, result.ParsedCommand.Type);
+            Assert.Single(result.ParsedCommand.Arguments);
+            Assert.Equal("someData", result.ParsedCommand.Arguments[0]);
+        }
+
+        [Fact]
+        public void ParseCommand_SetAuthData_NoArgs_ShouldFail()
+        {
+            var input = ":setauthdata";
+            var result = _parser.ParseCommand(input, _defaultSettings);
+            Assert.False(result.IsSuccess);
+            Assert.Null(result.ParsedCommand);
+            Assert.Equal("Invalid arguments for :setauthdata. Expected: :setauthdata <data>", result.ErrorMessage);
+        }
+
+        [Fact]
+        public void ParseCommand_SetAuthData_MultipleArgs_ShouldFail()
+        {
+            var input = ":setauthdata foo bar";
+            var result = _parser.ParseCommand(input, _defaultSettings);
+            Assert.False(result.IsSuccess);
+            Assert.Null(result.ParsedCommand);
+            Assert.Equal("Invalid arguments for :setauthdata. Expected: :setauthdata <data>", result.ErrorMessage);
+        }
     }
 }

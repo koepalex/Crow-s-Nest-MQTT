@@ -272,6 +272,20 @@ public class CommandParserService : ICommandParserService
                 }
                 return CommandResult.Failure("Invalid arguments for :setauthmode. Expected: :setauthmode <anonymous|userpass|enhanced>");
 
+            case "setauthmethod":
+                if (arguments.Count == 1)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.SetAuthMethod, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :setauthmethod. Expected: :setauthmethod <method>");
+
+            case "setauthdata":
+                if (arguments.Count == 1)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.SetAuthData, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :setauthdata. Expected: :setauthdata <data>");
+
             case "settings":
                 if (arguments.Count == 0)
                 {
