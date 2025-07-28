@@ -87,6 +87,13 @@
               <TextBlock Text="(Filtered)" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Orange" FontStyle="Italic" IsVisible="{Binding IsTopicFilterActive}"/>
               <!-- Status Bar Text -->
               <TextBlock Text="{Binding StatusBarText}" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Gray" FontStyle="Italic"/>
+              <!-- Connection Status Message (for Connecting/Disconnected) -->
+              <TextBlock Text="{Binding ConnectionStatusMessage}" 
+                         VerticalAlignment="Center" 
+                         Margin="10,0,0,0" 
+                         Foreground="OrangeRed" 
+                         FontStyle="Italic"
+                         IsVisible="{Binding IsConnecting}" />
              </StackPanel>
 
           <!-- Right-aligned Settings button with Icon -->

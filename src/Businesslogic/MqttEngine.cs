@@ -471,16 +471,28 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
         try
         {
             LogMessage?.Invoke(this, "Starting reconnection attempts...");
-            
-            // Initial delay before the first retry in the loop
-            await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
-
             int reconnectCount = 1;
+            int delaySeconds = 5;
+
+            ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(
+                false, null, ConnectionStatusState.Connecting,
+                $"Connection lost. Attempting to reconnect... (Attempt {reconnectCount}, next in {delaySeconds}s)"
+            ));
+
+            // Initial delay before the first retry in the loop
+            await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+
             while (!cancellationToken.IsCancellationRequested && !_isDisposing && !_client.IsConnected)
             {
                 try
                 {
-                    LogMessage?.Invoke(this, $"Attempting to reconnect ({reconnectCount})...");
+                    var attemptMessage = $"Reconnect attempt {reconnectCount}...";
+                    LogMessage?.Invoke(this, attemptMessage);
+                    ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(
+                        false, null, ConnectionStatusState.Connecting,
+                        $"Attempting to reconnect (Attempt {reconnectCount})..."
+                    ));
+
                     // Use the existing options, don't call the public ConnectAsync
                     if (_currentOptions != null)
                     {
@@ -489,6 +501,10 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
                     else
                     {
                         LogMessage?.Invoke(this, "Cannot reconnect, options are not set. Aborting.");
+                        ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(
+                            false, null, ConnectionStatusState.Disconnected,
+                            "Cannot reconnect, options not set."
+                        ));
                         break;
                     }
 
@@ -502,13 +518,23 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
                 catch (Exception ex)
                 {
                     LogMessage?.Invoke(this, $"Reconnect attempt {reconnectCount} failed: {ex.Message}");
+                    ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(
+                        false, ex, ConnectionStatusState.Connecting,
+                        $"Reconnect attempt {reconnectCount} failed: {ex.Message}"
+                    ));
                 }
                 reconnectCount++;
 
                 if (cancellationToken.IsCancellationRequested) break;
 
                 // Wait before the next attempt
-                int delaySeconds = Math.Min(30, 5 * reconnectCount);
+                delaySeconds = Math.Min(30, 5 * reconnectCount);
+                var backoffMessage = $"Next reconnect attempt in {delaySeconds} seconds (Attempt {reconnectCount})...";
+                LogMessage?.Invoke(this, backoffMessage);
+                ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(
+                    false, null, ConnectionStatusState.Connecting,
+                    $"Waiting {delaySeconds}s before next reconnect (Attempt {reconnectCount})"
+                ));
                 await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
             }
 
@@ -522,7 +548,10 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
             {
                 LogMessage?.Invoke(this, "Reconnection attempts failed after multiple retries.");
                 // The loop finished without success and without being cancelled. We are now officially disconnected.
-                ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, null, ConnectionStatusState.Disconnected));
+                ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(
+                    false, null, ConnectionStatusState.Disconnected,
+                    "Reconnection attempts failed. Please check your network or broker settings."
+                ));
             }
         }
         finally

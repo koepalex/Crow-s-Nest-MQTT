@@ -134,10 +134,7 @@ var connectionStateEventArgs = new MqttConnectionStateChangedEventArgs(true, nul
                clientId
            );
 
-           // Setup for pause state
-            viewModel.IsPaused = false;
-
-            // Act - Simulate message received event
+           // Act - Simulate message received event
            // Raise the event on the mock interface
            _mqttServiceMock.MessageReceived += Raise.EventWith(_mqttServiceMock, identifiedArgs);
 
@@ -186,7 +183,7 @@ var connectionStateEventArgs = new MqttConnectionStateChangedEventArgs(true, nul
                 );
 
                 // Set pause state to true
-                viewModel.IsPaused = true;
+                viewModel.PauseResumeCommand.Execute().Subscribe();
 
                 // Act - Simulate message received event
                 _mqttServiceMock.MessageReceived += Raise.EventWith(_mqttServiceMock, identifiedArgs);

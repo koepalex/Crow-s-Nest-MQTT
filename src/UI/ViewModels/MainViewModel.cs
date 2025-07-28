@@ -126,6 +126,13 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     public bool IsConnecting => ConnectionStatus == ConnectionStatusState.Connecting;
     public bool IsDisconnected => ConnectionStatus == ConnectionStatusState.Disconnected;
 
+    private string? _connectionStatusMessage;
+    public string? ConnectionStatusMessage
+    {
+        get => _connectionStatusMessage;
+        private set => this.RaiseAndSetIfChanged(ref _connectionStatusMessage, value);
+    }
+
     private bool _isPaused;
     public bool IsPaused
     {
@@ -457,6 +464,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         {
             // The new event args from the engine will tell us the exact state.
             ConnectionStatus = e.ConnectionStatus;
+            ConnectionStatusMessage = e.ReconnectInfo ?? e.Error?.Message;
 
             // Manually raise property changed for all computed properties that depend on the status
             this.RaisePropertyChanged(nameof(IsConnected));
