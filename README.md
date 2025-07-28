@@ -4,6 +4,24 @@
 
 Whether you're a seasoned developer or a newcomer to IoT, Crow’s NestMQTT provides robust tools for subscribing to topics, and inspecting payloads in real time. The client offers customizable dashboards, seamless connection management, and advanced filtering options, ensuring you can quickly pinpoint critical data streams. Its cross-platform support means that no matter your operating system, you can harness the power of MQTT to orchestrate reliable and secure message flows. Welcome aboard, and let Crow’s NestMQTT guide you through the vast network of your IoT environment!
 
+## Why using it?
+
+* Focused on developer 💻
+* Controllable via keyboard shortcuts ⌨️
+* MQTT V5 feature rich 📨
+  * Shows more than only MQTT message payload
+    * metadata like `response-topic`, `correlation-data`, `content-type`  etc.
+    * all user properties
+  * Supports MQTT V5 enhanced authentication
+* Supports TLS connection to MQTT Broker 🔐
+* Can handle huge amount of MQTT messages 
+* Allows filtering of MQTT topics by pattern 🗃️
+* Allows searching of pattern within MQTT message payloads 🔍
+* Supports copy of MQTT message including metadata 
+* Export if MQTT messages  
+* `content-type` aware visual representation of MQTT message payload 
+* dotnet Aspire context aware
+
 ## Graphical User Interface
 
 ![](./doc/images/settings_open.png)
@@ -25,7 +43,7 @@ Used to show MQTT topics, where messages are received. Selecting a topic here wi
 Shows the history of received messages of the selected topic. Including the received time, the size, a small preview and the possibility to copy the whole message. Selecting a message here will set the context for details and metadata panes.
 
 **5. Payload View**
-Shows the payload of the message selected in history view. Supports rendering of JSON payload or shows payload as text. The default viewer is depending on `contentType` of the selected Message. The viewer can be switched by using `:view raw` and `:view json` commands.
+Shows the payload of the message selected in history view. Supports rendering of JSON payload or shows payload as text. The default viewer is depending on `content-type` of the selected Message. The viewer can be switched by using `:view raw` and `:view json` commands.
 
 **6. Metadata View**
 Shows all the metadata of the message selected in history view. Including standard metadata like `correlation-id`, `response-topic` but also custom metadata like `user-properties`. 
@@ -104,3 +122,16 @@ You can set the authentication mode to `enhanced` using the `:setauthmode` comma
 ```
 
 When connecting to a broker with Enhanced Authentication, the client and broker will exchange authentication data until the authentication process is complete.
+
+## dotnet Aspire
+
+Crow's NestMQTT is will automatically connect to the MQTT Broker endpoint, defined via dotnet Aspire environment variable, it expects service name to be `mqtt` and endpoint to be named `default`. For example environment variable `services__mqtt__default__0` would contain `mqtt://localhost:42069`.
+
+```csharp
+  // ...
+  var mqttViewerWorkingDirectory = @"S:\upertools\CrowsNestMqtt";
+  builder
+      .AddExecutable("mqtt-client", Path.Combine(mqttViewerWorkingDirectory, "CrowsNestMqtt.App.exe"), mqttViewerWorkingDirectory)
+      .WithReference(mqttBrokerEndpoint)
+      .WaitFor(mqttBroker);
+```
