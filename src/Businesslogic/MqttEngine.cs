@@ -129,6 +129,21 @@ public class MqttEngine : IMqttService // Implement the interface
             builder.WithClientId(_settings.ClientId);
         }
 
+        // TLS support
+        if (_settings.UseTls)
+        {
+            var tlsOptions = new MqttClientTlsOptions
+            {
+                UseTls = true,
+                AllowUntrustedCertificates = true,
+                IgnoreCertificateChainErrors = true,
+                IgnoreCertificateRevocationErrors = true,
+                SslProtocol = System.Security.Authentication.SslProtocols.None, //let OS choose
+                CertificateValidationHandler = _ => true,
+            };
+            builder.WithTlsOptions(tlsOptions);
+        }
+
         // Add credentials based on AuthMode
         switch (_settings.AuthMode)
         {

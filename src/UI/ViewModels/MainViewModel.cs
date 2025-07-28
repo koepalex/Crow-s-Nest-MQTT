@@ -833,7 +833,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             CleanSession = Settings.CleanSession,
             SessionExpiryInterval = Settings.SessionExpiryInterval,
             TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits,
-            AuthMode = Settings.Into().AuthMode
+            AuthMode = Settings.Into().AuthMode,
+            UseTls = Settings.UseTls
         };
         // Update the engine with the latest settings before connecting
         _mqttService.UpdateSettings(connectionSettings); // Use _mqttService
@@ -1100,6 +1101,28 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                         Log.Warning("Invalid arguments for SetAuthData command.");
                     }
                     break;
+                case CommandType.SetUseTls:
+                    if (command.Arguments.Count == 1)
+                    {
+                        var arg = command.Arguments[0].ToLowerInvariant();
+                        if (arg == "true" || arg == "false")
+                        {
+                            this.Settings.UseTls = arg == "true";
+                            StatusBarText = $"TLS usage set to {arg}. Settings will be saved.";
+                            Log.Information("TLS usage set via command: {Value}", arg);
+                        }
+                        else
+                        {
+                            StatusBarText = "Error: :setusetls requires argument <true|false>.";
+                            Log.Warning("Invalid argument for SetUseTls command: {Argument}", arg);
+                        }
+                    }
+                    else
+                    {
+                        StatusBarText = "Error: :setusetls requires exactly one argument <true|false>.";
+                        Log.Warning("Invalid arguments for SetUseTls command.");
+                    }
+                    break;
                 default:
                     StatusBarText = $"Error: Unknown command type '{command.Type}'.";
                     Log.Warning("Unknown command type encountered: {CommandType}", command.Type);
@@ -1134,6 +1157,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         { "setauthmode", (":setauthmode <anonymous|userpass|enhanced>", "Sets the MQTT authentication mode.") },
         { "setauthmethod", (":setauthmethod <method>", "Sets the authentication method for enhanced authentication (e.g., SCRAM-SHA-1, K8S-SAT).") },
         { "setauthdata", (":setauthdata <data>", "Sets the authentication data for enhanced authentication (method-specific data).") },
+        { "setusetls", (":setusetls <true|false>", "Sets whether to use TLS for MQTT connections. true = enable TLS, false = disable TLS.") },
         { "settings", (":settings", "Toggles the visibility of the settings pane.") }
     };
 
@@ -1242,8 +1266,15 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     private void Export(ParsedCommand command)
     {
-        var selectedMsgVm = SelectedMessage; // Cache locally
-        var fullMessage = selectedMsgVm?.GetFullMessage(); // Use method
+        var selectedMsgVmNullable = SelectedMessage; // Cache locally
+        if (selectedMsgVmNullable == null)
+        {
+            StatusBarText = "Error: No message selected to export.";
+            Log.Warning("Export command failed: No message selected.");
+            return;
+        }
+        var selectedMsgVm = selectedMsgVmNullable;
+        var fullMessage = selectedMsgVm.GetFullMessage(); // Use method
         if (fullMessage == null)
         {
             StatusBarText = "Error: No message selected to export.";
@@ -1281,7 +1312,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         {
             // Use the timestamp from the ViewModel as it represents arrival time
             // Use the fetched fullMessage and the cached selectedMsgVm for timestamp
-            string? exportedFilePath = exporter.ExportToFile(fullMessage, selectedMsgVm!.Timestamp, folderPath); // Use null-forgiving operator as selectedMsgVm is guaranteed non-null here
+            string? exportedFilePath = exporter.ExportToFile(fullMessage, selectedMsgVm.Timestamp, folderPath);
 
             if (exportedFilePath != null)
             {

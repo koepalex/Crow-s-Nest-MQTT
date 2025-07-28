@@ -22,6 +22,24 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public void Into_SettingsData_HasCorrectUseTls()
+    {
+        var vm = new SettingsViewModel();
+        vm.UseTls = true;
+        var settingsData = vm.Into();
+        Assert.True(settingsData.UseTls);
+    }
+
+    [Fact]
+    public void From_SettingsData_SetsUseTls()
+    {
+        var settingsData = new SettingsData("host", 1, "client", 1, true, 1, new AnonymousAuthenticationMode(), null, null, true);
+        var vm = new SettingsViewModel();
+        vm.From(settingsData);
+        Assert.True(vm.UseTls);
+    }
+
+    [Fact]
     public void IsEnhancedAuthSelected_IsTrue_WhenAuthModeIsEnhanced()
     {
         // Arrange
@@ -58,6 +76,7 @@ public class SettingsViewModelTests
         var vm = new SettingsViewModel
         {
             SelectedAuthMode = SettingsViewModel.AuthModeSelection.Enhanced,
+            AuthenticationMethod = null,
             AuthenticationData = "my-token"
         };
 
@@ -65,8 +84,8 @@ public class SettingsViewModelTests
         var settingsData = vm.Into();
 
         // Assert
-        Assert.Null(settingsData.AuthenticationMethod);
-        Assert.Equal("my-token", settingsData.AuthenticationData);
+        Assert.Equal(vm.AuthenticationMethod, (settingsData.AuthMode as EnhancedAuthenticationMode)!.AuthenticationMethod);
+        Assert.Equal("my-token", (settingsData.AuthMode as EnhancedAuthenticationMode)!.AuthenticationData);
         Assert.IsType<EnhancedAuthenticationMode>(settingsData.AuthMode);
     }
     

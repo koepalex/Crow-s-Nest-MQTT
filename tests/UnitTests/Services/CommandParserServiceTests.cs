@@ -224,5 +224,39 @@ namespace CrowsNestMqtt.UnitTests.Services
             Assert.Null(result.ParsedCommand);
             Assert.Equal("Invalid arguments for :setauthdata. Expected: :setauthdata <data>", result.ErrorMessage);
         }
+
+        [Theory]
+        [InlineData("true")]
+        [InlineData("false")]
+        public void ParseCommand_SetUseTls_ValidArgs_ShouldSucceed(string value)
+        {
+            var input = $":setusetls {value}";
+            var result = _parser.ParseCommand(input, _defaultSettings);
+            Assert.True(result.IsSuccess);
+            Assert.NotNull(result.ParsedCommand);
+            Assert.Equal(CommandType.SetUseTls, result.ParsedCommand.Type);
+            Assert.Single(result.ParsedCommand.Arguments);
+            Assert.Equal(value, result.ParsedCommand.Arguments[0]);
+        }
+
+        [Fact]
+        public void ParseCommand_SetUseTls_InvalidArg_ShouldFail()
+        {
+            var input = ":setusetls maybe";
+            var result = _parser.ParseCommand(input, _defaultSettings);
+            Assert.False(result.IsSuccess);
+            Assert.Null(result.ParsedCommand);
+            Assert.Equal("Invalid argument for :setusetls. Expected: :setusetls <true|false>", result.ErrorMessage);
+        }
+
+        [Fact]
+        public void ParseCommand_SetUseTls_NoArgs_ShouldFail()
+        {
+            var input = ":setusetls";
+            var result = _parser.ParseCommand(input, _defaultSettings);
+            Assert.False(result.IsSuccess);
+            Assert.Null(result.ParsedCommand);
+            Assert.Equal("Invalid arguments for :setusetls. Expected: :setusetls <true|false>", result.ErrorMessage);
+        }
     }
 }
