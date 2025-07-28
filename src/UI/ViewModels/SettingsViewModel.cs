@@ -73,6 +73,13 @@ public class SettingsViewModel : ReactiveObject
     private bool _isLoading = false; // Flag to prevent saving during initial load
 #pragma warning restore IDE0044 // Add readonly modifier
 
+    private bool _useTls = false;
+    public bool UseTls
+    {
+        get => _useTls;
+        set => this.RaiseAndSetIfChanged(ref _useTls, value);
+    }
+
     public SettingsViewModel()
     {
         ExportPath = _exportFolderPath; // Set default before loading
@@ -111,7 +118,8 @@ public class SettingsViewModel : ReactiveObject
             this.WhenAnyValue(x => x.AuthPassword),
             this.WhenAnyValue(x => x.AuthenticationMethod),
             this.WhenAnyValue(x => x.AuthenticationData),
-            (_, _, _, _, _, _, _, _, _, _, _, _, _) => Unit.Default);
+            this.WhenAnyValue(x => x.UseTls),
+            (_, _, _, _, _, _, _, _, _, _, _, _, _, _) => Unit.Default);
 
         // Observable for changes within the TopicSpecificLimits collection (add/remove)
         var collectionChanged = Observable.FromEventPattern<System.Collections.Specialized.NotifyCollectionChangedEventHandler, System.Collections.Specialized.NotifyCollectionChangedEventArgs>(
@@ -310,7 +318,8 @@ public class SettingsViewModel : ReactiveObject
             SessionExpiryIntervalSeconds,
             authModeSetting,
             ExportFormat,
-            ExportPath
+            ExportPath,
+            UseTls
         )
         {
             TopicSpecificBufferLimits = topicLimits
@@ -327,6 +336,7 @@ public class SettingsViewModel : ReactiveObject
         SessionExpiryIntervalSeconds = settingsData.SessionExpiryIntervalSeconds;
         ExportFormat = settingsData.ExportFormat;
         ExportPath = settingsData.ExportPath;
+        UseTls = settingsData.UseTls;
         TopicSpecificLimits.Clear();
         if (settingsData.TopicSpecificBufferLimits != null)
         {

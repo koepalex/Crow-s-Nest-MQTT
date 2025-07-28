@@ -45,6 +45,8 @@ public enum CommandType
     SetAuthMethod,
     /// <summary> Set the MQTT authentication data. </summary>
     SetAuthData,
+    /// <summary> Set the MQTT TLS usage flag. </summary>
+    SetUseTls,
     /// <summary> Represents an unrecognized or invalid command. </summary>
     Unknown
 }

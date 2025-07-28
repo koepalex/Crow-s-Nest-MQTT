@@ -35,6 +35,7 @@ Shows all the metadata of the message selected in history view. Including standa
 Configure how the client connects to your MQTT broker:
 - **Hostname**: The broker address (default: `localhost`).
 - **Port**: The broker port (default: `1883`).
+- **Use TLS**: Enable to connect to the broker using TLS encryption. If enabled, the client will allow untrusted certificates and ignore certificate chain and revocation errors. You can also set this via the `:setusetls <true|false>` command.
 - **Client ID**: Optional identifier for the client. If left blank, one is generated.
 - **Keep Alive Interval**: Time in seconds between keep-alive pings (default: `60`).
 - **Clean Session**: If enabled, the broker does not retain session data after disconnect.
@@ -82,6 +83,7 @@ Crow's Nest MQTT provides a command interface (likely accessible via a dedicated
 *   `:setauthmode <anonymous|userpass|enhanced>` - Set the authentication mode.
 *   `:setauthmethod <method>` - Set the authentication method for enhanced authentication (e.g., `SCRAM-SHA-1`, `K8S-SAT`).
 *   `:setauthdata <data>` - Set the authentication data for enhanced authentication (method-specific data).
+*   `:setusetls <true|false>` - Set whether to use TLS for the MQTT connection. When set to `true`, the client will connect using TLS, allow untrusted certificates, and ignore certificate errors.
 *   `[search_term]` - Any text entered without a `:` prefix is treated as a search term to filter messages.
 
 ## Enhanced Authentication
@@ -97,6 +99,8 @@ You can set the authentication mode to `enhanced` using the `:setauthmode` comma
 
 ```
 :setauthmode enhanced
+:setauthmethod ABC
+:setauthdata CAFE
 ```
 
 When connecting to a broker with Enhanced Authentication, the client and broker will exchange authentication data until the authentication process is complete.
