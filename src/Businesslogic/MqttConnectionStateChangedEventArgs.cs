@@ -7,10 +7,13 @@ public class MqttConnectionStateChangedEventArgs : EventArgs
 {
     public bool IsConnected { get; }
     public Exception? Error { get; }
+    
+    public ConnectionStatusState ConnectionStatus { get; }
 
-    public MqttConnectionStateChangedEventArgs(bool isConnected, Exception? error)
+    public MqttConnectionStateChangedEventArgs(bool isConnected, Exception? error, ConnectionStatusState status)
     {
         IsConnected = isConnected;
         Error = error;
+        ConnectionStatus = status;
     }
 }

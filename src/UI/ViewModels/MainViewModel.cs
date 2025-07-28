@@ -114,12 +114,17 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         set => this.RaiseAndSetIfChanged(ref _hasUserProperties, value);
     }
 
-    private bool _isConnected;
-    public bool IsConnected
+    private ConnectionStatusState _connectionStatus = ConnectionStatusState.Disconnected;
+    public ConnectionStatusState ConnectionStatus
     {
-        get => _isConnected;
-        private set => this.RaiseAndSetIfChanged(ref _isConnected, value); // Keep private set
+        get => _connectionStatus;
+        private set => this.RaiseAndSetIfChanged(ref _connectionStatus, value);
     }
+
+    // Computed properties for easy binding in XAML and command `CanExecute`
+    public bool IsConnected => ConnectionStatus == ConnectionStatusState.Connected;
+    public bool IsConnecting => ConnectionStatus == ConnectionStatusState.Connecting;
+    public bool IsDisconnected => ConnectionStatus == ConnectionStatusState.Disconnected;
 
     private bool _isPaused;
     public bool IsPaused
@@ -214,8 +219,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     }
 
     // --- Commands ---
-    public ReactiveCommand<CancellationToken, Unit> ConnectCommand { get; }
-    public ReactiveCommand<CancellationToken, Unit> DisconnectCommand { get; }
+    public ReactiveCommand<Unit, Unit> ConnectCommand { get; }
+    public ReactiveCommand<Unit, Unit> DisconnectCommand { get; }
     public ReactiveCommand<Unit, Unit> ClearHistoryCommand { get; }
     public ReactiveCommand<Unit, Unit> PauseResumeCommand { get; }
     public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; } // Added Settings Command
@@ -350,9 +355,16 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         _mqttService.LogMessage += OnLogMessage;
 
         // --- Command Implementations ---
-        // Rebuild connection settings before connecting if they might change after initial setup
-        ConnectCommand = ReactiveCommand.CreateFromTask<CancellationToken, Unit>(ConnectAsync);
-        DisconnectCommand = ReactiveCommand.CreateFromTask<CancellationToken, Unit>(DisconnectAsync, this.WhenAnyValue(x => x.IsConnected));
+        // --- Command Implementations ---
+        // Define CanExecute conditions for commands based on connection status
+        var canConnect = this.WhenAnyValue(x => x.ConnectionStatus)
+                             .Select(status => status == ConnectionStatusState.Disconnected);
+
+        var canDisconnect = this.WhenAnyValue(x => x.ConnectionStatus)
+                                .Select(status => status == ConnectionStatusState.Connected || status == ConnectionStatusState.Connecting);
+
+        ConnectCommand = ReactiveCommand.CreateFromTask(ConnectAsync, canConnect);
+        DisconnectCommand = ReactiveCommand.CreateFromTask(DisconnectAsync, canDisconnect);
         ClearHistoryCommand = ReactiveCommand.Create(ClearHistory);
         PauseResumeCommand = ReactiveCommand.Create(TogglePause);
         OpenSettingsCommand = ReactiveCommand.Create(OpenSettings); // Initialize Settings Command
@@ -439,21 +451,28 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     private void OnConnectionStateChanged(object? sender, MqttConnectionStateChangedEventArgs e)
     {
-        // Ensure UI updates happen on the UI thread
+        // This event is now the single source of truth for connection state.
+        // The MqttEngine will fire this event when it is connecting, connected, or disconnected.
         Dispatcher.UIThread.Post(() =>
         {
-            IsConnected = e.IsConnected;
-            if (e.IsConnected)
+            // The new event args from the engine will tell us the exact state.
+            ConnectionStatus = e.ConnectionStatus;
+
+            // Manually raise property changed for all computed properties that depend on the status
+            this.RaisePropertyChanged(nameof(IsConnected));
+            this.RaisePropertyChanged(nameof(IsConnecting));
+            this.RaisePropertyChanged(nameof(IsDisconnected));
+
+            if (ConnectionStatus == ConnectionStatusState.Connected)
             {
                 Log.Information("MQTT Client Connected. Starting UI Timer.");
-                StartTimer(TimeSpan.FromSeconds(1)); // Start timer with 1-second interval
-                LoadInitialTopics(); // Load any topics already buffered before connection event
+                StartTimer(TimeSpan.FromSeconds(1));
+                LoadInitialTopics();
             }
-            else
+            else // Disconnected or Connecting
             {
-                Log.Warning(e.Error, "MQTT Client Disconnected. Stopping UI Timer."); // Removed Reason part, Error is logged if present
+                Log.Warning(e.Error, "MQTT Client is not connected. Stopping UI Timer.");
                 StopTimer();
-                // Optionally clear UI state or show disconnected status
             }
         });
     }
@@ -593,7 +612,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         }
     }
 
-
     // Removed LoadMessageHistory method as it's no longer needed.
     // The DynamicData pipeline handles filtering based on SelectedNode.
     private void UpdateMessageDetails(MessageViewModel? messageVm)
@@ -631,7 +649,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         MessageMetadata.Add(new MetadataItem("Expiry (s)", msg.MessageExpiryInterval.ToString()));
         MessageMetadata.Add(new MetadataItem("ContentType", msg.ContentType));
         MessageMetadata.Add(new MetadataItem("Response Topic", msg.ResponseTopic));
-
 
         if (msg.CorrelationData != null && msg.CorrelationData.Length > 0)
         {
@@ -785,7 +802,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         return null; // Default to no highlighting
     }
 
-
     // --- Timer Logic ---
 
     public void StartTimer(TimeSpan interval)
@@ -794,7 +810,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         Log.Debug("Starting UI update timer with interval {Interval}.", interval);
         _updateTimer = new Timer(UpdateTick, null, interval, interval);
     }
-
 
     /// <summary>
     /// Stops the UI update timer.
@@ -805,7 +820,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         _updateTimer?.Dispose();
         _updateTimer = null;
     }
-
 
     /// <summary>
     /// Called by the timer on each tick to update UI elements.
@@ -819,7 +833,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     // --- Command Methods ---
 
-    private async Task<Unit> ConnectAsync(CancellationToken token)
+    private async Task ConnectAsync()
     {
         ClearHistory();
         Log.Information("Connect command executed.");
@@ -836,17 +850,20 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             AuthMode = Settings.Into().AuthMode,
             UseTls = Settings.UseTls
         };
-        // Update the engine with the latest settings before connecting
-        _mqttService.UpdateSettings(connectionSettings); // Use _mqttService
-        await _mqttService.ConnectAsync(token); // Use _mqttService
-        return Unit.Default;
+        
+        _mqttService.UpdateSettings(connectionSettings);
+        
+        // The MqttEngine now manages its own cancellation token.
+        // We just need to call the method.
+        await _mqttService.ConnectAsync();
     }
 
-    private async Task<Unit> DisconnectAsync(CancellationToken token)
+    private async Task DisconnectAsync()
     {
-        Log.Information("Disconnect command executed.");
-        await _mqttService.DisconnectAsync(token); // Use _mqttService, Pass cancellation token
-        return Unit.Default;
+        Log.Information("Disconnect/Cancel command executed.");
+        // The MqttEngine's DisconnectAsync is now responsible for handling
+        // both disconnection and cancellation of an ongoing connection attempt.
+        await _mqttService.DisconnectAsync();
     }
 
     private void ClearHistory()
@@ -1406,7 +1423,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         }
         return anyChildVisible; // Return true if any node at this level or below is visible
     }
-
 
     // --- Topic Tree Management ---
 

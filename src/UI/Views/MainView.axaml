@@ -50,25 +50,38 @@
           <!-- Left-aligned buttons and status -->
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5">
               <Button Content="Connect" Command="{Binding ConnectCommand}" />
-              <Button Content="Disconnect" Command="{Binding DisconnectCommand}" />
+              <Button Command="{Binding DisconnectCommand}" Classes.Connecting="{Binding IsConnecting}">
+                  <Button.Styles>
+                      <Style Selector="Button">
+                          <Setter Property="Content" Value="Disconnect"/>
+                      </Style>
+                      <Style Selector="Button.Connecting">
+                          <Setter Property="Content" Value="Cancel"/>
+                      </Style>
+                  </Button.Styles>
+              </Button>
               <Button Content="Clear" Command="{Binding ClearHistoryCommand}" />
               <Button Content="Pause/Resume" Command="{Binding PauseResumeCommand}" />
               <TextBlock Text="Status:" VerticalAlignment="Center" Margin="10,0,0,0"/>
-              <PathIcon VerticalAlignment="Center" Margin="5,0" ToolTip.Tip="{Binding IsConnected, StringFormat='Connected: {0}'}" Classes.IsConnected="{Binding IsConnected}" Classes.IsNotConnected="{Binding !IsConnected}">
-                <PathIcon.Styles>
-                  <Style Selector="PathIcon.IsNotConnected">
-                    <Style.Setters>
-                        <Setter Property="Data" Value="{StaticResource plug_disconnected_regular}"/>
-                        <Setter Property="Foreground" Value="DarkOrange"/>
-                    </Style.Setters>
-                  </Style>
-                  <Style Selector="PathIcon.IsConnected">
-                    <Style.Setters>
-                        <Setter Property="Data" Value="{StaticResource plug_connected_regular}"/>
-                        <Setter Property="Foreground" Value="DarkGreen"/>
-                    </Style.Setters>
-                  </Style>
-                </PathIcon.Styles>
+              <PathIcon VerticalAlignment="Center" Margin="5,0"
+                        ToolTip.Tip="{Binding ConnectionStatus}"
+                        Classes.IsConnected="{Binding IsConnected}"
+                        Classes.IsConnecting="{Binding IsConnecting}"
+                        Classes.IsDisconnected="{Binding IsDisconnected}">
+                  <PathIcon.Styles>
+                      <Style Selector="PathIcon.IsDisconnected">
+                          <Setter Property="Data" Value="{StaticResource plug_disconnected_regular}"/>
+                          <Setter Property="Foreground" Value="Red"/>
+                      </Style>
+                      <Style Selector="PathIcon.IsConnecting">
+                          <Setter Property="Data" Value="{StaticResource plug_disconnected_regular}"/>
+                          <Setter Property="Foreground" Value="Orange"/>
+                      </Style>
+                      <Style Selector="PathIcon.IsConnected">
+                          <Setter Property="Data" Value="{StaticResource plug_connected_regular}"/>
+                          <Setter Property="Foreground" Value="DarkGreen"/>
+                      </Style>
+                  </PathIcon.Styles>
               </PathIcon>
               <TextBlock Text="{Binding IsPaused, StringFormat='Paused: {0}'}" VerticalAlignment="Center" Margin="5,0"/>
               <TextBlock Text="(Filtered)" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Orange" FontStyle="Italic" IsVisible="{Binding IsTopicFilterActive}"/>
