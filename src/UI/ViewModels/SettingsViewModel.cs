@@ -22,6 +22,7 @@ using System.Linq; // For .Select
 [JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.AuthenticationMode))] // Added for AuthMode
 [JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.AnonymousAuthenticationMode))] // Added for AuthMode
 [JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.UsernamePasswordAuthenticationMode))] // Added for AuthMode
+[JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.EnhancedAuthenticationMode))] // Added for AuthMode
 [JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Exporter.ExportTypes))]
 [JsonSerializable(typeof(Nullable<CrowsNestMqtt.BusinessLogic.Exporter.ExportTypes>))]
 [JsonSerializable(typeof(ObservableCollection<TopicBufferLimitViewModel>))]
@@ -291,8 +292,7 @@ public class SettingsViewModel : ReactiveObject
         }
         else if (SelectedAuthMode == AuthModeSelection.Enhanced)
         {
-            authModeSetting = new AnonymousAuthenticationMode(); // Placeholder, will be handled by the engine
-            AuthenticationMethod = "Enhanced Authentication";
+            authModeSetting = new EnhancedAuthenticationMode(AuthenticationMethod, AuthenticationData);
         }
         else
         {
@@ -341,22 +341,29 @@ public class SettingsViewModel : ReactiveObject
         }
 
         // Handle AuthMode and credentials
-            if (settingsData.AuthMode is UsernamePasswordAuthenticationMode userPassAuth)
-            {
-                SelectedAuthMode = AuthModeSelection.UsernamePassword;
-                AuthUsername = userPassAuth.Username ?? string.Empty;
-                AuthPassword = userPassAuth.Password ?? string.Empty;
-            }
-            else // Covers AnonymousAuthenticationMode and null (for older settings if AuthMode wasn't present)
-            {
-                SelectedAuthMode = AuthModeSelection.Anonymous;
-                AuthUsername = string.Empty;
-                AuthPassword = string.Empty;
-            }
-        
-        if (settingsData.AuthenticationMethod == "Enhanced Authentication")
+        if (settingsData.AuthMode is EnhancedAuthenticationMode enhancedAuth)
         {
             SelectedAuthMode = AuthModeSelection.Enhanced;
+            AuthenticationMethod = enhancedAuth.AuthenticationMethod;
+            AuthenticationData = enhancedAuth.AuthenticationData;
+            AuthUsername = string.Empty;
+            AuthPassword = string.Empty;
+        }
+        else if (settingsData.AuthMode is UsernamePasswordAuthenticationMode userPassAuth)
+        {
+            SelectedAuthMode = AuthModeSelection.UsernamePassword;
+            AuthUsername = userPassAuth.Username ?? string.Empty;
+            AuthPassword = userPassAuth.Password ?? string.Empty;
+            AuthenticationMethod = null;
+            AuthenticationData = null;
+        }
+        else // Covers AnonymousAuthenticationMode and null (for older settings if AuthMode wasn't present)
+        {
+            SelectedAuthMode = AuthModeSelection.Anonymous;
+            AuthUsername = string.Empty;
+            AuthPassword = string.Empty;
+            AuthenticationMethod = null;
+            AuthenticationData = null;
         }
     }
 

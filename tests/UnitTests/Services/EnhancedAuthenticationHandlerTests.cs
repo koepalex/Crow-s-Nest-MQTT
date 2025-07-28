@@ -31,7 +31,7 @@ public class EnhancedAuthenticationHandlerTests
     }
 
     [Fact]
-    public async Task ConnectAsync_WithValidToken_LogsInformation()
+    public void ConnectAsync_WithValidToken_LogsInformation()
     {
         // Arrange
         var validToken = GenerateTestToken(DateTime.UtcNow.AddHours(1));
@@ -43,7 +43,7 @@ public class EnhancedAuthenticationHandlerTests
         AppLogger.OnLogMessage += (level, message) => { if (level == "Information") logMessages.Add(message); };
 
         // Act
-        await handler.ConnectAsync();
+        handler.Configure();
 
         // Assert
         Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token is valid"));
@@ -62,7 +62,7 @@ public class EnhancedAuthenticationHandlerTests
         AppLogger.OnLogMessage += (level, message) => { if (level == "Warning") logMessages.Add(message); };
 
         // Act
-        await handler.ConnectAsync();
+        await handler.Configure();
 
         // Assert
         Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token has expired"));
@@ -79,7 +79,7 @@ public class EnhancedAuthenticationHandlerTests
         AppLogger.OnLogMessage += (level, message) => { if (level == "Warning") logMessages.Add(message); };
 
         // Act
-        await handler.ConnectAsync();
+        await handler.Configure();
 
         // Assert
         Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token not found"));
@@ -97,7 +97,7 @@ public class EnhancedAuthenticationHandlerTests
         AppLogger.OnLogMessage += (level, message) => { if (level == "Warning") logMessages.Add(message); };
 
         // Act
-        await handler.ConnectAsync();
+        await handler.Configure();
 
         // Assert
         Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token not found"));

@@ -1,13 +1,12 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
-using System.Threading.Tasks;
+using System.Text;
+
 using CrowsNestMqtt.Utils;
 using MQTTnet;
-using MQTTnet.Packets;
 
 namespace CrowsNestMqtt.BusinessLogic.Services;
 
-public class EnhancedAuthenticationHandler
+public class EnhancedAuthenticationHandler: IMqttEnhancedAuthenticationHandler
 {
     private readonly MqttClientOptions _mqttClientOptions;
 
@@ -16,13 +15,14 @@ public class EnhancedAuthenticationHandler
         _mqttClientOptions = mqttClientOptions;
     }
 
-    public Task ConnectAsync()
+    public void Configure()
     {
-        var tokenProperty = _mqttClientOptions.UserProperties?.FirstOrDefault(p => p.Name == "token");
-        if (tokenProperty != null && !string.IsNullOrEmpty(tokenProperty.Value))
+
+        if (_mqttClientOptions.AuthenticationMethod == "K8S-SAT" && _mqttClientOptions.AuthenticationData.Length > 0)
         {
             var handler = new JwtSecurityTokenHandler();
-            var jwtSecurityToken = handler.ReadJwtToken(tokenProperty.Value);
+            var jwtTokenAsString = Encoding.UTF8.GetString(_mqttClientOptions.AuthenticationData);
+            var jwtSecurityToken = handler.ReadJwtToken(jwtTokenAsString);
 
             var now = System.DateTime.UtcNow;
             if (jwtSecurityToken.ValidTo > now)
@@ -39,8 +39,12 @@ public class EnhancedAuthenticationHandler
             AppLogger.Warning("Enhanced Authentication: Token not found in UserProperties.");
         }
 
-        // This is a placeholder for the actual connection logic.
-        // The real implementation will be added in a future step.
+        _mqttClientOptions.EnhancedAuthenticationHandler = this;
+    }
+
+    public Task HandleEnhancedAuthenticationAsync(MqttEnhancedAuthenticationEventArgs eventArgs)
+    {
+        AppLogger.Information($"Enhanced Authentication: {eventArgs.ReasonString}");
         return Task.CompletedTask;
     }
 }

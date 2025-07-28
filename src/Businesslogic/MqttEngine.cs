@@ -138,19 +138,19 @@ public class MqttEngine : IMqttService // Implement the interface
                     builder.WithCredentials(upa.Username, upa.Password);
                 }
                 break;
+            case EnhancedAuthenticationMode enhancedAuth:
+                if (!string.IsNullOrEmpty(enhancedAuth.AuthenticationMethod) &&
+                    !string.IsNullOrEmpty(enhancedAuth.AuthenticationData))
+                {
+                    builder.WithEnhancedAuthentication(
+                        enhancedAuth.AuthenticationMethod,
+                        Encoding.UTF8.GetBytes(enhancedAuth.AuthenticationData));
+                }
+                break;
             case AnonymousAuthenticationMode:
                 // No credentials to add for anonymous mode
                 break;
             // Default case can be omitted if all AuthenticationMode types are handled
-        }
-
-        // Add other options like TLS here if needed
-
-        if (_settings.AuthenticationMethod == "Enhanced Authentication" && !string.IsNullOrEmpty(_settings.AuthenticationData))
-        {
-            builder.WithEnhancedAuthentication(
-                _settings.AuthenticationMethod,
-                Encoding.UTF8.GetBytes(_settings.AuthenticationData));
         }
 
         return builder.Build();
@@ -169,11 +169,11 @@ public class MqttEngine : IMqttService // Implement the interface
             _connecting = true; // Simplified locking for brevity
             _currentOptions = BuildMqttOptions();
 
-            if (_settings.AuthenticationMethod == "Enhanced Authentication")
+            if (_settings.AuthMode is CrowsNestMqtt.BusinessLogic.Configuration.EnhancedAuthenticationMode)
             {
                 LogMessage?.Invoke(this, "Using Enhanced Authentication handler.");
                 var enhancedAuthHandler = new EnhancedAuthenticationHandler(_currentOptions!);
-                await enhancedAuthHandler.ConnectAsync();
+                enhancedAuthHandler.Configure();
             }
 
             LogMessage?.Invoke(this, $"Attempting to connect to {_currentOptions.ChannelOptions} with ClientId '{_currentOptions.ClientId ?? "<generated>"}'. CleanSession={_currentOptions.CleanSession}, SessionExpiry={_currentOptions.SessionExpiryInterval}");

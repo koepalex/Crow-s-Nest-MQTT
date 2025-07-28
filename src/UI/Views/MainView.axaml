@@ -312,15 +312,32 @@
                              IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
                 
                 <!-- Enhanced Authentication Header -->
-                <TextBlock Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2" Text="Enhanced Authentication" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
+                <TextBlock Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2" Text="Enhanced Authentication" FontWeight="Bold" FontSize="14" Margin="0,15,0,10" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
 
                 <!-- Authentication Method -->
-                <TextBlock Grid.Row="11" Grid.Column="0" Text="Auth Method:"/>
-                <TextBox Grid.Row="11" Grid.Column="1" Text="{Binding Settings.AuthenticationMethod, Mode=TwoWay}" Watermark="e.g., 'my-auth-method'"/>
+                <TextBlock Grid.Row="11" Grid.Column="0" Text="Auth Method:" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
+                <TextBox Grid.Row="11" Grid.Column="1" Text="{Binding Settings.AuthenticationMethod, Mode=TwoWay}" Watermark="e.g., 'K8S-SAT'" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
 
                 <!-- Authentication Data -->
-                <TextBlock Grid.Row="12" Grid.Column="0" Text="Auth Data:"/>
-                <TextBox Grid.Row="12" Grid.Column="1" Text="{Binding Settings.AuthenticationData, Mode=TwoWay}" Watermark="e.g., 'auth-data'"/>
+                <TextBlock Grid.Row="12" Grid.Column="0" Text="Auth Data:" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
+                
+                <ScrollViewer                            
+                            Grid.Row="12"
+                            Grid.Column="1"
+                            IsVisible="{Binding Settings.IsEnhancedAuthSelected}"
+                            HorizontalScrollBarVisibility="Visible"
+                            VerticalScrollBarVisibility="Hidden"
+                            MaxHeight="200"
+                            MaxWidth="420">
+
+                    <TextBox 
+                            IsVisible="{Binding Settings.IsEnhancedAuthSelected}"
+                            Text="{Binding Settings.AuthenticationData, Mode=TwoWay}"
+                            Watermark="e.g., payload of Service Account Token"
+                            AcceptsReturn="True"
+                            TextWrapping="NoWrap"          
+                            HorizontalAlignment="Stretch"/>
+                </ScrollViewer>
 
                 <!-- General Settings Header -->
                 <TextBlock Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2" Text="General Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
