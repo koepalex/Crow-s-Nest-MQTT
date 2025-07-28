@@ -6,10 +6,12 @@ using System.Collections.Concurrent;
 namespace CrowsNestMqtt.BusinessLogic;
 
 using CrowsNestMqtt.BusinessLogic.Configuration; // Required for AuthenticationMode
+using CrowsNestMqtt.BusinessLogic.Services;
 using MQTTnet;
 using MQTTnet.Protocol;
 using CrowsNestMqtt.Utils;
 using System.Collections.Generic;
+using System.Text;
 
 // New EventArgs class including MessageId and Topic
 public class IdentifiedMqttApplicationMessageReceivedEventArgs : EventArgs // Not inheriting from MqttApplicationMessageReceivedEventArgs to avoid confusion
@@ -136,13 +138,21 @@ public class MqttEngine : IMqttService // Implement the interface
                     builder.WithCredentials(upa.Username, upa.Password);
                 }
                 break;
+            case EnhancedAuthenticationMode enhancedAuth:
+                if (!string.IsNullOrEmpty(enhancedAuth.AuthenticationMethod) &&
+                    !string.IsNullOrEmpty(enhancedAuth.AuthenticationData))
+                {
+                    builder.WithEnhancedAuthentication(
+                        enhancedAuth.AuthenticationMethod,
+                        Encoding.UTF8.GetBytes(enhancedAuth.AuthenticationData));
+                }
+                break;
             case AnonymousAuthenticationMode:
                 // No credentials to add for anonymous mode
                 break;
             // Default case can be omitted if all AuthenticationMode types are handled
         }
 
-        // Add other options like TLS here if needed
         return builder.Build();
     }
 
@@ -158,6 +168,14 @@ public class MqttEngine : IMqttService // Implement the interface
         {
             _connecting = true; // Simplified locking for brevity
             _currentOptions = BuildMqttOptions();
+
+            if (_settings.AuthMode is CrowsNestMqtt.BusinessLogic.Configuration.EnhancedAuthenticationMode)
+            {
+                LogMessage?.Invoke(this, "Using Enhanced Authentication handler.");
+                var enhancedAuthHandler = new EnhancedAuthenticationHandler(_currentOptions!);
+                enhancedAuthHandler.Configure();
+            }
+
             LogMessage?.Invoke(this, $"Attempting to connect to {_currentOptions.ChannelOptions} with ClientId '{_currentOptions.ClientId ?? "<generated>"}'. CleanSession={_currentOptions.CleanSession}, SessionExpiry={_currentOptions.SessionExpiryInterval}");
             var connectionResult = await _client.ConnectAsync(_currentOptions, cancellationToken);
             LogMessage?.Invoke(this, $"Connection result: {connectionResult.ReasonString}:{connectionResult.ResultCode}");

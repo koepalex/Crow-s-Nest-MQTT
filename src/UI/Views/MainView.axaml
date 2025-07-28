@@ -239,7 +239,7 @@
           </Grid> <!-- End of Main Content Grid -->
 
           <Panel Grid.Row="0" Grid.Column="1" IsVisible="{Binding IsSettingsVisible}" Background="{DynamicResource ApplicationBackgroundBrush}">
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="5"> <!-- Increased to 16 rows for Application Settings -->
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="5"> <!-- Increased to 19 rows for Application Settings -->
                 <Grid.Styles>
                     <Style Selector="TextBlock">
                         <Setter Property="VerticalAlignment" Value="Center"/>
@@ -311,22 +311,50 @@
                              Watermark="Enter password" PasswordChar="*"
                              IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
                 
+                <!-- Enhanced Authentication Header -->
+                <TextBlock Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2" Text="Enhanced Authentication" FontWeight="Bold" FontSize="14" Margin="0,15,0,10" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
+
+                <!-- Authentication Method -->
+                <TextBlock Grid.Row="11" Grid.Column="0" Text="Auth Method:" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
+                <TextBox Grid.Row="11" Grid.Column="1" Text="{Binding Settings.AuthenticationMethod, Mode=TwoWay}" Watermark="e.g., 'K8S-SAT'" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
+
+                <!-- Authentication Data -->
+                <TextBlock Grid.Row="12" Grid.Column="0" Text="Auth Data:" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
+                
+                <ScrollViewer                            
+                            Grid.Row="12"
+                            Grid.Column="1"
+                            IsVisible="{Binding Settings.IsEnhancedAuthSelected}"
+                            HorizontalScrollBarVisibility="Visible"
+                            VerticalScrollBarVisibility="Hidden"
+                            MaxHeight="200"
+                            MaxWidth="420">
+
+                    <TextBox 
+                            IsVisible="{Binding Settings.IsEnhancedAuthSelected}"
+                            Text="{Binding Settings.AuthenticationData, Mode=TwoWay}"
+                            Watermark="e.g., payload of Service Account Token"
+                            AcceptsReturn="True"
+                            TextWrapping="NoWrap"          
+                            HorizontalAlignment="Stretch"/>
+                </ScrollViewer>
+
                 <!-- General Settings Header -->
-                <TextBlock Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2" Text="General Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
+                <TextBlock Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2" Text="General Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
 
                 <!-- Export Format -->
-                <TextBlock Grid.Row="11" Grid.Column="0" Text="Export Format:"/>
-                <ComboBox Grid.Row="11" Grid.Column="1" ItemsSource="{Binding Settings.AvailableExportTypes}" SelectedItem="{Binding Settings.ExportFormat, Mode=TwoWay}" MinWidth="220" />
+                <TextBlock Grid.Row="14" Grid.Column="0" Text="Export Format:"/>
+                <ComboBox Grid.Row="14" Grid.Column="1" ItemsSource="{Binding Settings.AvailableExportTypes}" SelectedItem="{Binding Settings.ExportFormat, Mode=TwoWay}" MinWidth="220" />
 
                 <!-- Export Path -->
-                <TextBlock Grid.Row="12" Grid.Column="0" Text="Export Path:"/>
-                <TextBox Grid.Row="12" Grid.Column="1" Text="{Binding Settings.ExportPath, Mode=TwoWay}" />
+                <TextBlock Grid.Row="15" Grid.Column="0" Text="Export Path:"/>
+                <TextBox Grid.Row="15" Grid.Column="1" Text="{Binding Settings.ExportPath, Mode=TwoWay}" />
 
                 <!-- Application Settings Header -->
-                <TextBlock Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2" Text="Application Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
+                <TextBlock Grid.Row="16" Grid.Column="0" Grid.ColumnSpan="2" Text="Application Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
 
                 <!-- Topic Buffer Limits List -->
-                <ItemsControl Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding Settings.TopicSpecificLimits}" Margin="0,0,0,5">
+                <ItemsControl Grid.Row="17" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding Settings.TopicSpecificLimits}" Margin="0,0,0,5">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:TopicBufferLimitViewModel}">
                             <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto" Margin="0,2">
@@ -339,7 +367,7 @@
                 </ItemsControl>
                 
                 <!-- Add New Limit Button -->
-                <Button Grid.Row="15" Grid.Column="0" Grid.ColumnSpan="2" Content="Add New Limit" Command="{Binding Settings.AddTopicLimitCommand}" HorizontalAlignment="Left" Margin="0,5,0,0"/>
+                <Button Grid.Row="18" Grid.Column="0" Grid.ColumnSpan="2" Content="Add New Limit" Command="{Binding Settings.AddTopicLimitCommand}" HorizontalAlignment="Left" Margin="0,5,0,0"/>
 
             </Grid>
         </Panel>

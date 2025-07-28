@@ -338,7 +338,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             KeepAliveInterval = Settings.KeepAliveInterval,
             CleanSession = Settings.CleanSession,
             SessionExpiryInterval = Settings.SessionExpiryInterval,
-            TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits
+            TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits,
+            AuthMode = Settings.Into().AuthMode
             // TODO: Map other settings like TLS, Credentials if added
         };
 
@@ -831,7 +832,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             KeepAliveInterval = Settings.KeepAliveInterval,
             CleanSession = Settings.CleanSession,
             SessionExpiryInterval = Settings.SessionExpiryInterval,
-            TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits
+            TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits,
+            AuthMode = Settings.Into().AuthMode
         };
         // Update the engine with the latest settings before connecting
         _mqttService.UpdateSettings(connectionSettings); // Use _mqttService
@@ -1050,16 +1052,22 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                                 Log.Information("AuthUsername is currently empty.");
                             }
                         }
+                        else if (mode == "enhanced")
+                        {
+                            this.Settings.AuthenticationMethod = "Enhanced Authentication";
+                            StatusBarText = "Authentication method set to 'Enhanced Authentication'. Settings will be saved.";
+                            Log.Information("Authentication method set to 'Enhanced Authentication' via command.");
+                        }
                         else
                         {
                             // This case should ideally be caught by CommandParserService, but good for robustness
-                            StatusBarText = "Error: Invalid argument for :setauthmode. Expected <anonymous|userpass>.";
+                            StatusBarText = "Error: Invalid argument for :setauthmode. Expected <anonymous|userpass|enhanced>.";
                             Log.Warning("Invalid argument for SetAuthMode command: {Argument}", command.Arguments[0]);
                         }
                     }
                     else
                     {
-                        StatusBarText = "Error: :setauthmode requires exactly one argument <anonymous|userpass>.";
+                        StatusBarText = "Error: :setauthmode requires exactly one argument <anonymous|userpass|enhanced>.";
                         Log.Warning("Invalid arguments for SetAuthMode command.");
                     }
                     break;

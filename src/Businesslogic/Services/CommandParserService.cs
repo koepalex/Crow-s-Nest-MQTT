@@ -265,12 +265,12 @@ public class CommandParserService : ICommandParserService
                 if (arguments.Count == 1)
                 {
                     string mode = arguments[0].ToLowerInvariant();
-                    if (mode == "anonymous" || mode == "userpass")
+                    if (mode == "anonymous" || mode == "userpass" || mode == "enhanced")
                     {
                         return CommandResult.SuccessCommand(new ParsedCommand(CommandType.SetAuthMode, arguments));
                     }
                 }
-                return CommandResult.Failure("Invalid arguments for :setauthmode. Expected: :setauthmode <anonymous|userpass>");
+                return CommandResult.Failure("Invalid arguments for :setauthmode. Expected: :setauthmode <anonymous|userpass|enhanced>");
 
             case "settings":
                 if (arguments.Count == 0)
