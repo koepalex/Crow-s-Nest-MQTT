@@ -12,9 +12,7 @@ public record SettingsData(
     uint? SessionExpiryIntervalSeconds = 300,
     AuthenticationMode? AuthMode = null,
     ExportTypes? ExportFormat = null,
-    string? ExportPath = null,
-    string? AuthenticationMethod = null,
-    string? AuthenticationData = null)
+    string? ExportPath = null)
 {
     public IList<TopicBufferLimit> TopicSpecificBufferLimits { get; init; } = new List<TopicBufferLimit>();
     // Ensure AuthMode is never null, defaulting to Anonymous if not provided.

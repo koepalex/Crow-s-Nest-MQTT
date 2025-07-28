@@ -109,7 +109,9 @@ public class SettingsViewModel : ReactiveObject
             this.WhenAnyValue(x => x.SelectedAuthMode),
             this.WhenAnyValue(x => x.AuthUsername),
             this.WhenAnyValue(x => x.AuthPassword),
-            (_, _, _, _, _, _, _, _, _, _, _) => Unit.Default);
+            this.WhenAnyValue(x => x.AuthenticationMethod),
+            this.WhenAnyValue(x => x.AuthenticationData),
+            (_, _, _, _, _, _, _, _, _, _, _, _, _) => Unit.Default);
 
         // Observable for changes within the TopicSpecificLimits collection (add/remove)
         var collectionChanged = Observable.FromEventPattern<System.Collections.Specialized.NotifyCollectionChangedEventHandler, System.Collections.Specialized.NotifyCollectionChangedEventArgs>(
@@ -297,7 +299,6 @@ public class SettingsViewModel : ReactiveObject
         else
         {
             authModeSetting = new AnonymousAuthenticationMode();
-            // usernameSetting and passwordSetting remain null for Anonymous mode
         }
 
         return new SettingsData(
@@ -309,9 +310,7 @@ public class SettingsViewModel : ReactiveObject
             SessionExpiryIntervalSeconds,
             authModeSetting,
             ExportFormat,
-            ExportPath,
-            AuthenticationMethod,
-            AuthenticationData
+            ExportPath
         )
         {
             TopicSpecificBufferLimits = topicLimits
@@ -328,9 +327,6 @@ public class SettingsViewModel : ReactiveObject
         SessionExpiryIntervalSeconds = settingsData.SessionExpiryIntervalSeconds;
         ExportFormat = settingsData.ExportFormat;
         ExportPath = settingsData.ExportPath;
-        AuthenticationMethod = settingsData.AuthenticationMethod;
-        AuthenticationData = settingsData.AuthenticationData;
-        
         TopicSpecificLimits.Clear();
         if (settingsData.TopicSpecificBufferLimits != null)
         {

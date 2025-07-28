@@ -1074,6 +1074,32 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 case CommandType.Settings:
                     OpenSettings();
                     break;
+                case CommandType.SetAuthMethod:
+                    if (command.Arguments.Count == 1)
+                    {
+                        this.Settings.AuthenticationMethod = command.Arguments[0];
+                        StatusBarText = $"Authentication method set to '{command.Arguments[0]}'. Settings will be saved.";
+                        Log.Information("Authentication method set via command: {Method}", command.Arguments[0]);
+                    }
+                    else
+                    {
+                        StatusBarText = "Error: :setauthmethod requires exactly one argument <method>.";
+                        Log.Warning("Invalid arguments for SetAuthMethod command.");
+                    }
+                    break;
+                case CommandType.SetAuthData:
+                    if (command.Arguments.Count == 1)
+                    {
+                        this.Settings.AuthenticationData = command.Arguments[0];
+                        StatusBarText = $"Authentication data set. Settings will be saved.";
+                        Log.Information("Authentication data set via command.");
+                    }
+                    else
+                    {
+                        StatusBarText = "Error: :setauthdata requires exactly one argument <data>.";
+                        Log.Warning("Invalid arguments for SetAuthData command.");
+                    }
+                    break;
                 default:
                     StatusBarText = $"Error: Unknown command type '{command.Type}'.";
                     Log.Warning("Unknown command type encountered: {CommandType}", command.Type);
@@ -1105,7 +1131,9 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         { "view", (":view <raw|json>", "Switches the payload view between raw text and JSON tree.") },
         { "setuser", (":setuser <username>", "Sets MQTT username. Switches to Username/Password auth if current mode is Anonymous.") },
         { "setpass", (":setpass <password>", "Sets MQTT password. Switches to Username/Password auth if current mode is Anonymous.") },
-        { "setauthmode", (":setauthmode <anonymous|userpass>", "Sets the MQTT authentication mode.") },
+        { "setauthmode", (":setauthmode <anonymous|userpass|enhanced>", "Sets the MQTT authentication mode.") },
+        { "setauthmethod", (":setauthmethod <method>", "Sets the authentication method for enhanced authentication (e.g., SCRAM-SHA-1, K8S-SAT).") },
+        { "setauthdata", (":setauthdata <data>", "Sets the authentication data for enhanced authentication (method-specific data).") },
         { "settings", (":settings", "Toggles the visibility of the settings pane.") }
     };
 
