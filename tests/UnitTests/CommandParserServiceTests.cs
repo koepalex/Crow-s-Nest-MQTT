@@ -234,4 +234,36 @@ public class CommandParserServiceTests
             }
         Assert.Null(result.ErrorMessage);
     }
+
+    // --- Specific Command Logic: SetAuthMode ---
+    [Theory]
+    [InlineData(":setauthmode anonymous", "anonymous")]
+    [InlineData(":setauthmode userpass", "userpass")]
+    [InlineData(":setauthmode enhanced", "enhanced")]
+    public void ParseCommand_SetAuthMode_ValidModes_ReturnsSuccess(string input, string expectedMode)
+    {
+        var result = _parser.ParseCommand(input, _settings);
+
+        Assert.True(result.IsSuccess, $"Input: '{input}' failed. Error: {result.ErrorMessage}");
+        Assert.NotNull(result.ParsedCommand);
+        Assert.Equal(CommandType.SetAuthMode, result.ParsedCommand.Type);
+        Assert.NotNull(result.ParsedCommand.Arguments);
+        Assert.Single(result.ParsedCommand.Arguments);
+        Assert.Equal(expectedMode, result.ParsedCommand.Arguments[0]);
+        Assert.Null(result.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData(":setauthmode")] // Missing mode
+    [InlineData(":setauthmode invalidmode")] // Invalid mode
+    [InlineData(":setauthmode anonymous extra")] // Too many args
+    public void ParseCommand_SetAuthMode_InvalidModes_ReturnsFailure(string input)
+    {
+        var result = _parser.ParseCommand(input, _settings);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.ParsedCommand);
+        Assert.NotNull(result.ErrorMessage);
+        Assert.Contains("Invalid arguments for :setauthmode", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
 }

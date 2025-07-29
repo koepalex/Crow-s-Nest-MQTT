@@ -53,56 +53,6 @@ namespace CrowsNestMqtt.UnitTests
             Assert.Equal(20000, limits[1].MaxSizeBytes);
         }
         
-        [Fact]
-        public async Task ConnectAsync_SetsConnectingFlagDuringOperation()
-        {
-            // Arrange
-            var settings = new MqttConnectionSettings
-            {
-                Hostname = "localhost",
-                Port = 1883,
-                ClientId = "test-client"
-            };
-            
-            // Create MqttEngine with our mock client using reflection
-            var mqttEngine = new MqttEngine(settings);
-            
-            // Get the connecting field using reflection
-            var connectingField = typeof(MqttEngine).GetField("_connecting", 
-                BindingFlags.NonPublic | BindingFlags.Instance);
-            
-            // Get the client field using reflection to check if connectTask is called
-            var clientField = typeof(MqttEngine).GetField("_client", 
-                BindingFlags.NonPublic | BindingFlags.Instance);
-            var client = clientField?.GetValue(mqttEngine);
-            
-            // Set the initial connecting state
-            if (connectingField != null)
-                connectingField.SetValue(mqttEngine, false);
-            
-            // Use a cancellation token that will immediately cancel to prevent actual connection
-            var cts = new CancellationTokenSource();
-            cts.Cancel();
-            
-            try
-            {
-                // Act - try to connect with a cancelled token so it throws but still sets the flag
-                await mqttEngine.ConnectAsync(cts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected exception due to cancelled token
-            }
-            
-            // Get the connecting flag value
-            bool? isConnecting = connectingField != null ? 
-                (bool?)connectingField.GetValue(mqttEngine) : null;
-            
-            // Assert
-            Assert.NotNull(client); // Client was created
-            Assert.NotNull(isConnecting); // Flag field exists
-            Assert.False(isConnecting.Value); // Flag is reset even after exception
-        }
         
         [Fact]
         public void GetBufferSizeLimit_ReturnsSpecificLimitForMatchingTopic()

@@ -50,30 +50,50 @@
           <!-- Left-aligned buttons and status -->
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5">
               <Button Content="Connect" Command="{Binding ConnectCommand}" />
-              <Button Content="Disconnect" Command="{Binding DisconnectCommand}" />
+              <Button Command="{Binding DisconnectCommand}" Classes.Connecting="{Binding IsConnecting}">
+                  <Button.Styles>
+                      <Style Selector="Button">
+                          <Setter Property="Content" Value="Disconnect"/>
+                      </Style>
+                      <Style Selector="Button.Connecting">
+                          <Setter Property="Content" Value="Cancel"/>
+                      </Style>
+                  </Button.Styles>
+              </Button>
               <Button Content="Clear" Command="{Binding ClearHistoryCommand}" />
               <Button Content="Pause/Resume" Command="{Binding PauseResumeCommand}" />
               <TextBlock Text="Status:" VerticalAlignment="Center" Margin="10,0,0,0"/>
-              <PathIcon VerticalAlignment="Center" Margin="5,0" ToolTip.Tip="{Binding IsConnected, StringFormat='Connected: {0}'}" Classes.IsConnected="{Binding IsConnected}" Classes.IsNotConnected="{Binding !IsConnected}">
-                <PathIcon.Styles>
-                  <Style Selector="PathIcon.IsNotConnected">
-                    <Style.Setters>
-                        <Setter Property="Data" Value="{StaticResource plug_disconnected_regular}"/>
-                        <Setter Property="Foreground" Value="DarkOrange"/>
-                    </Style.Setters>
-                  </Style>
-                  <Style Selector="PathIcon.IsConnected">
-                    <Style.Setters>
-                        <Setter Property="Data" Value="{StaticResource plug_connected_regular}"/>
-                        <Setter Property="Foreground" Value="DarkGreen"/>
-                    </Style.Setters>
-                  </Style>
-                </PathIcon.Styles>
+              <PathIcon VerticalAlignment="Center" Margin="5,0"
+                        ToolTip.Tip="{Binding ConnectionStatus}"
+                        Classes.IsConnected="{Binding IsConnected}"
+                        Classes.IsConnecting="{Binding IsConnecting}"
+                        Classes.IsDisconnected="{Binding IsDisconnected}">
+                  <PathIcon.Styles>
+                      <Style Selector="PathIcon.IsDisconnected">
+                          <Setter Property="Data" Value="{StaticResource plug_disconnected_regular}"/>
+                          <Setter Property="Foreground" Value="Red"/>
+                      </Style>
+                      <Style Selector="PathIcon.IsConnecting">
+                          <Setter Property="Data" Value="{StaticResource plug_disconnected_regular}"/>
+                          <Setter Property="Foreground" Value="Orange"/>
+                      </Style>
+                      <Style Selector="PathIcon.IsConnected">
+                          <Setter Property="Data" Value="{StaticResource plug_connected_regular}"/>
+                          <Setter Property="Foreground" Value="DarkGreen"/>
+                      </Style>
+                  </PathIcon.Styles>
               </PathIcon>
               <TextBlock Text="{Binding IsPaused, StringFormat='Paused: {0}'}" VerticalAlignment="Center" Margin="5,0"/>
               <TextBlock Text="(Filtered)" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Orange" FontStyle="Italic" IsVisible="{Binding IsTopicFilterActive}"/>
               <!-- Status Bar Text -->
               <TextBlock Text="{Binding StatusBarText}" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Gray" FontStyle="Italic"/>
+              <!-- Connection Status Message (for Connecting/Disconnected) -->
+              <TextBlock Text="{Binding ConnectionStatusMessage}" 
+                         VerticalAlignment="Center" 
+                         Margin="10,0,0,0" 
+                         Foreground="OrangeRed" 
+                         FontStyle="Italic"
+                         IsVisible="{Binding IsConnecting}" />
              </StackPanel>
 
           <!-- Right-aligned Settings button with Icon -->
@@ -239,7 +259,7 @@
           </Grid> <!-- End of Main Content Grid -->
 
           <Panel Grid.Row="0" Grid.Column="1" IsVisible="{Binding IsSettingsVisible}" Background="{DynamicResource ApplicationBackgroundBrush}">
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="5"> <!-- Increased to 16 rows for Application Settings -->
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto, Auto" Margin="5"> <!-- Increased to 19 rows for Application Settings -->
                 <Grid.Styles>
                     <Style Selector="TextBlock">
                         <Setter Property="VerticalAlignment" Value="Center"/>
@@ -271,62 +291,94 @@
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Port:"/>
                 <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding Settings.Port, Mode=TwoWay, StringFormat=N0}" ParsingNumberStyle="Integer" Minimum="1" Maximum="65535"/>
 
+                <!-- Use TLS -->
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Use TLS:"/>
+                <CheckBox Grid.Row="3" Grid.Column="1" IsChecked="{Binding Settings.UseTls, Mode=TwoWay}" Margin="10,0,0,0"/>
+
                 <!-- Client ID -->
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Client ID:"/>
-                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Settings.ClientId, Mode=TwoWay}" Watermark="(auto-generated)"/>
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Client ID:"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Settings.ClientId, Mode=TwoWay}" Watermark="(auto-generated)"/>
 
                 <!-- Keep Alive -->
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="Keep Alive (s):"/>
-                <NumericUpDown Grid.Row="4" Grid.Column="1" Value="{Binding Settings.KeepAliveIntervalSeconds, Mode=TwoWay, StringFormat=N0}"  ParsingNumberStyle="Integer" MinWidth="80" Minimum="0"/>
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Keep Alive (s):"/>
+                <NumericUpDown Grid.Row="5" Grid.Column="1" Value="{Binding Settings.KeepAliveIntervalSeconds, Mode=TwoWay, StringFormat=N0}"  ParsingNumberStyle="Integer" MinWidth="80" Minimum="0"/>
                 
                 <!-- Clean Session -->
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="Clean Session:"/>
-                <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding Settings.CleanSession, Mode=TwoWay}" Margin="10,0,0,0"/>
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="Clean Session:"/>
+                <CheckBox Grid.Row="6" Grid.Column="1" IsChecked="{Binding Settings.CleanSession, Mode=TwoWay}" Margin="10,0,0,0"/>
 
                 <!-- Session Expiry -->
-                <TextBlock Grid.Row="6" Grid.Column="0" Text="Session Expiry (s):"/>
-                <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Vertical" Spacing="5">
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="Session Expiry (s):"/>
+                <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Vertical" Spacing="5">
                     <NumericUpDown Value="{Binding Settings.SessionExpiryIntervalSeconds, Mode=TwoWay}" MinWidth="120"  FormatString="N0" Minimum="0" Watermark="(infinite)"/>
                     <TextBlock Text="(0 = expires immediately, empty = infinite)" FontSize="10"/>
                 </StackPanel>
 
                 <!-- Authentication Mode -->
-                <TextBlock Grid.Row="7" Grid.Column="0" Text="Auth Mode:"/>
-                <ComboBox Grid.Row="7" Grid.Column="1"
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="Auth Mode:"/>
+                <ComboBox Grid.Row="8" Grid.Column="1"
                             ItemsSource="{Binding Settings.AvailableAuthenticationModes}"
                             SelectedItem="{Binding Settings.SelectedAuthMode, Mode=TwoWay}"
                             MinWidth="220"/>
 
                 <!-- Auth Username (Conditionally Visible) -->
-                <TextBlock Grid.Row="8" Grid.Column="0" Text="Username:" IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
-                <TextBox Grid.Row="8" Grid.Column="1"
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="Username:" IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
+                <TextBox Grid.Row="9" Grid.Column="1"
                          Text="{Binding Settings.AuthUsername, Mode=TwoWay}"
                          Watermark="Enter username"
                          IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
 
                 <!-- Auth Password (Conditionally Visible) -->
-                <TextBlock Grid.Row="9" Grid.Column="0" Text="Password:" IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
-                <TextBox  Grid.Row="9" Grid.Column="1"
+                <TextBlock Grid.Row="10" Grid.Column="0" Text="Password:" IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
+                <TextBox  Grid.Row="10" Grid.Column="1"
                              Text="{Binding Settings.AuthPassword, Mode=TwoWay}"
                              Watermark="Enter password" PasswordChar="*"
                              IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
                 
+                <!-- Enhanced Authentication Header -->
+                <TextBlock Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2" Text="Enhanced Authentication" FontWeight="Bold" FontSize="14" Margin="0,15,0,10" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
+
+                <!-- Authentication Method -->
+                <TextBlock Grid.Row="12" Grid.Column="0" Text="Auth Method:" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
+                <TextBox Grid.Row="12" Grid.Column="1" Text="{Binding Settings.AuthenticationMethod, Mode=TwoWay}" Watermark="e.g., 'K8S-SAT'" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
+
+                <!-- Authentication Data -->
+                <TextBlock Grid.Row="13" Grid.Column="0" Text="Auth Data:" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
+                
+                <ScrollViewer                            
+                            Grid.Row="13"
+                            Grid.Column="1"
+                            IsVisible="{Binding Settings.IsEnhancedAuthSelected}"
+                            HorizontalScrollBarVisibility="Visible"
+                            VerticalScrollBarVisibility="Hidden"
+                            MaxHeight="200"
+                            MaxWidth="420">
+
+                    <TextBox 
+                            IsVisible="{Binding Settings.IsEnhancedAuthSelected}"
+                            Text="{Binding Settings.AuthenticationData, Mode=TwoWay}"
+                            Watermark="e.g., payload of Service Account Token"
+                            AcceptsReturn="True"
+                            TextWrapping="NoWrap"          
+                            HorizontalAlignment="Stretch"/>
+                </ScrollViewer>
+
                 <!-- General Settings Header -->
-                <TextBlock Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2" Text="General Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
+                <TextBlock Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="2" Text="General Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
 
                 <!-- Export Format -->
-                <TextBlock Grid.Row="11" Grid.Column="0" Text="Export Format:"/>
-                <ComboBox Grid.Row="11" Grid.Column="1" ItemsSource="{Binding Settings.AvailableExportTypes}" SelectedItem="{Binding Settings.ExportFormat, Mode=TwoWay}" MinWidth="220" />
+                <TextBlock Grid.Row="15" Grid.Column="0" Text="Export Format:"/>
+                <ComboBox Grid.Row="15" Grid.Column="1" ItemsSource="{Binding Settings.AvailableExportTypes}" SelectedItem="{Binding Settings.ExportFormat, Mode=TwoWay}" MinWidth="220" />
 
                 <!-- Export Path -->
-                <TextBlock Grid.Row="12" Grid.Column="0" Text="Export Path:"/>
-                <TextBox Grid.Row="12" Grid.Column="1" Text="{Binding Settings.ExportPath, Mode=TwoWay}" />
+                <TextBlock Grid.Row="16" Grid.Column="0" Text="Export Path:"/>
+                <TextBox Grid.Row="16" Grid.Column="1" Text="{Binding Settings.ExportPath, Mode=TwoWay}" />
 
                 <!-- Application Settings Header -->
-                <TextBlock Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2" Text="Application Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
+                <TextBlock Grid.Row="17" Grid.Column="0" Grid.ColumnSpan="2" Text="Application Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
 
                 <!-- Topic Buffer Limits List -->
-                <ItemsControl Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding Settings.TopicSpecificLimits}" Margin="0,0,0,5">
+                <ItemsControl Grid.Row="18" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding Settings.TopicSpecificLimits}" Margin="0,0,0,5">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:TopicBufferLimitViewModel}">
                             <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto" Margin="0,2">
@@ -339,7 +391,7 @@
                 </ItemsControl>
                 
                 <!-- Add New Limit Button -->
-                <Button Grid.Row="15" Grid.Column="0" Grid.ColumnSpan="2" Content="Add New Limit" Command="{Binding Settings.AddTopicLimitCommand}" HorizontalAlignment="Left" Margin="0,5,0,0"/>
+                <Button Grid.Row="19" Grid.Column="0" Grid.ColumnSpan="2" Content="Add New Limit" Command="{Binding Settings.AddTopicLimitCommand}" HorizontalAlignment="Left" Margin="0,5,0,0"/>
 
             </Grid>
         </Panel>

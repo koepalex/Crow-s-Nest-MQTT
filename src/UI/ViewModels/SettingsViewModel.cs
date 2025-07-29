@@ -22,6 +22,7 @@ using System.Linq; // For .Select
 [JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.AuthenticationMode))] // Added for AuthMode
 [JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.AnonymousAuthenticationMode))] // Added for AuthMode
 [JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.UsernamePasswordAuthenticationMode))] // Added for AuthMode
+[JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.EnhancedAuthenticationMode))] // Added for AuthMode
 [JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Exporter.ExportTypes))]
 [JsonSerializable(typeof(Nullable<CrowsNestMqtt.BusinessLogic.Exporter.ExportTypes>))]
 [JsonSerializable(typeof(ObservableCollection<TopicBufferLimitViewModel>))]
@@ -43,7 +44,8 @@ public class SettingsViewModel : ReactiveObject
     public enum AuthModeSelection
     {
         Anonymous,
-        UsernamePassword
+        UsernamePassword,
+        Enhanced
     }
 
     internal static string _settingsFilePath = Path.Combine(
@@ -70,6 +72,13 @@ public class SettingsViewModel : ReactiveObject
 #pragma warning disable IDE0044 // Add readonly modifier
     private bool _isLoading = false; // Flag to prevent saving during initial load
 #pragma warning restore IDE0044 // Add readonly modifier
+
+    private bool _useTls = false;
+    public bool UseTls
+    {
+        get => _useTls;
+        set => this.RaiseAndSetIfChanged(ref _useTls, value);
+    }
 
     public SettingsViewModel()
     {
@@ -107,7 +116,10 @@ public class SettingsViewModel : ReactiveObject
             this.WhenAnyValue(x => x.SelectedAuthMode),
             this.WhenAnyValue(x => x.AuthUsername),
             this.WhenAnyValue(x => x.AuthPassword),
-            (_, _, _, _, _, _, _, _, _, _, _) => Unit.Default);
+            this.WhenAnyValue(x => x.AuthenticationMethod),
+            this.WhenAnyValue(x => x.AuthenticationData),
+            this.WhenAnyValue(x => x.UseTls),
+            (_, _, _, _, _, _, _, _, _, _, _, _, _, _) => Unit.Default);
 
         // Observable for changes within the TopicSpecificLimits collection (add/remove)
         var collectionChanged = Observable.FromEventPattern<System.Collections.Specialized.NotifyCollectionChangedEventHandler, System.Collections.Specialized.NotifyCollectionChangedEventArgs>(
@@ -159,7 +171,12 @@ public class SettingsViewModel : ReactiveObject
             ExportPath = _exportFolderPath;
         }
         _availableAuthenticationModes = new ReadOnlyObservableCollection<AuthModeSelection>(
-            new ObservableCollection<AuthModeSelection>(Enum.GetValues(typeof(AuthModeSelection)).Cast<AuthModeSelection>()));
+            new ObservableCollection<AuthModeSelection>
+            {
+                AuthModeSelection.Anonymous,
+                AuthModeSelection.UsernamePassword,
+                AuthModeSelection.Enhanced
+            });
     }
 
     private string _hostname = "localhost";
@@ -184,12 +201,15 @@ public class SettingsViewModel : ReactiveObject
         set
         {
             this.RaiseAndSetIfChanged(ref _selectedAuthMode, value);
-            this.RaisePropertyChanged(nameof(IsUsernamePasswordSelected)); // Notify that the dependent property has changed
+            this.RaisePropertyChanged(nameof(IsUsernamePasswordSelected));
+            this.RaisePropertyChanged(nameof(IsEnhancedAuthSelected));
         }
     }
 
     // Property to control visibility of Username/Password fields in UI
     public bool IsUsernamePasswordSelected => SelectedAuthMode == AuthModeSelection.UsernamePassword;
+
+    public bool IsEnhancedAuthSelected => SelectedAuthMode == AuthModeSelection.Enhanced;
 
     private string _authUsername = string.Empty;
     public string AuthUsername
@@ -203,6 +223,20 @@ public class SettingsViewModel : ReactiveObject
     {
         get => _authPassword;
         set => this.RaiseAndSetIfChanged(ref _authPassword, value);
+    }
+
+    private string? _authenticationMethod;
+    public string? AuthenticationMethod
+    {
+        get => _authenticationMethod;
+        set => this.RaiseAndSetIfChanged(ref _authenticationMethod, value);
+    }
+
+    private string? _authenticationData;
+    public string? AuthenticationData
+    {
+        get => _authenticationData;
+        set => this.RaiseAndSetIfChanged(ref _authenticationData, value);
     }
 
     private string? _clientId; // Null or empty means MQTTnet generates one
@@ -266,10 +300,13 @@ public class SettingsViewModel : ReactiveObject
             usernameSetting = AuthUsername;
             passwordSetting = AuthPassword;
         }
+        else if (SelectedAuthMode == AuthModeSelection.Enhanced)
+        {
+            authModeSetting = new EnhancedAuthenticationMode(AuthenticationMethod, AuthenticationData);
+        }
         else
         {
             authModeSetting = new AnonymousAuthenticationMode();
-            // usernameSetting and passwordSetting remain null for Anonymous mode
         }
 
         return new SettingsData(
@@ -281,7 +318,8 @@ public class SettingsViewModel : ReactiveObject
             SessionExpiryIntervalSeconds,
             authModeSetting,
             ExportFormat,
-            ExportPath
+            ExportPath,
+            UseTls
         )
         {
             TopicSpecificBufferLimits = topicLimits
@@ -296,9 +334,9 @@ public class SettingsViewModel : ReactiveObject
         KeepAliveIntervalSeconds = settingsData.KeepAliveIntervalSeconds;
         CleanSession = settingsData.CleanSession;
         SessionExpiryIntervalSeconds = settingsData.SessionExpiryIntervalSeconds;
-        ExportFormat = settingsData.ExportFormat; 
+        ExportFormat = settingsData.ExportFormat;
         ExportPath = settingsData.ExportPath;
-        
+        UseTls = settingsData.UseTls;
         TopicSpecificLimits.Clear();
         if (settingsData.TopicSpecificBufferLimits != null)
         {
@@ -309,18 +347,30 @@ public class SettingsViewModel : ReactiveObject
         }
 
         // Handle AuthMode and credentials
-            if (settingsData.AuthMode is UsernamePasswordAuthenticationMode userPassAuth)
-            {
-                SelectedAuthMode = AuthModeSelection.UsernamePassword;
-                AuthUsername = userPassAuth.Username ?? string.Empty;
-                AuthPassword = userPassAuth.Password ?? string.Empty;
-            }
-            else // Covers AnonymousAuthenticationMode and null (for older settings if AuthMode wasn't present)
-            {
-                SelectedAuthMode = AuthModeSelection.Anonymous;
-                AuthUsername = string.Empty;
-                AuthPassword = string.Empty;
-            }
+        if (settingsData.AuthMode is EnhancedAuthenticationMode enhancedAuth)
+        {
+            SelectedAuthMode = AuthModeSelection.Enhanced;
+            AuthenticationMethod = enhancedAuth.AuthenticationMethod;
+            AuthenticationData = enhancedAuth.AuthenticationData;
+            AuthUsername = string.Empty;
+            AuthPassword = string.Empty;
+        }
+        else if (settingsData.AuthMode is UsernamePasswordAuthenticationMode userPassAuth)
+        {
+            SelectedAuthMode = AuthModeSelection.UsernamePassword;
+            AuthUsername = userPassAuth.Username ?? string.Empty;
+            AuthPassword = userPassAuth.Password ?? string.Empty;
+            AuthenticationMethod = null;
+            AuthenticationData = null;
+        }
+        else // Covers AnonymousAuthenticationMode and null (for older settings if AuthMode wasn't present)
+        {
+            SelectedAuthMode = AuthModeSelection.Anonymous;
+            AuthUsername = string.Empty;
+            AuthPassword = string.Empty;
+            AuthenticationMethod = null;
+            AuthenticationData = null;
+        }
     }
 
     // --- Persistence Methods ---

@@ -114,11 +114,23 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         set => this.RaiseAndSetIfChanged(ref _hasUserProperties, value);
     }
 
-    private bool _isConnected;
-    public bool IsConnected
+    private ConnectionStatusState _connectionStatus = ConnectionStatusState.Disconnected;
+    public ConnectionStatusState ConnectionStatus
     {
-        get => _isConnected;
-        private set => this.RaiseAndSetIfChanged(ref _isConnected, value); // Keep private set
+        get => _connectionStatus;
+        private set => this.RaiseAndSetIfChanged(ref _connectionStatus, value);
+    }
+
+    // Computed properties for easy binding in XAML and command `CanExecute`
+    public bool IsConnected => ConnectionStatus == ConnectionStatusState.Connected;
+    public bool IsConnecting => ConnectionStatus == ConnectionStatusState.Connecting;
+    public bool IsDisconnected => ConnectionStatus == ConnectionStatusState.Disconnected;
+
+    private string? _connectionStatusMessage;
+    public string? ConnectionStatusMessage
+    {
+        get => _connectionStatusMessage;
+        private set => this.RaiseAndSetIfChanged(ref _connectionStatusMessage, value);
     }
 
     private bool _isPaused;
@@ -214,8 +226,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     }
 
     // --- Commands ---
-    public ReactiveCommand<CancellationToken, Unit> ConnectCommand { get; }
-    public ReactiveCommand<CancellationToken, Unit> DisconnectCommand { get; }
+    public ReactiveCommand<Unit, Unit> ConnectCommand { get; }
+    public ReactiveCommand<Unit, Unit> DisconnectCommand { get; }
     public ReactiveCommand<Unit, Unit> ClearHistoryCommand { get; }
     public ReactiveCommand<Unit, Unit> PauseResumeCommand { get; }
     public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; } // Added Settings Command
@@ -338,7 +350,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             KeepAliveInterval = Settings.KeepAliveInterval,
             CleanSession = Settings.CleanSession,
             SessionExpiryInterval = Settings.SessionExpiryInterval,
-            TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits
+            TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits,
+            AuthMode = Settings.Into().AuthMode
             // TODO: Map other settings like TLS, Credentials if added
         };
 
@@ -349,9 +362,16 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         _mqttService.LogMessage += OnLogMessage;
 
         // --- Command Implementations ---
-        // Rebuild connection settings before connecting if they might change after initial setup
-        ConnectCommand = ReactiveCommand.CreateFromTask<CancellationToken, Unit>(ConnectAsync);
-        DisconnectCommand = ReactiveCommand.CreateFromTask<CancellationToken, Unit>(DisconnectAsync, this.WhenAnyValue(x => x.IsConnected));
+        // --- Command Implementations ---
+        // Define CanExecute conditions for commands based on connection status
+        var canConnect = this.WhenAnyValue(x => x.ConnectionStatus)
+                             .Select(status => status == ConnectionStatusState.Disconnected);
+
+        var canDisconnect = this.WhenAnyValue(x => x.ConnectionStatus)
+                                .Select(status => status == ConnectionStatusState.Connected || status == ConnectionStatusState.Connecting);
+
+        ConnectCommand = ReactiveCommand.CreateFromTask(ConnectAsync, canConnect);
+        DisconnectCommand = ReactiveCommand.CreateFromTask(DisconnectAsync, canDisconnect);
         ClearHistoryCommand = ReactiveCommand.Create(ClearHistory);
         PauseResumeCommand = ReactiveCommand.Create(TogglePause);
         OpenSettingsCommand = ReactiveCommand.Create(OpenSettings); // Initialize Settings Command
@@ -438,21 +458,29 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     private void OnConnectionStateChanged(object? sender, MqttConnectionStateChangedEventArgs e)
     {
-        // Ensure UI updates happen on the UI thread
+        // This event is now the single source of truth for connection state.
+        // The MqttEngine will fire this event when it is connecting, connected, or disconnected.
         Dispatcher.UIThread.Post(() =>
         {
-            IsConnected = e.IsConnected;
-            if (e.IsConnected)
+            // The new event args from the engine will tell us the exact state.
+            ConnectionStatus = e.ConnectionStatus;
+            ConnectionStatusMessage = e.ReconnectInfo ?? e.Error?.Message;
+
+            // Manually raise property changed for all computed properties that depend on the status
+            this.RaisePropertyChanged(nameof(IsConnected));
+            this.RaisePropertyChanged(nameof(IsConnecting));
+            this.RaisePropertyChanged(nameof(IsDisconnected));
+
+            if (ConnectionStatus == ConnectionStatusState.Connected)
             {
                 Log.Information("MQTT Client Connected. Starting UI Timer.");
-                StartTimer(TimeSpan.FromSeconds(1)); // Start timer with 1-second interval
-                LoadInitialTopics(); // Load any topics already buffered before connection event
+                StartTimer(TimeSpan.FromSeconds(1));
+                LoadInitialTopics();
             }
-            else
+            else // Disconnected or Connecting
             {
-                Log.Warning(e.Error, "MQTT Client Disconnected. Stopping UI Timer."); // Removed Reason part, Error is logged if present
+                Log.Warning(e.Error, "MQTT Client is not connected. Stopping UI Timer.");
                 StopTimer();
-                // Optionally clear UI state or show disconnected status
             }
         });
     }
@@ -592,7 +620,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         }
     }
 
-
     // Removed LoadMessageHistory method as it's no longer needed.
     // The DynamicData pipeline handles filtering based on SelectedNode.
     private void UpdateMessageDetails(MessageViewModel? messageVm)
@@ -630,7 +657,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         MessageMetadata.Add(new MetadataItem("Expiry (s)", msg.MessageExpiryInterval.ToString()));
         MessageMetadata.Add(new MetadataItem("ContentType", msg.ContentType));
         MessageMetadata.Add(new MetadataItem("Response Topic", msg.ResponseTopic));
-
 
         if (msg.CorrelationData != null && msg.CorrelationData.Length > 0)
         {
@@ -784,7 +810,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         return null; // Default to no highlighting
     }
 
-
     // --- Timer Logic ---
 
     public void StartTimer(TimeSpan interval)
@@ -793,7 +818,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         Log.Debug("Starting UI update timer with interval {Interval}.", interval);
         _updateTimer = new Timer(UpdateTick, null, interval, interval);
     }
-
 
     /// <summary>
     /// Stops the UI update timer.
@@ -804,7 +828,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         _updateTimer?.Dispose();
         _updateTimer = null;
     }
-
 
     /// <summary>
     /// Called by the timer on each tick to update UI elements.
@@ -818,7 +841,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     // --- Command Methods ---
 
-    private async Task<Unit> ConnectAsync(CancellationToken token)
+    private async Task ConnectAsync()
     {
         ClearHistory();
         Log.Information("Connect command executed.");
@@ -831,19 +854,24 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             KeepAliveInterval = Settings.KeepAliveInterval,
             CleanSession = Settings.CleanSession,
             SessionExpiryInterval = Settings.SessionExpiryInterval,
-            TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits
+            TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits,
+            AuthMode = Settings.Into().AuthMode,
+            UseTls = Settings.UseTls
         };
-        // Update the engine with the latest settings before connecting
-        _mqttService.UpdateSettings(connectionSettings); // Use _mqttService
-        await _mqttService.ConnectAsync(token); // Use _mqttService
-        return Unit.Default;
+        
+        _mqttService.UpdateSettings(connectionSettings);
+        
+        // The MqttEngine now manages its own cancellation token.
+        // We just need to call the method.
+        await _mqttService.ConnectAsync();
     }
 
-    private async Task<Unit> DisconnectAsync(CancellationToken token)
+    private async Task DisconnectAsync()
     {
-        Log.Information("Disconnect command executed.");
-        await _mqttService.DisconnectAsync(token); // Use _mqttService, Pass cancellation token
-        return Unit.Default;
+        Log.Information("Disconnect/Cancel command executed.");
+        // The MqttEngine's DisconnectAsync is now responsible for handling
+        // both disconnection and cancellation of an ongoing connection attempt.
+        await _mqttService.DisconnectAsync();
     }
 
     private void ClearHistory()
@@ -1050,21 +1078,75 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                                 Log.Information("AuthUsername is currently empty.");
                             }
                         }
+                        else if (mode == "enhanced")
+                        {
+                            this.Settings.AuthenticationMethod = "Enhanced Authentication";
+                            StatusBarText = "Authentication method set to 'Enhanced Authentication'. Settings will be saved.";
+                            Log.Information("Authentication method set to 'Enhanced Authentication' via command.");
+                        }
                         else
                         {
                             // This case should ideally be caught by CommandParserService, but good for robustness
-                            StatusBarText = "Error: Invalid argument for :setauthmode. Expected <anonymous|userpass>.";
+                            StatusBarText = "Error: Invalid argument for :setauthmode. Expected <anonymous|userpass|enhanced>.";
                             Log.Warning("Invalid argument for SetAuthMode command: {Argument}", command.Arguments[0]);
                         }
                     }
                     else
                     {
-                        StatusBarText = "Error: :setauthmode requires exactly one argument <anonymous|userpass>.";
+                        StatusBarText = "Error: :setauthmode requires exactly one argument <anonymous|userpass|enhanced>.";
                         Log.Warning("Invalid arguments for SetAuthMode command.");
                     }
                     break;
                 case CommandType.Settings:
                     OpenSettings();
+                    break;
+                case CommandType.SetAuthMethod:
+                    if (command.Arguments.Count == 1)
+                    {
+                        this.Settings.AuthenticationMethod = command.Arguments[0];
+                        StatusBarText = $"Authentication method set to '{command.Arguments[0]}'. Settings will be saved.";
+                        Log.Information("Authentication method set via command: {Method}", command.Arguments[0]);
+                    }
+                    else
+                    {
+                        StatusBarText = "Error: :setauthmethod requires exactly one argument <method>.";
+                        Log.Warning("Invalid arguments for SetAuthMethod command.");
+                    }
+                    break;
+                case CommandType.SetAuthData:
+                    if (command.Arguments.Count == 1)
+                    {
+                        this.Settings.AuthenticationData = command.Arguments[0];
+                        StatusBarText = $"Authentication data set. Settings will be saved.";
+                        Log.Information("Authentication data set via command.");
+                    }
+                    else
+                    {
+                        StatusBarText = "Error: :setauthdata requires exactly one argument <data>.";
+                        Log.Warning("Invalid arguments for SetAuthData command.");
+                    }
+                    break;
+                case CommandType.SetUseTls:
+                    if (command.Arguments.Count == 1)
+                    {
+                        var arg = command.Arguments[0].ToLowerInvariant();
+                        if (arg == "true" || arg == "false")
+                        {
+                            this.Settings.UseTls = arg == "true";
+                            StatusBarText = $"TLS usage set to {arg}. Settings will be saved.";
+                            Log.Information("TLS usage set via command: {Value}", arg);
+                        }
+                        else
+                        {
+                            StatusBarText = "Error: :setusetls requires argument <true|false>.";
+                            Log.Warning("Invalid argument for SetUseTls command: {Argument}", arg);
+                        }
+                    }
+                    else
+                    {
+                        StatusBarText = "Error: :setusetls requires exactly one argument <true|false>.";
+                        Log.Warning("Invalid arguments for SetUseTls command.");
+                    }
                     break;
                 default:
                     StatusBarText = $"Error: Unknown command type '{command.Type}'.";
@@ -1097,7 +1179,10 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         { "view", (":view <raw|json>", "Switches the payload view between raw text and JSON tree.") },
         { "setuser", (":setuser <username>", "Sets MQTT username. Switches to Username/Password auth if current mode is Anonymous.") },
         { "setpass", (":setpass <password>", "Sets MQTT password. Switches to Username/Password auth if current mode is Anonymous.") },
-        { "setauthmode", (":setauthmode <anonymous|userpass>", "Sets the MQTT authentication mode.") },
+        { "setauthmode", (":setauthmode <anonymous|userpass|enhanced>", "Sets the MQTT authentication mode.") },
+        { "setauthmethod", (":setauthmethod <method>", "Sets the authentication method for enhanced authentication (e.g., SCRAM-SHA-1, K8S-SAT).") },
+        { "setauthdata", (":setauthdata <data>", "Sets the authentication data for enhanced authentication (method-specific data).") },
+        { "setusetls", (":setusetls <true|false>", "Sets whether to use TLS for MQTT connections. true = enable TLS, false = disable TLS.") },
         { "settings", (":settings", "Toggles the visibility of the settings pane.") }
     };
 
@@ -1206,8 +1291,15 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     private void Export(ParsedCommand command)
     {
-        var selectedMsgVm = SelectedMessage; // Cache locally
-        var fullMessage = selectedMsgVm?.GetFullMessage(); // Use method
+        var selectedMsgVmNullable = SelectedMessage; // Cache locally
+        if (selectedMsgVmNullable == null)
+        {
+            StatusBarText = "Error: No message selected to export.";
+            Log.Warning("Export command failed: No message selected.");
+            return;
+        }
+        var selectedMsgVm = selectedMsgVmNullable;
+        var fullMessage = selectedMsgVm.GetFullMessage(); // Use method
         if (fullMessage == null)
         {
             StatusBarText = "Error: No message selected to export.";
@@ -1245,7 +1337,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         {
             // Use the timestamp from the ViewModel as it represents arrival time
             // Use the fetched fullMessage and the cached selectedMsgVm for timestamp
-            string? exportedFilePath = exporter.ExportToFile(fullMessage, selectedMsgVm!.Timestamp, folderPath); // Use null-forgiving operator as selectedMsgVm is guaranteed non-null here
+            string? exportedFilePath = exporter.ExportToFile(fullMessage, selectedMsgVm.Timestamp, folderPath);
 
             if (exportedFilePath != null)
             {
@@ -1339,7 +1431,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         }
         return anyChildVisible; // Return true if any node at this level or below is visible
     }
-
 
     // --- Topic Tree Management ---
 
@@ -1644,12 +1735,19 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 
                 _messageHistorySubscription?.Dispose();
                 _globalHookSubscription?.Dispose(); // Dispose hook subscription
-                _globalHook?.Dispose(); // Dispose the hook itself
+                try
+                {
+                    _globalHook?.Dispose(); // Dispose the hook itself
+                }
+                catch
+                {
+                    
+                }
                 // MqttEngine's Dispose method now handles the final disconnect attempt.
                 // We rely on _cts.Cancel() being called first, then _mqttEngine.Dispose() below.
                 // Removed explicit synchronous DisconnectAsync call here.
                 // Dispose the MqttService instance if it implements IDisposable
-                if (_mqttService is IDisposable disposableMqttService)
+                    if (_mqttService is IDisposable disposableMqttService)
                 {
                     disposableMqttService.Dispose();
                 }
@@ -1664,7 +1762,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 CopyPayloadCommand?.Dispose(); // Dispose the new command
                                                // Interactions don't typically need explicit disposal unless they hold heavy resources
                 _cts.Dispose(); // Dispose the CancellationTokenSource itself
-            }
+                }
 
             // Free unmanaged resources (unmanaged objects) and override finalizer
             // Set large fields to null

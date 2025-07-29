@@ -265,12 +265,38 @@ public class CommandParserService : ICommandParserService
                 if (arguments.Count == 1)
                 {
                     string mode = arguments[0].ToLowerInvariant();
-                    if (mode == "anonymous" || mode == "userpass")
+                    if (mode == "anonymous" || mode == "userpass" || mode == "enhanced")
                     {
                         return CommandResult.SuccessCommand(new ParsedCommand(CommandType.SetAuthMode, arguments));
                     }
                 }
-                return CommandResult.Failure("Invalid arguments for :setauthmode. Expected: :setauthmode <anonymous|userpass>");
+                return CommandResult.Failure("Invalid arguments for :setauthmode. Expected: :setauthmode <anonymous|userpass|enhanced>");
+
+            case "setauthmethod":
+                if (arguments.Count == 1)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.SetAuthMethod, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :setauthmethod. Expected: :setauthmethod <method>");
+
+            case "setauthdata":
+                if (arguments.Count == 1)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.SetAuthData, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :setauthdata. Expected: :setauthdata <data>");
+
+            case "setusetls":
+                if (arguments.Count == 1)
+                {
+                    var arg = arguments[0].ToLowerInvariant();
+                    if (arg == "true" || arg == "false")
+                    {
+                        return CommandResult.SuccessCommand(new ParsedCommand(CommandType.SetUseTls, arguments));
+                    }
+                    return CommandResult.Failure("Invalid argument for :setusetls. Expected: :setusetls <true|false>");
+                }
+                return CommandResult.Failure("Invalid arguments for :setusetls. Expected: :setusetls <true|false>");
 
             case "settings":
                 if (arguments.Count == 0)

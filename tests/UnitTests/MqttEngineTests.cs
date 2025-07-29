@@ -321,5 +321,54 @@ namespace CrowsNestMqtt.UnitTests
             Assert.NotNull(options);
             Assert.Null(options.Credentials); // Or check if UserName/Password are null/empty if Credentials object is always created
         }
+
+        [Fact]
+        public void BuildMqttOptions_WithEnhancedAuth_ShouldSetAuthData()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = "localhost",
+                Port = 1883,
+                AuthMode = new EnhancedAuthenticationMode("Enhanced Authentication", "my-jwt-token"),
+            };
+            var engine = new MqttEngine(settings);
+
+            // Act
+            var methodInfo = typeof(MqttEngine).GetMethod("BuildMqttOptions", BindingFlags.NonPublic | BindingFlags.Instance);
+            var options = methodInfo?.Invoke(engine, null) as MqttClientOptions;
+
+            // Assert
+            Assert.NotNull(options);
+            Assert.Equal("Enhanced Authentication", options.AuthenticationMethod);
+            Assert.Equal("my-jwt-token", System.Text.Encoding.UTF8.GetString(options.AuthenticationData));
+        }
+
+        [Fact]
+        public void BuildMqttOptions_WithUseTls_ShouldSetTlsOptions()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = "localhost",
+                Port = 8883,
+                UseTls = true
+            };
+            var engine = new MqttEngine(settings);
+
+            // Act
+            var methodInfo = typeof(MqttEngine).GetMethod("BuildMqttOptions", BindingFlags.NonPublic | BindingFlags.Instance);
+            var options = methodInfo?.Invoke(engine, null) as MqttClientOptions;
+
+            // Assert
+            Assert.NotNull(options);
+            Assert.NotNull(options.ChannelOptions);
+            var tlsOptions = options.ChannelOptions.TlsOptions;
+            Assert.NotNull(tlsOptions);
+            Assert.True(tlsOptions.UseTls);
+            Assert.True(tlsOptions.AllowUntrustedCertificates);
+            Assert.True(tlsOptions.IgnoreCertificateChainErrors);
+            Assert.True(tlsOptions.IgnoreCertificateRevocationErrors);
+        }
     }
 }
