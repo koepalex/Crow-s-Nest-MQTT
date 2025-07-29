@@ -33,6 +33,8 @@ public enum CommandType
     ViewRaw,
     /// <summary> View the payload as a JSON tree. </summary>
     ViewJson,
+    /// <summary> View the payload as an image. </summary>
+    ViewImage,
     /// <summary> Toggles the settings pane. </summary>
     Settings,
     /// <summary> Set the MQTT username. </summary>

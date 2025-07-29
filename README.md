@@ -20,6 +20,8 @@ Whether you're a seasoned developer or a newcomer to IoT, Crow’s NestMQTT prov
 * Supports copy of MQTT message including metadata 
 * Export if MQTT messages  
 * `content-type` aware visual representation of MQTT message payload 
+  * Json
+  * Images
 * dotnet Aspire context aware
 
 ## Graphical User Interface
@@ -94,7 +96,7 @@ Crow's Nest MQTT provides a command interface (likely accessible via a dedicated
 *   `:resume` - Resume the display of new messages.
 *   `:expand` - Expand all nodes in the topic tree.
 *   `:collapse` - Collapse all nodes in the topic tree.
-*   `:view <raw|json>` - Set the payload view to either raw text or a formatted JSON tree.
+*   `:view <raw|json|image>` - Set the payload view to either raw text or a formatted JSON tree or a image viewer.
 *   `:settings` - Toggle the visibility of the settings panel.
 *   `:setuser <username>` - Set the username for MQTT authentication.
 *   `:setpass <password>` - Set the password for MQTT authentication.

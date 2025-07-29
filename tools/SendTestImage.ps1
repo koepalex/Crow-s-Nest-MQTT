@@ -27,10 +27,11 @@ $clientId = if ($settings.ClientId -and $settings.ClientId -ne "") { $settings.C
 
 # Read image as bytes
 $imageBytes = [System.IO.File]::ReadAllBytes($ImagePath)
+Write-Host "Loaded image file: $ImagePath ($($imageBytes.Length) bytes)"
 
 # Build MQTT client options (MQTTnet 5.x API)
 $optionsBuilder = [MQTTnet.MqttClientOptionsBuilder]::new()
-$optionsBuilder = $optionsBuilder.WithTcpServer($mqttHost, [int]$port).WithClientId($clientId)
+$optionsBuilder = $optionsBuilder.WithTcpServer($mqttHost, [int]$port)
 if ($useTls) { $optionsBuilder = $optionsBuilder.WithTls() }
 $options = $optionsBuilder.Build()
 

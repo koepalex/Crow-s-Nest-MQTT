@@ -7,9 +7,12 @@ using Serilog; // Added Serilog
 using System.Collections.ObjectModel;
 using System.Reactive; // Required for Unit
 using System.Reactive.Linq; // Required for Select, ObserveOn, Throttle, DistinctUntilChanged
+using System.Buffers;
 using System.Text; // For Encoding and StringBuilder
 using System.Text.Json; // Added for JSON formatting
+using Avalonia.Media.Imaging;
 using AvaloniaEdit.Document; // Added for TextDocument
+using MQTTnet;
 using AvaloniaEdit.Highlighting; // Added for Syntax Highlighting
 using CrowsNestMqtt.BusinessLogic; // Required for MqttEngine, MqttConnectionStateChangedEventArgs, IMqttService
 using CrowsNestMqtt.BusinessLogic.Commands; // Added for command parsing
@@ -194,10 +197,24 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     }
 
     // Computed property to show JSON parse error only when neither viewer is active but an error exists
-    public bool ShowJsonParseError => !IsJsonViewerVisible && !IsRawTextViewerVisible && !string.IsNullOrEmpty(JsonViewer.JsonParseError);
+    public bool ShowJsonParseError => !IsJsonViewerVisible && !IsRawTextViewerVisible && !IsImageViewerVisible && !string.IsNullOrEmpty(JsonViewer.JsonParseError);
+
+    private bool _isImageViewerVisible;
+    public bool IsImageViewerVisible
+    {
+        get => _isImageViewerVisible;
+        private set => this.RaiseAndSetIfChanged(ref _isImageViewerVisible, value);
+    }
+
+    private Bitmap? _imagePayload;
+    public Bitmap? ImagePayload
+    {
+        get => _imagePayload;
+        private set => this.RaiseAndSetIfChanged(ref _imagePayload, value);
+    }
 
     // Computed property to control the visibility of the splitter below the payload viewers
-    public bool IsAnyPayloadViewerVisible => IsJsonViewerVisible || IsRawTextViewerVisible;
+    public bool IsAnyPayloadViewerVisible => IsJsonViewerVisible || IsRawTextViewerVisible || IsImageViewerVisible;
 
     /// <summary>
     /// Gets a value indicating whether the topic tree filter is currently active.
@@ -631,21 +648,21 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         JsonViewer.LoadJson(string.Empty); // Clear JSON viewer
         IsJsonViewerVisible = false; // Hide JSON viewer
         IsRawTextViewerVisible = false; // Hide Raw Text viewer
+        IsImageViewerVisible = false;
+        ImagePayload?.Dispose();
+        ImagePayload = null;
         // Clear the document content instead of the string property
         RawPayloadDocument.Text = string.Empty;
         PayloadSyntaxHighlighting = null; // Clear syntax highlighting
         this.RaisePropertyChanged(nameof(ShowJsonParseError)); // Notify computed property change
         this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible)); // Notify computed property change
 
-        var msg = messageVm?.GetFullMessage(); // Use the method
+        var msg = messageVm?.GetFullMessage(); // This returns MqttApplicationMessage
         if (msg == null) // Check the result of the method call
         {
-            // Add a placeholder if needed, or leave grids empty
-            // MessageMetadata.Add(new MetadataItem("Status", "Select a message to see details."));
             return;
         }
 
-        // var msg = messageVm.GetFullMessage(); // Already fetched above
         var timestamp = messageVm?.Timestamp; // Use null-forgiving operator as messageVm is guaranteed non-null here
 
         // --- Populate Metadata ---
@@ -660,7 +677,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
         if (msg.CorrelationData != null && msg.CorrelationData.Length > 0)
         {
-            // Attempt to display correlation data as string, otherwise show byte count
             string correlationDisplay;
             try
             {
@@ -672,14 +688,12 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             }
             MessageMetadata.Add(new MetadataItem("Correlation Data", correlationDisplay));
         }
-        // Add more metadata fields as needed...
 
         // --- Populate User Properties ---
-        // User Properties - Add null check for msg and UserProperties
-        HasUserProperties = msg?.UserProperties?.Count > 0; // Use null-conditional access and Count
-        if (HasUserProperties && msg?.UserProperties != null) // Ensure UserProperties is not null before iterating
+        HasUserProperties = msg.UserProperties?.Count > 0;
+        if (HasUserProperties && msg.UserProperties != null)
         {
-            foreach (var prop in msg.UserProperties) // msg and UserProperties are checked above
+            foreach (var prop in msg.UserProperties)
             {
                 MessageUserProperties.Add(new MetadataItem(prop.Name, prop.Value));
             }
@@ -692,13 +706,14 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         // --- Handle Payload and JSON Viewer ---
         string payloadAsString = string.Empty;
         bool isPayloadValidUtf8 = false;
-        if (msg != null && msg.Payload.Length > 0) // Add explicit null check for msg to satisfy compiler
+        var payloadBytes = msg.Payload.ToArray();
+
+        if (payloadBytes.Length > 0)
         {
             try
             {
-                // Attempt to decode as UTF-8
-                payloadAsString = Encoding.UTF8.GetString(msg.Payload);
-                isPayloadValidUtf8 = true; // Assume valid if no exception
+                payloadAsString = Encoding.UTF8.GetString(payloadBytes);
+                isPayloadValidUtf8 = true;
             }
             catch (DecoderFallbackException)
             {
@@ -706,7 +721,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 StatusBarText = "Payload is not valid UTF-8.";
                 Log.Warning("Could not decode MQTT message payload for topic '{Topic}' as UTF-8.", msg.Topic);
             }
-            catch (Exception ex) // Catch other potential exceptions during decoding
+            catch (Exception ex)
             {
                 isPayloadValidUtf8 = false;
                 StatusBarText = $"Error decoding payload: {ex.Message}";
@@ -716,78 +731,97 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         else
         {
             payloadAsString = "[No Payload]";
-            isPayloadValidUtf8 = true; // Treat no payload as valid for JSON viewer (it will show nothing)
+            isPayloadValidUtf8 = true;
         }
 
-        // Set document text regardless of UTF-8 validity for the raw viewer
         if (isPayloadValidUtf8)
         {
-            // Try to format the JSON if it appears to be valid JSON
             if (payloadAsString.Trim().StartsWith("{") || payloadAsString.Trim().StartsWith("["))
             {
                 try
                 {
-                    // Parse and format JSON with indentation
                     var jsonDoc = JsonDocument.Parse(payloadAsString);
-                    // Options are now defined in MainViewModelJsonContext
                     RawPayloadDocument.Text = JsonSerializer.Serialize(jsonDoc.RootElement, MainViewModelJsonContext.Default.JsonElement);
                     Log.Debug("Formatted JSON payload for raw text display");
                 }
                 catch (JsonException)
                 {
-                    // If JSON parsing fails, just use the raw text
                     RawPayloadDocument.Text = payloadAsString;
                     Log.Verbose("Payload looks like JSON but could not be parsed, displaying as plain text");
                 }
                 catch (Exception ex)
                 {
-                    // Handle any other formatting errors
                     RawPayloadDocument.Text = payloadAsString;
                     Log.Warning(ex, "Error formatting JSON payload");
                 }
             }
             else
             {
-                // Not JSON-like, use as is
                 RawPayloadDocument.Text = payloadAsString;
             }
         }
         else
         {
-            RawPayloadDocument.Text = $"[Binary Data: {msg?.Payload.Length ?? -1} bytes]";
+            RawPayloadDocument.Text = $"[Binary Data: {payloadBytes.Length} bytes]";
         }
 
         // Determine initial view state and syntax highlighting
-        if (isPayloadValidUtf8)
+        if (msg.ContentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true)
         {
-            JsonViewer.LoadJson(payloadAsString); // Attempt to load JSON
+            try
+            {
+                using var ms = new MemoryStream(payloadBytes);
+                ImagePayload = new Bitmap(ms);
+                IsImageViewerVisible = true;
+                IsJsonViewerVisible = false;
+                IsRawTextViewerVisible = false;
+                StatusBarText = "Displaying image payload.";
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Could not decode image from payload for content type {ContentType}", msg.ContentType);
+                ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
+            }
+        }
+        else if (isPayloadValidUtf8)
+        {
+            JsonViewer.LoadJson(payloadAsString);
             if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
             {
-                // If valid JSON, show JSON viewer by default
                 IsJsonViewerVisible = true;
                 IsRawTextViewerVisible = false;
+                IsImageViewerVisible = false;
                 PayloadSyntaxHighlighting = HighlightingManager.Instance.GetDefinition("Json");
             }
             else
             {
-                // If not valid JSON (but valid UTF-8), show Raw viewer by default
-                IsJsonViewerVisible = false;
-                IsRawTextViewerVisible = true;
-                // Try to guess highlighting based on content type or simple checks
-                PayloadSyntaxHighlighting = GuessSyntaxHighlighting(msg?.ContentType ?? string.Empty, payloadAsString);
+                ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
                 StatusBarText = $"Payload is not valid JSON. Showing raw view. {JsonViewer.JsonParseError}";
             }
         }
         else
         {
-            // If not valid UTF-8, show Raw viewer with binary placeholder
-            IsJsonViewerVisible = false;
-            IsRawTextViewerVisible = true;
-            PayloadSyntaxHighlighting = null; // No highlighting for binary placeholder
-            // Status bar already set in the catch block
+            ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
         }
-        this.RaisePropertyChanged(nameof(ShowJsonParseError)); // Notify computed property change
-        this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible)); // Notify computed property change
+        this.RaisePropertyChanged(nameof(ShowJsonParseError));
+        this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+    }
+
+    private void ShowRawPayload(bool isPayloadValidUtf8, string payloadAsString, MqttApplicationMessage? msg)
+    {
+        IsJsonViewerVisible = false;
+        IsRawTextViewerVisible = true;
+        IsImageViewerVisible = false;
+        if (isPayloadValidUtf8)
+        {
+            RawPayloadDocument.Text = payloadAsString;
+            PayloadSyntaxHighlighting = GuessSyntaxHighlighting(msg?.ContentType ?? string.Empty, payloadAsString);
+        }
+        else
+        {
+            RawPayloadDocument.Text = $"[Binary Data: {msg?.Payload.Length ?? -1} bytes]";
+            PayloadSyntaxHighlighting = null;
+        }
     }
 
     // Helper to guess syntax highlighting
@@ -1008,10 +1042,13 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                     CollapseAllNodes();
                     break;
                 case CommandType.ViewRaw:
-                    SwitchPayloadView(showRaw: true);
+                    SwitchPayloadView(PayloadViewType.Raw);
                     break;
                 case CommandType.ViewJson:
-                    SwitchPayloadView(showRaw: false);
+                    SwitchPayloadView(PayloadViewType.Json);
+                    break;
+                case CommandType.ViewImage:
+                    SwitchPayloadView(PayloadViewType.Image);
                     break;
                 case CommandType.SetUser:
                     if (command.Arguments.Count == 1)
@@ -1176,7 +1213,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         { "resume", (":resume", "Resumes receiving new messages in the UI.") },
         { "expand", (":expand", "Expands all nodes in the topic tree.") },
         { "collapse", (":collapse", "Collapses all nodes in the topic tree.") },
-        { "view", (":view <raw|json>", "Switches the payload view between raw text and JSON tree.") },
+        { "view", (":view <raw|json|image>", "Switches the payload view between raw text, JSON tree and image.") },
         { "setuser", (":setuser <username>", "Sets MQTT username. Switches to Username/Password auth if current mode is Anonymous.") },
         { "setpass", (":setpass <password>", "Sets MQTT password. Switches to Username/Password auth if current mode is Anonymous.") },
         { "setauthmode", (":setauthmode <anonymous|userpass|enhanced>", "Sets the MQTT authentication mode.") },
@@ -1615,11 +1652,13 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         Log.Verbose("Updated command suggestions for '{InputText}'. Found {Count} matches.", currentText, CommandSuggestions.Count);
     }
 
+    private enum PayloadViewType { Raw, Json, Image }
+
     /// <summary>
     /// Switches the active payload viewer between JSON and Raw Text.
     /// </summary>
-    /// <param name="showRaw">True to show the raw text viewer, false to show the JSON viewer.</param>
-    private void SwitchPayloadView(bool showRaw)
+    /// <param name="viewType">The type of view to switch to.</param>
+    private void SwitchPayloadView(PayloadViewType viewType)
     {
         if (SelectedMessage == null)
         {
@@ -1627,32 +1666,47 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             return;
         }
 
-        if (showRaw)
+        IsRawTextViewerVisible = false;
+        IsJsonViewerVisible = false;
+        IsImageViewerVisible = false;
+
+        switch (viewType)
         {
-            IsRawTextViewerVisible = true;
-            IsJsonViewerVisible = false;
-            StatusBarText = "Switched to Raw Text view.";
-            Log.Information("Switched payload view to Raw Text.");
-        }
-        else
-        {
-            // Only switch to JSON view if the JSON was parsed correctly or payload was empty
-            if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
-            {
-                IsRawTextViewerVisible = false;
-                IsJsonViewerVisible = true;
-                StatusBarText = "Switched to JSON Tree view.";
-                Log.Information("Switched payload view to JSON Tree.");
-            }
-            else
-            {
-                StatusBarText = $"Cannot switch to JSON view: {JsonViewer.JsonParseError}";
-                Log.Warning("Attempted to switch to JSON view, but JSON parsing failed.");
-                // Keep the raw view visible in this case
+            case PayloadViewType.Raw:
                 IsRawTextViewerVisible = true;
-                IsJsonViewerVisible = false;
-            }
+                StatusBarText = "Switched to Raw Text view.";
+                Log.Information("Switched payload view to Raw Text.");
+                break;
+            case PayloadViewType.Json:
+                if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
+                {
+                    IsJsonViewerVisible = true;
+                    StatusBarText = "Switched to JSON Tree view.";
+                    Log.Information("Switched payload view to JSON Tree.");
+                }
+                else
+                {
+                    IsRawTextViewerVisible = true; // Fallback to raw view
+                    StatusBarText = $"Cannot switch to JSON view: {JsonViewer.JsonParseError}";
+                    Log.Warning("Attempted to switch to JSON view, but JSON parsing failed.");
+                }
+                break;
+            case PayloadViewType.Image:
+                if (ImagePayload != null)
+                {
+                    IsImageViewerVisible = true;
+                    StatusBarText = "Switched to Image view.";
+                    Log.Information("Switched payload view to Image.");
+                }
+                else
+                {
+                    IsRawTextViewerVisible = true; // Fallback to raw view
+                    StatusBarText = "Cannot switch to Image view: No valid image loaded for this message.";
+                    Log.Warning("Attempted to switch to Image view, but no image is loaded.");
+                }
+                break;
         }
+
         this.RaisePropertyChanged(nameof(ShowJsonParseError)); // Notify computed property change
         this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible)); // Notify computed property change
     }
@@ -1673,8 +1727,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             return;
         }
 
-        var fullMessage = messageVm.GetFullMessage(); // Use method, no longer nullable due to check above
-        if (fullMessage?.Payload == null)
+        var msg = messageVm.GetFullMessage(); // Use method, no longer nullable due to check above
+        if (msg?.Payload == null)
         {
             StatusBarText = "Cannot copy: Message or payload is missing.";
             Log.Warning("CopyPayloadCommand failed: FullMessage or Payload was null for MessageId {MessageId}.", messageVm.MessageId);
@@ -1685,7 +1739,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         try
         {
             // Use the fetched fullMessage
-            payloadString = Encoding.UTF8.GetString(fullMessage.Payload);
+            payloadString = Encoding.UTF8.GetString(msg.Payload);
         }
         catch (Exception ex)
         {
@@ -1699,7 +1753,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             // Invoke the interaction to request the View to copy the text
             await CopyTextToClipboardInteraction.Handle(payloadString);
             StatusBarText = "Payload copied to clipboard."; // Assume success if Handle doesn't throw
-            Log.Information("CopyTextToClipboardInteraction handled for topic '{Topic}' (MessageId {MessageId}).", fullMessage.Topic, messageVm.MessageId);
+            Log.Information("CopyTextToClipboardInteraction handled for topic '{Topic}' (MessageId {MessageId}).", msg.Topic, messageVm.MessageId);
         }
         catch (Exception ex) // Catch potential exceptions from the interaction handler
         {
