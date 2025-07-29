@@ -74,4 +74,15 @@ public static class AppLogger
         OnLogMessage?.Invoke("Debug", messageTemplate);
         Serilog.Log.Debug(messageTemplate, propertyValues);
     }
+
+    /// <summary>
+    /// Writes a trace log message.
+    /// </summary>
+    /// <param name="messageTemplate">Message template describing the event.</param>
+    /// <param name="propertyValues">Objects positionally formatted into the message template.</param>
+    public static void Trace(string messageTemplate, params object[]? propertyValues)
+    {
+        OnLogMessage?.Invoke("Debug", messageTemplate);
+        Serilog.Log.Verbose(messageTemplate, propertyValues);
+    }
 }

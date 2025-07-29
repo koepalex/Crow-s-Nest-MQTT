@@ -92,7 +92,7 @@ public partial class MainView : UserControl
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_ =>
                     {
-                        CrowsNestMqtt.Utils.AppLogger.Debug("MainView GotFocus event fired. Setting IsWindowFocused = true.");
+                        CrowsNestMqtt.Utils.AppLogger.Trace("MainView GotFocus event fired. Setting IsWindowFocused = true.");
                         viewModel.IsWindowFocused = true;
                     });
 #pragma warning restore IL2026
@@ -102,7 +102,7 @@ public partial class MainView : UserControl
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_ =>
                     {
-                        CrowsNestMqtt.Utils.AppLogger.Debug("MainView LostFocus event fired. Setting IsWindowFocused = false.");
+                        CrowsNestMqtt.Utils.AppLogger.Trace("MainView LostFocus event fired. Setting IsWindowFocused = false.");
                         viewModel.IsWindowFocused = false;
                     });
 #pragma warning restore IL2026
