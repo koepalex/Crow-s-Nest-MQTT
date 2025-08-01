@@ -243,16 +243,22 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             var switchViewMethod = typeof(MainViewModel).GetMethod("SwitchPayloadView", 
                 BindingFlags.NonPublic | BindingFlags.Instance);
             
+            // Get the PayloadViewType enum type via reflection
+            var payloadViewTypeEnum = typeof(MainViewModel).GetNestedType("PayloadViewType", BindingFlags.NonPublic);
+            Assert.NotNull(payloadViewTypeEnum);
+            var rawValue = Enum.Parse(payloadViewTypeEnum, "Raw");
+            var jsonValue = Enum.Parse(payloadViewTypeEnum, "Json");
+
             // Act - Switch to raw view
-            switchViewMethod?.Invoke(viewModel, new object[] { true });
-            
+            switchViewMethod?.Invoke(viewModel, new object[] { rawValue });
+
             // Assert
             Assert.False(viewModel.IsJsonViewerVisible);
             Assert.True(viewModel.IsRawTextViewerVisible);
-            
+
             // Act - Switch back to JSON view
-            switchViewMethod?.Invoke(viewModel, new object[] { false });
-            
+            switchViewMethod?.Invoke(viewModel, new object[] { jsonValue });
+
             // Assert
             Assert.True(viewModel.IsJsonViewerVisible);
             Assert.False(viewModel.IsRawTextViewerVisible);
