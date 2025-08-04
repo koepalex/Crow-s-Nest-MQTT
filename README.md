@@ -22,6 +22,7 @@ Whether you're a seasoned developer or a newcomer to IoT, Crow’s NestMQTT prov
 * `content-type` aware visual representation of MQTT message payload 
   * Json
   * Images
+  * Video
 * dotnet Aspire context aware
 
 ## Graphical User Interface
@@ -79,6 +80,20 @@ Set per-topic message buffer limits to manage memory usage:
 - **Topic Filter**: MQTT topic or wildcard (e.g., `#` for all topics).
 - **Max Size (Bytes)**: Maximum buffer size for each topic.
 
+### Viewers
+Crow's NestMQTT automatically render content of MQTT message as image when the content-type indicates an image
+![](./doc/images/image-viewer.png)
+
+or plays a video when the content-type indicates one
+![](./doc/images/video-viewer.gif)
+
+or renders a JSON object when the content-type is set to `application/json`
+![](./doc/images/json-viewer.png)
+
+if the special viewer can't be applied the default content viewer is used
+![](./doc/images/raw-viewer.png)
+
+You can switch between viewers for the currently selected MQTT message using the `:view` command.
 
 
 ## Command Interface
@@ -96,7 +111,7 @@ Crow's Nest MQTT provides a command interface (likely accessible via a dedicated
 *   `:resume` - Resume the display of new messages.
 *   `:expand` - Expand all nodes in the topic tree.
 *   `:collapse` - Collapse all nodes in the topic tree.
-*   `:view <raw|json|image>` - Set the payload view to either raw text or a formatted JSON tree or a image viewer.
+*   `:view <raw|json|image|video>` - Set the payload view to raw text, formatted JSON tree, image, or video viewer.
 *   `:settings` - Toggle the visibility of the settings panel.
 *   `:setuser <username>` - Set the username for MQTT authentication.
 *   `:setpass <password>` - Set the password for MQTT authentication.
