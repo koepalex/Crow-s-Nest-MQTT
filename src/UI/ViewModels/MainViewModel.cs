@@ -254,6 +254,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     // Interaction for requesting clipboard copy from the View
     public Interaction<string, Unit> CopyTextToClipboardInteraction { get; }
+    // Interaction for requesting image copy from the View
+    public Interaction<Bitmap, Unit> CopyImageToClipboardInteraction { get; }
 
     /// <summary>
     /// Gets or sets a value indicating whether the main application window currently has focus.
@@ -277,6 +279,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         Settings = new SettingsViewModel(); // Instantiate settings
         JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
         CopyTextToClipboardInteraction = new Interaction<string, Unit>(); // Initialize the interaction
+        CopyImageToClipboardInteraction = new Interaction<Bitmap, Unit>(); // Initialize the image interaction
 
         // Populate the list of available commands (using the help dictionary keys)
         _availableCommands = CommandHelpDetails.Keys
@@ -1498,7 +1501,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             if (existingNode == null)
             {
                 // Create new node
-                // Create new node
                 Log.Verbose("Creating new node '{Part}' under parent '{ParentName}' with path '{FullPath}'", part, parentNode?.Name ?? "[Root]", currentPath);
                 existingNode = new NodeViewModel(part, parentNode) { FullPath = currentPath }; // Pass parent and set full path
 
@@ -1715,8 +1717,9 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     /// <summary>
     /// Copies the full payload of the given message to the system clipboard using an Interaction.
+    /// If the content-type is an image, copies the image to the clipboard.
     /// </summary>
-    private async Task CopyPayloadToClipboardAsync(object? param) // Parameter changed to object?
+    private async Task CopyPayloadToClipboardAsync(object? param)
     {
         MessageViewModel? messageVm = param as MessageViewModel;
 
@@ -1727,7 +1730,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             return;
         }
 
-        var msg = messageVm.GetFullMessage(); // Use method, no longer nullable due to check above
+        var msg = messageVm.GetFullMessage();
         if (msg?.Payload == null)
         {
             StatusBarText = "Cannot copy: Message or payload is missing.";
@@ -1735,10 +1738,34 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             return;
         }
 
+        // Check if content-type is image
+        if (!string.IsNullOrEmpty(msg.ContentType) && msg.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                using var ms = new MemoryStream(msg.Payload.ToArray());
+                var bitmap = new Bitmap(ms);
+                var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"crowsnest_image_{Guid.NewGuid():N}.png");
+                using (var fs = System.IO.File.OpenWrite(tempPath))
+                {
+                    bitmap.Save(fs);
+                }
+                await CopyImageToClipboardInteraction.Handle(bitmap);
+                StatusBarText = $"Image written to temp file: {tempPath}. Path copied to clipboard. Paste the path into your application to access the image.";
+                Log.Information("Image payload written to temp file '{TempPath}' and path copied to clipboard for topic '{Topic}' (MessageId {MessageId}).", tempPath, msg.Topic, messageVm.MessageId);
+                return;
+            }
+            catch (Exception ex)
+            {
+                StatusBarText = "Error copying image to clipboard.";
+                Log.Error(ex, "Failed to copy image payload for clipboard for MessageId {MessageId}.", messageVm.MessageId);
+                // Fallback to text copy below
+            }
+        }
+
         string payloadString;
         try
         {
-            // Use the fetched fullMessage
             payloadString = Encoding.UTF8.GetString(msg.Payload);
         }
         catch (Exception ex)
@@ -1750,12 +1777,11 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
         try
         {
-            // Invoke the interaction to request the View to copy the text
             await CopyTextToClipboardInteraction.Handle(payloadString);
-            StatusBarText = "Payload copied to clipboard."; // Assume success if Handle doesn't throw
+            StatusBarText = "Payload copied to clipboard.";
             Log.Information("CopyTextToClipboardInteraction handled for topic '{Topic}' (MessageId {MessageId}).", msg.Topic, messageVm.MessageId);
         }
-        catch (Exception ex) // Catch potential exceptions from the interaction handler
+        catch (Exception ex)
         {
             StatusBarText = $"Error copying to clipboard: {ex.Message}";
             Log.Error(ex, "Exception occurred during CopyTextToClipboardInteraction handling for MessageId {MessageId}.", messageVm.MessageId);
