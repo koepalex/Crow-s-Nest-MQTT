@@ -1,0 +1,10 @@
+{
+    "key": {
+        "foo": "bar",
+        "number": 42,
+        "cool": true,
+        "subkey": {
+            "a": "b"
+        }
+    }
+}

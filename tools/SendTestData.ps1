@@ -4,7 +4,8 @@
 param(
     [string]$SettingsPath = "$env:LOCALAPPDATA\CrowsNestMqtt\settings.json",
     [string]$ImagePath = "tests\TestData\test-image.png",
-    [string]$VideoPath = "tests\TestData\test-video.mp4"
+    [string]$VideoPath = "tests\TestData\test-video.mp4",
+    [string]$JsonPath = "tests\TestData\test-struct.json"
 )
 
 # Ensure MQTTnet is available
@@ -66,6 +67,20 @@ $videoMessage = $videoMsgBuilder.Build()
 
 $null = $client.PublishAsync($videoMessage).GetAwaiter().GetResult()
 Write-Host "Video sent to topic 'test/viewer/video' with content-type 'video/mp4'."
+
+# --- Send JSON file ---
+
+$jsonBytes = [System.IO.File]::ReadAllBytes($JsonPath)
+Write-Host "Loaded JSON file: $JsonPath ($($jsonBytes.Length) bytes)"
+
+$jsonMsgBuilder = [MQTTnet.MqttApplicationMessageBuilder]::new()
+$jsonMsgBuilder = $jsonMsgBuilder.WithTopic("test/viewer/json").WithPayload($jsonBytes)
+$jsonMsgBuilder = $jsonMsgBuilder.WithContentType("application/json")
+$jsonMsgBuilder = $jsonMsgBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+$jsonMessage = $jsonMsgBuilder.Build()
+
+$null = $client.PublishAsync($jsonMessage).GetAwaiter().GetResult()
+Write-Host "JSON sent to topic 'test/viewer/json' with content-type 'application/json'."
 
 # Disconnect
 $opts = [MQTTnet.MqttClientDisconnectOptions]::new()
