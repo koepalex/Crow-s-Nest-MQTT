@@ -47,7 +47,7 @@ jobs:
       run: dotnet restore
 
     - name: Build Desktop App
-      run: dotnet build src/MainApp/CrowsNestMqtt.App.csproj --no-restore --configuration Release
+      run: dotnet build CrowsNestMQTT.slnx --no-restore --configuration Release
 
     - name: Test with coverage
       run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage;Format=json,cobertura" --filter "Category!=LocalOnly" --diag:logs/log.txt
