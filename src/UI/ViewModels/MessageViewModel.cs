@@ -42,14 +42,17 @@ public class MessageViewModel : ReactiveObject
     // Method to be called when details are requested (e.g., on selection)
     public MqttApplicationMessage? GetFullMessage()
     {
+        System.Diagnostics.Debug.WriteLine($"[DEBUG] GetFullMessage called for Topic='{Topic}', MessageId={MessageId}");
         if (_mqttService.TryGetMessage(Topic, MessageId, out var message))
         {
+            System.Diagnostics.Debug.WriteLine($"[DEBUG] Message found in buffer for Topic='{Topic}', MessageId={MessageId}");
             return message;
         }
         else
         {
+            System.Diagnostics.Debug.WriteLine($"[DEBUG] Message NOT found in buffer for Topic='{Topic}', MessageId={MessageId}");
             _statusBarService.ShowStatus($"Message details for topic '{Topic}' (ID: {MessageId}) are no longer available in the buffer.");
             return null;
-        }
     }
+}
 }

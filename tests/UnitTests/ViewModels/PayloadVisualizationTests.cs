@@ -8,11 +8,33 @@ using System.Reflection;
 using System.Text;
 using Xunit;
 using System.Text.Json; // Added for JsonValueKind
+using System.Reactive.Threading.Tasks;
+
+using Avalonia.Threading;
 
 namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class PayloadVisualizationTests
     {
+        static PayloadVisualizationTests()
+        {
+            // Use reflection to set Dispatcher.UIThread to a synchronous dispatcher for tests
+            var dispatcherType = typeof(Dispatcher);
+            var field = dispatcherType.GetField("_uiThread", BindingFlags.Static | BindingFlags.NonPublic);
+            if (field != null)
+            {
+                field.SetValue(null, new ImmediateDispatcher());
+            }
+        }
+
+        private class ImmediateDispatcher : IDispatcher
+        {
+            public bool CheckAccess() => true;
+            public void Post(Action action) => action();
+            public void Post(Action action, DispatcherPriority priority) => action();
+            public void VerifyAccess() { }
+            public DispatcherPriority Priority => DispatcherPriority.Normal;
+        }
        private readonly ICommandParserService _commandParserService;
        private readonly IMqttService _mqttServiceMock;
        private readonly IStatusBarService _statusBarServiceMock;
@@ -243,16 +265,22 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             var switchViewMethod = typeof(MainViewModel).GetMethod("SwitchPayloadView", 
                 BindingFlags.NonPublic | BindingFlags.Instance);
             
+            // Get the PayloadViewType enum type via reflection
+            var payloadViewTypeEnum = typeof(MainViewModel).GetNestedType("PayloadViewType", BindingFlags.NonPublic);
+            Assert.NotNull(payloadViewTypeEnum);
+            var rawValue = Enum.Parse(payloadViewTypeEnum, "Raw");
+            var jsonValue = Enum.Parse(payloadViewTypeEnum, "Json");
+
             // Act - Switch to raw view
-            switchViewMethod?.Invoke(viewModel, new object[] { true });
-            
+            switchViewMethod?.Invoke(viewModel, new object[] { rawValue });
+
             // Assert
             Assert.False(viewModel.IsJsonViewerVisible);
             Assert.True(viewModel.IsRawTextViewerVisible);
-            
+
             // Act - Switch back to JSON view
-            switchViewMethod?.Invoke(viewModel, new object[] { false });
-            
+            switchViewMethod?.Invoke(viewModel, new object[] { jsonValue });
+
             // Assert
             Assert.True(viewModel.IsJsonViewerVisible);
             Assert.False(viewModel.IsRawTextViewerVisible);
@@ -336,6 +364,101 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Assert
             Assert.True(interactionTriggered);
             // Assert.Contains("copied to clipboard", viewModel.StatusBarText.ToLower()); // Interaction testing can be unreliable without proper setup
+        }
+
+        [Fact(Skip = "Clipboard interaction not supported in headless test environment")]
+        public void CopyPayloadToClipboard_ForImage_ShouldCopyImagePathToClipboard()
+        {
+            // Arrange
+            var viewModel = new MainViewModel(_commandParserService);
+
+            byte[] pngHeader = new byte[]
+            {
+                0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+                0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+                0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+                0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
+                0xDE, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41,
+                0x54, 0x08, 0xD7, 0x63, 0xF8, 0x0F, 0x00, 0x01,
+                0x01, 0x01, 0x00, 0x18, 0xDD, 0x8D, 0xB1, 0x00,
+                0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+                0x42, 0x60, 0x82
+            };
+            string topic = "test/image";
+            var messageId = Guid.NewGuid();
+            var timestamp = DateTime.Now;
+            var fullMessage = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(pngHeader)
+                .WithContentType("image/png")
+                .Build();
+
+            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+                .Returns(x => { x[2] = fullMessage; return true; });
+
+            var testMessage = new MessageViewModel(messageId, topic, timestamp, "[image]", pngHeader.Length, _mqttServiceMock, _statusBarServiceMock);
+
+            bool imageInteractionTriggered = false;
+            using (var evt = new System.Threading.ManualResetEventSlim())
+            {
+                viewModel.CopyImageToClipboardInteraction.RegisterHandler(async interaction =>
+                {
+                    imageInteractionTriggered = true;
+                    Assert.NotNull(interaction.Input);
+                    evt.Set();
+                    await Task.CompletedTask;
+                });
+
+                // Act
+                viewModel.CopyPayloadCommand.Execute(testMessage).Subscribe();
+                evt.Wait(2000); // Wait up to 2 seconds for handler
+
+                // Assert
+                Assert.True(imageInteractionTriggered);
+                Assert.Contains("Image written to temp file", viewModel.StatusBarText);
+            }
+        }
+
+        [Fact(Skip = "Clipboard interaction not supported in headless test environment")]
+        public void CopyPayloadToClipboard_ForText_ShouldCopyPayloadToClipboard()
+        {
+            // Arrange
+            var viewModel = new MainViewModel(_commandParserService);
+
+            string textPayload = "Clipboard text payload";
+            string topic = "test/text";
+            var messageId = Guid.NewGuid();
+            var timestamp = DateTime.Now;
+            var fullMessage = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(Encoding.UTF8.GetBytes(textPayload))
+                .WithContentType("text/plain")
+                .Build();
+
+            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+                .Returns(x => { x[2] = fullMessage; return true; });
+
+            var testMessage = new MessageViewModel(messageId, topic, timestamp, textPayload, textPayload.Length, _mqttServiceMock, _statusBarServiceMock);
+
+            bool textInteractionTriggered = false;
+            using (var evt = new System.Threading.ManualResetEventSlim())
+            {
+                viewModel.CopyTextToClipboardInteraction.RegisterHandler(async interaction =>
+                {
+                    textInteractionTriggered = true;
+                    Assert.Equal(textPayload, interaction.Input);
+                    evt.Set();
+                    await Task.CompletedTask;
+                });
+
+                // Act
+                viewModel.CopyPayloadCommand.Execute(testMessage).Subscribe();
+                evt.Wait(2000); // Wait up to 2 seconds for handler
+
+                // Assert
+                Assert.True(textInteractionTriggered);
+                Assert.Contains("Payload copied to clipboard", viewModel.StatusBarText);
+            }
         }
     }
 }

@@ -219,6 +219,11 @@
                                          Background="LightBlue"/>
                       </Border>
 
+                      <!-- Image Viewer (Conditionally Visible) -->
+                      <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsImageViewerVisible}">
+                          <Image Source="{Binding ImagePayload}" Stretch="Uniform" Margin="5" />
+                      </Border>
+
                       <!-- Display message if JSON viewer is hidden but should be visible (e.g., parse error) -->
                       <!-- This TextBlock might overlap if both viewers are hidden but error exists. Consider placing it outside the Panel or adjusting logic -->
                       <TextBlock Text="{Binding JsonViewer.JsonParseError}" Foreground="Red" Margin="10"

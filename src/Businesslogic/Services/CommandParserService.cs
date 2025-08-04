@@ -244,8 +244,12 @@ public class CommandParserService : ICommandParserService
                     {
                         return CommandResult.SuccessCommand(new ParsedCommand(CommandType.ViewJson, arguments));
                     }
+                    else if (viewType == "image")
+                    {
+                        return CommandResult.SuccessCommand(new ParsedCommand(CommandType.ViewImage, arguments));
+                    }
                 }
-                return CommandResult.Failure("Invalid arguments for :view. Expected: :view <raw|json>");
+                return CommandResult.Failure("Invalid arguments for :view. Expected: :view <raw|json|image>");
 
             case "setuser":
                 if (arguments.Count == 1)

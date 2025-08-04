@@ -20,6 +20,8 @@ Whether you're a seasoned developer or a newcomer to IoT, Crow’s NestMQTT prov
 * Supports copy of MQTT message including metadata 
 * Export if MQTT messages  
 * `content-type` aware visual representation of MQTT message payload 
+  * Json
+  * Images
 * dotnet Aspire context aware
 
 ## Graphical User Interface
@@ -43,7 +45,7 @@ Used to show MQTT topics, where messages are received. Selecting a topic here wi
 Shows the history of received messages of the selected topic. Including the received time, the size, a small preview and the possibility to copy the whole message. Selecting a message here will set the context for details and metadata panes.
 
 **5. Payload View**
-Shows the payload of the message selected in history view. Supports rendering of JSON payload or shows payload as text. The default viewer is depending on `content-type` of the selected Message. The viewer can be switched by using `:view raw` and `:view json` commands.
+Shows the payload of the message selected in history view. Supports rendering of JSON payload or shows payload as text. The default viewer is depending on `content-type` of the selected Message. The viewer can be switched by using `:view raw`, `:view json` and `:view image` commands.
 
 **6. Metadata View**
 Shows all the metadata of the message selected in history view. Including standard metadata like `correlation-id`, `response-topic` but also custom metadata like `user-properties`. 
@@ -94,7 +96,7 @@ Crow's Nest MQTT provides a command interface (likely accessible via a dedicated
 *   `:resume` - Resume the display of new messages.
 *   `:expand` - Expand all nodes in the topic tree.
 *   `:collapse` - Collapse all nodes in the topic tree.
-*   `:view <raw|json>` - Set the payload view to either raw text or a formatted JSON tree.
+*   `:view <raw|json|image>` - Set the payload view to either raw text or a formatted JSON tree or a image viewer.
 *   `:settings` - Toggle the visibility of the settings panel.
 *   `:setuser <username>` - Set the username for MQTT authentication.
 *   `:setpass <password>` - Set the password for MQTT authentication.

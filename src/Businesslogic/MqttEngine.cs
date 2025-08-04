@@ -643,24 +643,24 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
         }
         
         // Efficient logging - log per topic instead of per message
-        if (topicStats.Count <= 10) // Only log details for reasonable number of topics
-        {
-            foreach (var kvp in topicStats)
-            {
-                var topic = kvp.Key;
-                var messageCount = kvp.Value;
-                var bufferSize = _topicBufferSizeCache[topic];
+        // if (topicStats.Count <= 10) // Only log details for reasonable number of topics
+        // {
+        //     foreach (var kvp in topicStats)
+        //     {
+        //         var topic = kvp.Key;
+        //         var messageCount = kvp.Value;
+        //         var bufferSize = _topicBufferSizeCache[topic];
                 
-                LogMessage?.Invoke(this, $"Processed {messageCount} messages for topic '{topic}': Using buffer size {bufferSize} bytes");
-            }
-        }
-        else
-        {
-            // High topic diversity - log summary only
-            var totalMessages = messages.Count;
-            var uniqueTopics = topicStats.Count;
-            LogMessage?.Invoke(this, $"Processed batch: {totalMessages} messages across {uniqueTopics} topics");
-        }
+        //         LogMessage?.Invoke(this, $"Processed {messageCount} messages for topic '{topic}': Using buffer size {bufferSize} bytes");
+        //     }
+        // }
+        // else
+        // {
+        //     // High topic diversity - log summary only
+        //     var totalMessages = messages.Count;
+        //     var uniqueTopics = topicStats.Count;
+        //     LogMessage?.Invoke(this, $"Processed batch: {totalMessages} messages across {uniqueTopics} topics");
+        // }
     }
 
    // --- IDisposable Implementation ---
