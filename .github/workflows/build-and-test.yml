@@ -10,9 +10,12 @@ on:
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
-  build_test_cover: # Renamed job
+  build_test_cover: 
+    permissions:
+      pull-requests: write
+
     name: Build, Test & Coverage
-    runs-on: ubuntu-latest # Run only on Linux
+    runs-on: ubuntu-latest 
 
     outputs: # Define output for the version
       semVer: ${{ steps.gitversion.outputs.semVer }}
