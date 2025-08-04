@@ -1861,6 +1861,31 @@ public byte[]? VideoPayload
             }
         }
 
+        // Check if content-type is video
+        if (!string.IsNullOrEmpty(msg.ContentType) && msg.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var extension = ".mp4";
+                if (msg.ContentType.Equals("video/webm", StringComparison.OrdinalIgnoreCase))
+                    extension = ".webm";
+                else if (msg.ContentType.Equals("video/ogg", StringComparison.OrdinalIgnoreCase))
+                    extension = ".ogv";
+                var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"crowsnest_video_{Guid.NewGuid():N}{extension}");
+                System.IO.File.WriteAllBytes(tempPath, msg.Payload.ToArray());
+                await CopyTextToClipboardInteraction.Handle(tempPath);
+                StatusBarText = $"Video written to temp file: {tempPath}. Path copied to clipboard. Paste the path into your application to access the video.";
+                Log.Information("Video payload written to temp file '{TempPath}' and path copied to clipboard for topic '{Topic}' (MessageId {MessageId}).", tempPath, msg.Topic, messageVm.MessageId);
+                return;
+            }
+            catch (Exception ex)
+            {
+                StatusBarText = "Error copying video to clipboard.";
+                Log.Error(ex, "Failed to copy video payload for clipboard for MessageId {MessageId}.", messageVm.MessageId);
+                // Fallback to text copy below
+            }
+        }
+
         string payloadString;
         try
         {
