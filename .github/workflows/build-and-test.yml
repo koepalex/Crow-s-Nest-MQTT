@@ -4,7 +4,7 @@ name: Build and Test
 # or can be triggered manually
 on:
   push:
-    branches: [ "**" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:  # Allows manual triggering
@@ -50,7 +50,7 @@ jobs:
       run: dotnet build src/MainApp/CrowsNestMqtt.App.csproj --no-restore --configuration Release
 
     - name: Test with coverage
-      run: dotnet test --collect:"XPlat Code Coverage;Format=json,cobertura" --filter "Category!=LocalOnly"
+      run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage;Format=json,cobertura" --filter "Category!=LocalOnly --diag:logs/log.txt"
     
     - name: Generate coverage report
       run: |
