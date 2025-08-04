@@ -204,6 +204,38 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         }
 
         [Fact]
+        public void VideoViewer_WithVideoPayload_ShouldDisplayCorrectly()
+        {
+            // Arrange
+            var viewModel = new MainViewModel(_commandParserService);
+            byte[] videoPayload = new byte[] { 0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70 }; // MP4 header fragment
+            var messageId = Guid.NewGuid();
+            var timestamp = DateTime.Now;
+            var topic = "test/video";
+            var fullMessage = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(videoPayload)
+                .WithContentType("video/mp4")
+                .Build();
+
+            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+                .Returns(x => { x[2] = fullMessage; return true; });
+
+            var testMessage = new MessageViewModel(messageId, topic, timestamp, "[video]", videoPayload.Length, _mqttServiceMock, _statusBarServiceMock);
+
+            // Act
+            viewModel.SelectedMessage = testMessage;
+
+            // Assert
+            Assert.True(viewModel.IsVideoViewerVisible);
+            Assert.False(viewModel.IsImageViewerVisible);
+            Assert.False(viewModel.IsJsonViewerVisible);
+            Assert.False(viewModel.IsRawTextViewerVisible);
+            Assert.NotNull(viewModel.VideoPayload);
+            Assert.Equal(videoPayload, viewModel.VideoPayload);
+        }
+
+        [Fact]
         public void RawTextViewer_WithTextPayload_ShouldDisplayCorrectly()
         {
             // Arrange

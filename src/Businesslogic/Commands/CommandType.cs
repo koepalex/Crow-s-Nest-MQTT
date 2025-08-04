@@ -35,6 +35,8 @@ public enum CommandType
     ViewJson,
     /// <summary> View the payload as an image. </summary>
     ViewImage,
+    /// <summary> View the payload as a video. </summary>
+    ViewVideo,
     /// <summary> Toggles the settings pane. </summary>
     Settings,
     /// <summary> Set the MQTT username. </summary>

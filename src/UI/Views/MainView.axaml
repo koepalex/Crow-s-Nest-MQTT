@@ -8,6 +8,7 @@
              xmlns:ae="using:AvaloniaEdit"
              xmlns:aeControls="using:AvaloniaEdit.TextMate"
              xmlns:vw="using:CrowsNestMqtt.UI.Views"
+             xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
              x:Class="CrowsNestMqtt.UI.Views.MainView"
              x:DataType="vm:MainViewModel"
@@ -222,6 +223,16 @@
                       <!-- Image Viewer (Conditionally Visible) -->
                       <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsImageViewerVisible}">
                           <Image Source="{Binding ImagePayload}" Stretch="Uniform" Margin="5" />
+                      </Border>
+
+                      <!-- Video Viewer (Conditionally Visible) -->
+                      <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsVideoViewerVisible}">
+                          <vlc:VideoView Name="VlcVideoView"
+                                         MediaPlayer="{Binding VlcMediaPlayer}"
+                                         IsVisible="{Binding IsVideoViewerVisible}"
+                                         HorizontalAlignment="Stretch"
+                                         VerticalAlignment="Stretch"
+                                         Margin="5"/>
                       </Border>
 
                       <!-- Display message if JSON viewer is hidden but should be visible (e.g., parse error) -->
