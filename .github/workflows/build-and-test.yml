@@ -15,7 +15,7 @@ jobs:
       pull-requests: write
 
     name: Build, Test & Coverage
-    runs-on: ubuntu-latest 
+    runs-on: windows-latest 
 
     outputs: # Define output for the version
       semVer: ${{ steps.gitversion.outputs.semVer }}
