@@ -2,6 +2,7 @@ using Xunit;
 using CrowsNestMqtt.Utils;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CrowsNestMqtt.UnitTests.Utils
 {
@@ -15,18 +16,22 @@ namespace CrowsNestMqtt.UnitTests.Utils
         {
             // Arrange
             var logMessages = new List<(string level, string message)>();
+            var uniqueId = Guid.NewGuid().ToString();
+            var testMessage = $"Test information message - {uniqueId}";
             Action<string, string> handler = (level, message) => logMessages.Add((level, message));
+            
             AppLogger.OnLogMessage += handler;
 
             try
             {
                 // Act
-                AppLogger.Information("Test information message");
+                AppLogger.Information(testMessage);
 
                 // Assert
-                Assert.Single(logMessages);
-                Assert.Equal("Information", logMessages[0].level);
-                Assert.Equal("Test information message", logMessages[0].message);
+                var ourMessages = logMessages.Where(m => m.level == "Information" && m.message == testMessage).ToList();
+                Assert.Single(ourMessages);
+                Assert.Equal("Information", ourMessages[0].level);
+                Assert.Equal(testMessage, ourMessages[0].message);
             }
             finally
             {
@@ -40,18 +45,22 @@ namespace CrowsNestMqtt.UnitTests.Utils
         {
             // Arrange
             var logMessages = new List<(string level, string message)>();
+            var uniqueId = Guid.NewGuid().ToString();
+            var testMessage = $"Test message with {{Parameter}} - {uniqueId}";
             Action<string, string> handler = (level, message) => logMessages.Add((level, message));
+            
             AppLogger.OnLogMessage += handler;
 
             try
             {
                 // Act
-                AppLogger.Information("Test message with {Parameter}", "value");
+                AppLogger.Information(testMessage, "value");
 
-                // Assert
-                Assert.Single(logMessages);
-                Assert.Equal("Information", logMessages[0].level);
-                Assert.Equal("Test message with {Parameter}", logMessages[0].message);
+                // Assert - Look for our specific test message
+                var ourMessages = logMessages.Where(m => m.level == "Information" && m.message == testMessage).ToList();
+                Assert.Single(ourMessages);
+                Assert.Equal("Information", ourMessages[0].level);
+                Assert.Equal(testMessage, ourMessages[0].message);
             }
             finally
             {
@@ -65,18 +74,22 @@ namespace CrowsNestMqtt.UnitTests.Utils
         {
             // Arrange
             var logMessages = new List<(string level, string message)>();
+            var uniqueId = Guid.NewGuid().ToString();
+            var testMessage = $"Test warning message - {uniqueId}";
             Action<string, string> handler = (level, message) => logMessages.Add((level, message));
+            
             AppLogger.OnLogMessage += handler;
 
             try
             {
                 // Act
-                AppLogger.Warning("Test warning message");
+                AppLogger.Warning(testMessage);
 
                 // Assert
-                Assert.Single(logMessages);
-                Assert.Equal("Warning", logMessages[0].level);
-                Assert.Equal("Test warning message", logMessages[0].message);
+                var warningMessages = logMessages.Where(m => m.level == "Warning" && m.message == testMessage).ToList();
+                Assert.Single(warningMessages);
+                Assert.Equal("Warning", warningMessages[0].level);
+                Assert.Equal(testMessage, warningMessages[0].message);
             }
             finally
             {
@@ -90,19 +103,23 @@ namespace CrowsNestMqtt.UnitTests.Utils
         {
             // Arrange
             var logMessages = new List<(string level, string message)>();
+            var uniqueId = Guid.NewGuid().ToString();
+            var testMessage = $"Test warning with exception - {uniqueId}";
             Action<string, string> handler = (level, message) => logMessages.Add((level, message));
+            
             AppLogger.OnLogMessage += handler;
             var exception = new Exception("Test exception");
 
             try
             {
                 // Act
-                AppLogger.Warning(exception, "Test warning with exception");
+                AppLogger.Warning(exception, testMessage);
 
                 // Assert
-                Assert.Single(logMessages);
-                Assert.Equal("Warning", logMessages[0].level);
-                Assert.Equal("Test warning with exception", logMessages[0].message);
+                var warningMessages = logMessages.Where(m => m.level == "Warning" && m.message == testMessage).ToList();
+                Assert.Single(warningMessages);
+                Assert.Equal("Warning", warningMessages[0].level);
+                Assert.Equal(testMessage, warningMessages[0].message);
             }
             finally
             {
@@ -116,18 +133,22 @@ namespace CrowsNestMqtt.UnitTests.Utils
         {
             // Arrange
             var logMessages = new List<(string level, string message)>();
+            var uniqueId = Guid.NewGuid().ToString();
+            var testMessage = $"Test warning with null exception - {uniqueId}";
             Action<string, string> handler = (level, message) => logMessages.Add((level, message));
+            
             AppLogger.OnLogMessage += handler;
 
             try
             {
                 // Act
-                AppLogger.Warning(null, "Test warning with null exception");
+                AppLogger.Warning(null, testMessage);
 
                 // Assert
-                Assert.Single(logMessages);
-                Assert.Equal("Warning", logMessages[0].level);
-                Assert.Equal("Test warning with null exception", logMessages[0].message);
+                var warningMessages = logMessages.Where(m => m.level == "Warning" && m.message == testMessage).ToList();
+                Assert.Single(warningMessages);
+                Assert.Equal("Warning", warningMessages[0].level);
+                Assert.Equal(testMessage, warningMessages[0].message);
             }
             finally
             {
@@ -141,18 +162,22 @@ namespace CrowsNestMqtt.UnitTests.Utils
         {
             // Arrange
             var logMessages = new List<(string level, string message)>();
+            var uniqueId = Guid.NewGuid().ToString();
+            var testMessage = $"Test error message - {uniqueId}";
             Action<string, string> handler = (level, message) => logMessages.Add((level, message));
+            
             AppLogger.OnLogMessage += handler;
 
             try
             {
                 // Act
-                AppLogger.Error("Test error message");
+                AppLogger.Error(testMessage);
 
                 // Assert
-                Assert.Single(logMessages);
-                Assert.Equal("Error", logMessages[0].level);
-                Assert.Equal("Test error message", logMessages[0].message);
+                var errorMessages = logMessages.Where(m => m.level == "Error" && m.message == testMessage).ToList();
+                Assert.Single(errorMessages);
+                Assert.Equal("Error", errorMessages[0].level);
+                Assert.Equal(testMessage, errorMessages[0].message);
             }
             finally
             {
@@ -166,19 +191,23 @@ namespace CrowsNestMqtt.UnitTests.Utils
         {
             // Arrange
             var logMessages = new List<(string level, string message)>();
+            var uniqueId = Guid.NewGuid().ToString();
+            var testMessage = $"Test error with exception - {uniqueId}";
             Action<string, string> handler = (level, message) => logMessages.Add((level, message));
+            
             AppLogger.OnLogMessage += handler;
             var exception = new InvalidOperationException("Test exception");
 
             try
             {
                 // Act
-                AppLogger.Error(exception, "Test error with exception");
+                AppLogger.Error(exception, testMessage);
 
                 // Assert
-                Assert.Single(logMessages);
-                Assert.Equal("Error", logMessages[0].level);
-                Assert.Equal("Test error with exception", logMessages[0].message);
+                var errorMessages = logMessages.Where(m => m.level == "Error" && m.message == testMessage).ToList();
+                Assert.Single(errorMessages);
+                Assert.Equal("Error", errorMessages[0].level);
+                Assert.Equal(testMessage, errorMessages[0].message);
             }
             finally
             {
@@ -194,6 +223,7 @@ namespace CrowsNestMqtt.UnitTests.Utils
             var logMessages = new List<(string level, string message)>();
             var testMessage = $"Test debug message {Guid.NewGuid()}"; // Make message unique
             Action<string, string> handler = (level, message) => logMessages.Add((level, message));
+            
             AppLogger.OnLogMessage += handler;
 
             try
@@ -202,8 +232,10 @@ namespace CrowsNestMqtt.UnitTests.Utils
                 AppLogger.Debug(testMessage);
 
                 // Assert - Check that our specific message was logged
-                Assert.True(logMessages.Any(m => m.level == "Debug" && m.message == testMessage), 
-                    $"Expected to find Debug message '{testMessage}' but found: {string.Join(", ", logMessages.Select(m => $"[{m.level}] {m.message}"))}");
+                var debugMessages = logMessages.Where(m => m.level == "Debug" && m.message == testMessage).ToList();
+                Assert.Single(debugMessages);
+                Assert.Equal("Debug", debugMessages[0].level);
+                Assert.Equal(testMessage, debugMessages[0].message);
             }
             finally
             {
@@ -217,18 +249,22 @@ namespace CrowsNestMqtt.UnitTests.Utils
         {
             // Arrange
             var logMessages = new List<(string level, string message)>();
+            var uniqueId = Guid.NewGuid().ToString();
+            var testMessage = $"Test trace message - {uniqueId}";
             Action<string, string> handler = (level, message) => logMessages.Add((level, message));
+            
             AppLogger.OnLogMessage += handler;
 
             try
             {
                 // Act
-                AppLogger.Trace("Test trace message");
+                AppLogger.Trace(testMessage);
 
                 // Assert
-                Assert.Single(logMessages);
-                Assert.Equal("Debug", logMessages[0].level); // Trace maps to Debug level in the event
-                Assert.Equal("Test trace message", logMessages[0].message);
+                var debugMessages = logMessages.Where(m => m.level == "Debug" && m.message == testMessage).ToList(); // Trace maps to Debug level in the event
+                Assert.Single(debugMessages);
+                Assert.Equal("Debug", debugMessages[0].level);
+                Assert.Equal(testMessage, debugMessages[0].message);
             }
             finally
             {
