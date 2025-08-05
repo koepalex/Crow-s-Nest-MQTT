@@ -20,16 +20,19 @@
     <PackageReference Include="Avalonia.Xaml.Interactivity" Version="11.2.7.3" />
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.2.8" />
     <PackageReference Include="FuzzySharp" Version="2.0.2" />
+    <PackageReference Include="LibVLCSharp.Avalonia" Version="3.9.4" />
     <PackageReference Include="ReactiveUI.Fody" Version="19.5.41" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0" /> 
     <PackageReference Include="SharpHook" Version="5.2.0" />
     <PackageReference Include="SharpHook.Reactive" Version="5.2.0" /> 
     <PackageReference Include="Serilog" Version="4.2.0" /> 
-    <PackageReference Include="System.Drawing.Common" Version="9.0.7" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.7" /> 
+    <PackageReference Condition="$([MSBuild]::IsOsPlatform('Windows'))" Include="VideoLAN.LibVLC.Windows" Version="3.0.21" />
+    <PackageReference Condition="$([MSBuild]::IsOsPlatform('OSX'))" Include="VideoLAN.LibVLC.Mac"  Version="3.1.3.1" />
   </ItemGroup>
 
   <ItemGroup>
-   <ProjectReference Include="../Businesslogic/Businesslogic.csproj" />
+   <ProjectReference Include="../BusinessLogic/BusinessLogic.csproj" />
    <ProjectReference Include="../Utils/Utils.csproj" />
  </ItemGroup>
 

@@ -12,6 +12,7 @@ using System.Text; // For Encoding and StringBuilder
 using System.Text.Json; // Added for JSON formatting
 using Avalonia.Media.Imaging;
 using AvaloniaEdit.Document; // Added for TextDocument
+using LibVLCSharp.Shared;
 using MQTTnet;
 using AvaloniaEdit.Highlighting; // Added for Syntax Highlighting
 using CrowsNestMqtt.BusinessLogic; // Required for MqttEngine, MqttConnectionStateChangedEventArgs, IMqttService
@@ -213,8 +214,63 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         private set => this.RaiseAndSetIfChanged(ref _imagePayload, value);
     }
 
+    // --- Video Viewer ---
+    private readonly LibVLC? _libVLC;
+    private MediaPlayer? _vlcMediaPlayer;
+    private bool _isVideoViewerVisible;
+    public bool IsVideoViewerVisible
+    {
+        get => _isVideoViewerVisible;
+        private set => this.RaiseAndSetIfChanged(ref _isVideoViewerVisible, value);
+    }
+
+private byte[]? _videoPayload;
+public byte[]? VideoPayload
+{
+    get => _videoPayload;
+    private set
+    {
+        this.RaiseAndSetIfChanged(ref _videoPayload, value);
+        if (value != null && value.Length > 0 && _vlcMediaPlayer != null && _libVLC != null)
+        {
+            try
+            {
+                var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"crowsnest_video_{Guid.NewGuid():N}.mp4");
+                System.IO.File.WriteAllBytes(tempPath, value);
+                _vlcMediaPlayer.Stop();
+                _vlcMediaPlayer.Media?.Dispose();
+                var media = new Media(_libVLC, tempPath, FromType.FromPath);
+                _vlcMediaPlayer.Media = media;
+                _vlcMediaPlayer.Play();
+            }
+            catch
+            {
+                // Optionally handle error
+            }
+        }
+        else if (_vlcMediaPlayer != null)
+        {
+            _vlcMediaPlayer.Stop();
+            _vlcMediaPlayer.Media?.Dispose();
+        }
+    }
+}
+
+    private Uri? _videoSource;
+    public Uri? VideoSource
+    {
+        get => _videoSource;
+        private set => this.RaiseAndSetIfChanged(ref _videoSource, value);
+    }
+
+    public MediaPlayer? VlcMediaPlayer
+    {
+        get => _vlcMediaPlayer;
+        private set => this.RaiseAndSetIfChanged(ref _vlcMediaPlayer, value);
+    }
+
     // Computed property to control the visibility of the splitter below the payload viewers
-    public bool IsAnyPayloadViewerVisible => IsJsonViewerVisible || IsRawTextViewerVisible || IsImageViewerVisible;
+    public bool IsAnyPayloadViewerVisible => IsJsonViewerVisible || IsRawTextViewerVisible || IsImageViewerVisible || IsVideoViewerVisible;
 
     /// <summary>
     /// Gets a value indicating whether the topic tree filter is currently active.
@@ -280,6 +336,11 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
         CopyTextToClipboardInteraction = new Interaction<string, Unit>(); // Initialize the interaction
         CopyImageToClipboardInteraction = new Interaction<Bitmap, Unit>(); // Initialize the image interaction
+
+        Core.Initialize();
+        _libVLC = new LibVLC();
+        _vlcMediaPlayer = new MediaPlayer(_libVLC);
+        VlcMediaPlayer = _vlcMediaPlayer;
 
         // Populate the list of available commands (using the help dictionary keys)
         _availableCommands = CommandHelpDetails.Keys
@@ -769,7 +830,24 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         }
 
         // Determine initial view state and syntax highlighting
-        if (msg.ContentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true)
+        if (msg.ContentType?.StartsWith("video/", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            try
+            {
+                VideoPayload = payloadBytes;
+                IsVideoViewerVisible = true;
+                IsImageViewerVisible = false;
+                IsJsonViewerVisible = false;
+                IsRawTextViewerVisible = false;
+                StatusBarText = "Displaying video payload.";
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Could not load video from payload for content type {ContentType}", msg.ContentType);
+                ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
+            }
+        }
+        else if (msg.ContentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true)
         {
             try
             {
@@ -778,6 +856,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 IsImageViewerVisible = true;
                 IsJsonViewerVisible = false;
                 IsRawTextViewerVisible = false;
+                IsVideoViewerVisible = false;
                 StatusBarText = "Displaying image payload.";
             }
             catch (Exception ex)
@@ -794,6 +873,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 IsJsonViewerVisible = true;
                 IsRawTextViewerVisible = false;
                 IsImageViewerVisible = false;
+                IsVideoViewerVisible = false;
                 PayloadSyntaxHighlighting = HighlightingManager.Instance.GetDefinition("Json");
             }
             else
@@ -1052,6 +1132,9 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                     break;
                 case CommandType.ViewImage:
                     SwitchPayloadView(PayloadViewType.Image);
+                    break;
+                case CommandType.ViewVideo:
+                    SwitchPayloadView(PayloadViewType.Video);
                     break;
                 case CommandType.SetUser:
                     if (command.Arguments.Count == 1)
@@ -1654,7 +1737,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         Log.Verbose("Updated command suggestions for '{InputText}'. Found {Count} matches.", currentText, CommandSuggestions.Count);
     }
 
-    private enum PayloadViewType { Raw, Json, Image }
+    private enum PayloadViewType { Raw, Json, Image, Video }
 
     /// <summary>
     /// Switches the active payload viewer between JSON and Raw Text.
@@ -1671,6 +1754,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         IsRawTextViewerVisible = false;
         IsJsonViewerVisible = false;
         IsImageViewerVisible = false;
+        IsVideoViewerVisible = false;
 
         switch (viewType)
         {
@@ -1705,6 +1789,20 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                     IsRawTextViewerVisible = true; // Fallback to raw view
                     StatusBarText = "Cannot switch to Image view: No valid image loaded for this message.";
                     Log.Warning("Attempted to switch to Image view, but no image is loaded.");
+                }
+                break;
+            case PayloadViewType.Video:
+                if (VideoPayload != null)
+                {
+                    IsVideoViewerVisible = true;
+                    StatusBarText = "Switched to Video view.";
+                    Log.Information("Switched payload view to Video.");
+                }
+                else
+                {
+                    IsRawTextViewerVisible = true; // Fallback to raw view
+                    StatusBarText = "Cannot switch to Video view: No valid video loaded for this message.";
+                    Log.Warning("Attempted to switch to Video view, but no video is loaded.");
                 }
                 break;
         }
@@ -1759,6 +1857,31 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             {
                 StatusBarText = "Error copying image to clipboard.";
                 Log.Error(ex, "Failed to copy image payload for clipboard for MessageId {MessageId}.", messageVm.MessageId);
+                // Fallback to text copy below
+            }
+        }
+
+        // Check if content-type is video
+        if (!string.IsNullOrEmpty(msg.ContentType) && msg.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var extension = ".mp4";
+                if (msg.ContentType.Equals("video/webm", StringComparison.OrdinalIgnoreCase))
+                    extension = ".webm";
+                else if (msg.ContentType.Equals("video/ogg", StringComparison.OrdinalIgnoreCase))
+                    extension = ".ogv";
+                var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"crowsnest_video_{Guid.NewGuid():N}{extension}");
+                System.IO.File.WriteAllBytes(tempPath, msg.Payload.ToArray());
+                await CopyTextToClipboardInteraction.Handle(tempPath);
+                StatusBarText = $"Video written to temp file: {tempPath}. Path copied to clipboard. Paste the path into your application to access the video.";
+                Log.Information("Video payload written to temp file '{TempPath}' and path copied to clipboard for topic '{Topic}' (MessageId {MessageId}).", tempPath, msg.Topic, messageVm.MessageId);
+                return;
+            }
+            catch (Exception ex)
+            {
+                StatusBarText = "Error copying video to clipboard.";
+                Log.Error(ex, "Failed to copy video payload for clipboard for MessageId {MessageId}.", messageVm.MessageId);
                 // Fallback to text copy below
             }
         }
