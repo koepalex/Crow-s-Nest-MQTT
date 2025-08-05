@@ -32,7 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
-   <ProjectReference Include="../BusinessLogic/Businesslogic.csproj" />
+   <ProjectReference Include="../BusinessLogic/BusinessLogic.csproj" />
    <ProjectReference Include="../Utils/Utils.csproj" />
  </ItemGroup>
 
