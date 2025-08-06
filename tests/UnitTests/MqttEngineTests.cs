@@ -4,6 +4,7 @@ using MQTTnet.Protocol;
 using Xunit;
 using CrowsNestMqtt.BusinessLogic;
 using CrowsNestMqtt.BusinessLogic.Configuration; // Added for TopicBufferLimit
+using System.Linq;
 
 namespace CrowsNestMqtt.UnitTests
 {
@@ -149,8 +150,8 @@ namespace CrowsNestMqtt.UnitTests
         public async Task MqttEngine_Should_Receive_Published_Message()
         {
             // Arrange
-            string brokerHost = "localhost"; // Assuming a local broker for testing
-            int brokerPort = 1883; // Default MQTT port
+            string brokerHost = TestConfiguration.MqttHostname; // Read from configuration
+            int brokerPort = TestConfiguration.MqttPort; // Read from configuration
             var connectionSettings = new MqttConnectionSettings
             {
                 Hostname = brokerHost,
@@ -215,8 +216,8 @@ namespace CrowsNestMqtt.UnitTests
         public async Task MqttEngine_Should_Handle_Empty_Payload_Message()
         {
             // Arrange
-            string brokerHost = "localhost"; // Assuming a local broker for testing
-            int brokerPort = 1883; // Default MQTT port
+            string brokerHost = TestConfiguration.MqttHostname; // Read from configuration
+            int brokerPort = TestConfiguration.MqttPort; // Read from configuration
             var connectionSettings = new MqttConnectionSettings
             {
                 Hostname = brokerHost,
@@ -283,8 +284,8 @@ namespace CrowsNestMqtt.UnitTests
             // Arrange
             var settings = new MqttConnectionSettings
             {
-                Hostname = "localhost",
-                Port = 1883,
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort,
                 AuthMode = new CrowsNestMqtt.BusinessLogic.Configuration.UsernamePasswordAuthenticationMode("testuser", "testpass")
             };
             var engine = new MqttEngine(settings);
@@ -307,8 +308,8 @@ namespace CrowsNestMqtt.UnitTests
             // Arrange
             var settings = new MqttConnectionSettings
             {
-                Hostname = "localhost",
-                Port = 1883,
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort,
                 AuthMode = new CrowsNestMqtt.BusinessLogic.Configuration.AnonymousAuthenticationMode()
             };
             var engine = new MqttEngine(settings);
@@ -328,8 +329,8 @@ namespace CrowsNestMqtt.UnitTests
             // Arrange
             var settings = new MqttConnectionSettings
             {
-                Hostname = "localhost",
-                Port = 1883,
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort,
                 AuthMode = new EnhancedAuthenticationMode("Enhanced Authentication", "my-jwt-token"),
             };
             var engine = new MqttEngine(settings);
@@ -350,7 +351,7 @@ namespace CrowsNestMqtt.UnitTests
             // Arrange
             var settings = new MqttConnectionSettings
             {
-                Hostname = "localhost",
+                Hostname = TestConfiguration.MqttHostname,
                 Port = 8883,
                 UseTls = true
             };
@@ -369,6 +370,395 @@ namespace CrowsNestMqtt.UnitTests
             Assert.True(tlsOptions.AllowUntrustedCertificates);
             Assert.True(tlsOptions.IgnoreCertificateChainErrors);
             Assert.True(tlsOptions.IgnoreCertificateRevocationErrors);
+        }
+
+        [Fact]
+        public async Task SubscribeAsync_WhenNotConnected_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort
+            };
+            var engine = new MqttEngine(settings);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => engine.SubscribeAsync("test/topic"));
+            
+            Assert.Equal("Client is not connected.", exception.Message);
+        }
+
+        [Fact]
+        [Trait("Category", "LocalOnly")]
+        public async Task SubscribeAsync_WhenConnected_ShouldSucceed()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort,
+                ClientId = $"test-client-{Guid.NewGuid()}",
+                CleanSession = true
+            };
+            var engine = new MqttEngine(settings);
+
+            try
+            {
+                await engine.ConnectAsync(CancellationToken.None);
+
+                // Act
+                var result = await engine.SubscribeAsync("test/subscribe/topic", MqttQualityOfServiceLevel.AtLeastOnce);
+
+                // Assert
+                Assert.NotNull(result);
+                Assert.Single(result.Items);
+                Assert.Equal("test/subscribe/topic", result.Items.First().TopicFilter.Topic);
+            }
+            finally
+            {
+                await engine.DisconnectAsync(CancellationToken.None);
+            }
+        }
+
+        [Fact]
+        public async Task UnsubscribeAsync_WhenNotConnected_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort
+            };
+            var engine = new MqttEngine(settings);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => engine.UnsubscribeAsync("test/topic"));
+            
+            Assert.Equal("Client is not connected.", exception.Message);
+        }
+
+        [Fact]
+        [Trait("Category", "LocalOnly")]
+        public async Task UnsubscribeAsync_WhenConnected_ShouldSucceed()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort,
+                ClientId = $"test-client-{Guid.NewGuid()}",
+                CleanSession = true
+            };
+            var engine = new MqttEngine(settings);
+
+            try
+            {
+                await engine.ConnectAsync(CancellationToken.None);
+                
+                // First subscribe to a topic
+                await engine.SubscribeAsync("test/unsubscribe/topic");
+
+                // Act
+                var result = await engine.UnsubscribeAsync("test/unsubscribe/topic");
+
+                // Assert
+                Assert.NotNull(result);
+                Assert.Single(result.Items);
+                Assert.Equal("test/unsubscribe/topic", result.Items.First().TopicFilter);
+            }
+            finally
+            {
+                await engine.DisconnectAsync(CancellationToken.None);
+            }
+        }
+
+        [Fact]
+        [Trait("Category", "LocalOnly")]
+        public async Task PublishAsync_WhenNotConnected_ShouldLogWarningAndReturn()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort
+            };
+            var engine = new MqttEngine(settings);
+            
+            string? logMessage = null;
+            engine.LogMessage += (sender, message) => logMessage = message;
+
+            // Act
+            await engine.PublishAsync("test/topic", "test payload");
+
+            // Assert
+            Assert.Equal("Cannot publish: Client is not connected.", logMessage);
+        }
+
+        [Fact]
+        [Trait("Category", "LocalOnly")]
+        public async Task PublishAsync_WhenConnected_ShouldSucceed()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort,
+                ClientId = $"test-client-{Guid.NewGuid()}",
+                CleanSession = true
+            };
+            var engine = new MqttEngine(settings);
+            
+            string? logMessage = null;
+            engine.LogMessage += (sender, message) => logMessage = message;
+
+            try
+            {
+                await engine.ConnectAsync(CancellationToken.None);
+
+                // Act
+                await engine.PublishAsync("test/publish/topic", "test payload", 
+                    retain: true, qos: MqttQualityOfServiceLevel.AtLeastOnce);
+
+                // Assert
+                Assert.Contains("Successfully published to 'test/publish/topic'", logMessage);
+            }
+            finally
+            {
+                await engine.DisconnectAsync(CancellationToken.None);
+            }
+        }
+
+        [Fact]
+        public void GetMessagesForTopic_WhenTopicNotExists_ShouldReturnNull()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort
+            };
+            var engine = new MqttEngine(settings);
+
+            // Act
+            var messages = engine.GetMessagesForTopic("nonexistent/topic");
+
+            // Assert
+            Assert.Null(messages);
+        }
+
+        [Fact]
+        [Trait("Category", "LocalOnly")]
+        public async Task GetMessagesForTopic_AfterReceivingMessage_ShouldReturnMessages()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort,
+                ClientId = $"test-client-{Guid.NewGuid()}",
+                CleanSession = true
+            };
+            var engine = new MqttEngine(settings);
+
+            var messageReceived = new ManualResetEventSlim(false);
+            engine.MessageReceived += (sender, args) =>
+            {
+                if (args.ApplicationMessage.Topic == "test/getmessages/topic")
+                {
+                    messageReceived.Set();
+                }
+            };
+
+            try
+            {
+                await engine.ConnectAsync(CancellationToken.None);
+
+                // Publish a message to create buffer content
+                var factory = new MqttClientFactory();
+                var publisher = factory.CreateMqttClient();
+                var publisherOptions = new MqttClientOptionsBuilder()
+                    .WithTcpServer(TestConfiguration.MqttHostname, TestConfiguration.MqttPort)
+                    .WithCleanSession(true)
+                    .Build();
+
+                await publisher.ConnectAsync(publisherOptions, CancellationToken.None);
+
+                var message = new MqttApplicationMessageBuilder()
+                    .WithTopic("test/getmessages/topic")
+                    .WithPayload("test message content")
+                    .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                    .Build();
+
+                await publisher.PublishAsync(message, CancellationToken.None);
+
+                // Wait for message to be received and buffered
+                Assert.True(messageReceived.Wait(TimeSpan.FromSeconds(10)), "Message was not received within timeout");
+
+                // Act
+                var bufferedMessages = engine.GetMessagesForTopic("test/getmessages/topic");
+
+                // Assert
+                Assert.NotNull(bufferedMessages);
+                var messagesList = bufferedMessages.ToList();
+                Assert.Single(messagesList);
+                Assert.Equal("test/getmessages/topic", messagesList[0].Topic);
+                Assert.Equal("test message content", messagesList[0].ConvertPayloadToString());
+
+                await publisher.DisconnectAsync(new MqttClientDisconnectOptions(), CancellationToken.None);
+            }
+            finally
+            {
+                await engine.DisconnectAsync(CancellationToken.None);
+            }
+        }
+
+        [Fact]
+        public void GetBufferedTopics_WhenNoMessages_ShouldReturnEmptyCollection()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort
+            };
+            var engine = new MqttEngine(settings);
+
+            // Act
+            var topics = engine.GetBufferedTopics();
+
+            // Assert
+            Assert.NotNull(topics);
+            Assert.Empty(topics);
+        }
+
+        [Fact]
+        [Trait("Category", "LocalOnly")]
+        public async Task GetBufferedTopics_AfterReceivingMessages_ShouldReturnTopicList()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort,
+                ClientId = $"test-client-{Guid.NewGuid()}",
+                CleanSession = true
+            };
+            var engine = new MqttEngine(settings);
+
+            var messagesReceived = 0;
+            var messageReceivedEvent = new ManualResetEventSlim(false);
+            engine.MessageReceived += (sender, args) =>
+            {
+                // Only count messages for our test topics
+                if (args.ApplicationMessage.Topic == "test/buffered/topic1" || 
+                    args.ApplicationMessage.Topic == "test/buffered/topic2")
+                {
+                    Interlocked.Increment(ref messagesReceived);
+                    if (messagesReceived >= 2) // Wait for both test messages
+                    {
+                        messageReceivedEvent.Set();
+                    }
+                }
+            };
+
+            try
+            {
+                await engine.ConnectAsync(CancellationToken.None);
+
+                // The engine automatically subscribes to "#" so no explicit subscription needed
+                // Give a small delay to ensure automatic subscription is active
+                await Task.Delay(1000);
+
+                // Publish messages to different topics
+                var factory = new MqttClientFactory();
+                var publisher = factory.CreateMqttClient();
+                var publisherOptions = new MqttClientOptionsBuilder()
+                    .WithTcpServer(TestConfiguration.MqttHostname, TestConfiguration.MqttPort)
+                    .WithCleanSession(true)
+                    .Build();
+
+                await publisher.ConnectAsync(publisherOptions, CancellationToken.None);
+
+                var message1 = new MqttApplicationMessageBuilder()
+                    .WithTopic("test/buffered/topic1")
+                    .WithPayload("message 1")
+                    .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                    .Build();
+
+                var message2 = new MqttApplicationMessageBuilder()
+                    .WithTopic("test/buffered/topic2")
+                    .WithPayload("message 2")
+                    .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                    .Build();
+
+                await publisher.PublishAsync(message1, CancellationToken.None);
+                await publisher.PublishAsync(message2, CancellationToken.None);
+
+                // Wait for messages to be received and buffered
+                Assert.True(messageReceivedEvent.Wait(TimeSpan.FromSeconds(15)), "Messages were not received within timeout");
+
+                // Act
+                var topics = engine.GetBufferedTopics().ToList();
+
+                // Assert
+                Assert.NotNull(topics);
+                Assert.Contains("test/buffered/topic1", topics);
+                Assert.Contains("test/buffered/topic2", topics);
+                // Note: There might be other topics from previous test runs or retained messages
+                Assert.True(topics.Count >= 2, $"Expected at least 2 topics, but found {topics.Count}");
+
+                await publisher.DisconnectAsync(new MqttClientDisconnectOptions(), CancellationToken.None);
+            }
+            finally
+            {
+                await engine.DisconnectAsync(CancellationToken.None);
+            }
+        }
+
+        [Fact]
+        public void ClearAllBuffers_ShouldClearAllTopicBuffers()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort
+            };
+            var engine = new MqttEngine(settings);
+
+            string? logMessage = null;
+            engine.LogMessage += (sender, message) => logMessage = message;
+
+            // Act
+            engine.ClearAllBuffers();
+
+            // Assert
+            Assert.Equal("All topic buffers cleared.", logMessage);
+            var topics = engine.GetBufferedTopics();
+            Assert.Empty(topics);
+        }
+
+        [Fact]
+        public void TryGetMessage_WhenTopicNotExists_ShouldReturnFalse()
+        {
+            // Arrange
+            var settings = new MqttConnectionSettings
+            {
+                Hostname = TestConfiguration.MqttHostname,
+                Port = TestConfiguration.MqttPort
+            };
+            var engine = new MqttEngine(settings);
+            var messageId = Guid.NewGuid();
+
+            // Act
+            var result = engine.TryGetMessage("nonexistent/topic", messageId, out var message);
+
+            // Assert
+            Assert.False(result);
+            Assert.Null(message);
         }
     }
 }

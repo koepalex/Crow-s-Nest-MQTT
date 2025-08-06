@@ -25,11 +25,18 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="MQTTnet" Version="5.0.1.1416" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\BusinessLogic\BusinessLogic.csproj" />
     <ProjectReference Include="..\..\src\MainApp\CrowsNestMqtt.App.csproj" />
     <ProjectReference Include="..\..\src\Utils\Utils.csproj" />
     <ProjectReference Include="..\..\src\UI\UI.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="appsettings.test.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>
