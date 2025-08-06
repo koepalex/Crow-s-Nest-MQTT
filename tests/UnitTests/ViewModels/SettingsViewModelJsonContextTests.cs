@@ -70,14 +70,5 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.Contains("test/topic", json);
             Assert.Contains("1000", json);
         }
-        
-        // Skip this test since the polymorphic serialization is not working as expected
-        // We'd need to set up the correct JsonTypeInfo and serialization context
-        [Fact(Skip = "Polymorphic serialization requires a more complex test setup")]
-        public void AuthenticationMode_Serialization()
-        {
-            // This test is skipped because it requires proper JsonTypeInfo setup
-            // which is beyond the scope of this unit test
-        }
     }
 }

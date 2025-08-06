@@ -149,46 +149,6 @@ namespace CrowsNestMqtt.UnitTests
             }
         }
 
-        [Fact(Skip = "BuildAvaloniaApp tests conflict with Avalonia headless setup")]
-        public void BuildAvaloniaApp_WithoutParameters_ReturnsValidAppBuilder()
-        {
-            // Act
-            var appBuilder = Program.BuildAvaloniaApp();
-
-            // Assert
-            Assert.NotNull(appBuilder);
-        }
-
-        [Fact(Skip = "BuildAvaloniaApp tests conflict with Avalonia headless setup")]
-        public void BuildAvaloniaApp_WithParameters_ReturnsValidAppBuilder()
-        {
-            // Act
-            var appBuilder = Program.BuildAvaloniaApp("localhost", 1883);
-
-            // Assert
-            Assert.NotNull(appBuilder);
-        }
-
-        [Fact(Skip = "BuildAvaloniaApp tests conflict with Avalonia headless setup")]
-        public void BuildAvaloniaApp_WithNullHostname_ReturnsValidAppBuilder()
-        {
-            // Act
-            var appBuilder = Program.BuildAvaloniaApp(null, 1883);
-
-            // Assert
-            Assert.NotNull(appBuilder);
-        }
-
-        [Fact(Skip = "BuildAvaloniaApp tests conflict with Avalonia headless setup")]
-        public void BuildAvaloniaApp_WithNullPort_ReturnsValidAppBuilder()
-        {
-            // Act
-            var appBuilder = Program.BuildAvaloniaApp("localhost", null);
-
-            // Assert
-            Assert.NotNull(appBuilder);
-        }
-
         [Fact]
         public void CurrentDomain_UnhandledException_LogsException()
         {
