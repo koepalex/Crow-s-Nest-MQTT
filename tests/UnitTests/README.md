@@ -26,8 +26,8 @@ To change the MQTT broker used for testing:
 
 ### Test Categories
 
-- **Unit Tests**: Tests without `[Trait("Category", "LocalOnly")]` run without requiring an MQTT broker
-- **Integration Tests**: Tests marked with `[Trait("Category", "LocalOnly")]` require a running MQTT broker at the configured hostname and port
+- **Unit Tests**: Tests without `[Trait("Category", "RequiresMqttBroker")]` run without requiring an MQTT broker
+- **Integration Tests**: Tests marked with `[Trait("Category", "RequiresMqttBroker")]` require a running MQTT broker at the configured hostname and port
 
 ### Running Tests
 
@@ -36,10 +36,10 @@ To change the MQTT broker used for testing:
 dotnet test tests/UnitTests/
 
 # Run only unit tests (no MQTT broker needed)
-dotnet test tests/UnitTests/ --filter "Category!=LocalOnly"
+dotnet test tests/UnitTests/ --filter "Category!=RequiresMqttBroker"
 
 # Run only integration tests (requires MQTT broker)
-dotnet test tests/UnitTests/ --filter "Category=LocalOnly"
+dotnet test tests/UnitTests/ --filter "Category=RequiresMqttBroker"
 ```
 
 ### Important Notes about MQTT Engine Testing
