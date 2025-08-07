@@ -49,4 +49,8 @@
     <Compile Remove="App.axaml.cs" />
     <AvaloniaXaml Remove="App.axaml" />
   </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute" />
+  </ItemGroup>
 </Project>
