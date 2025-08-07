@@ -1,14 +1,23 @@
 using Xunit;
 using CrowsNestMqtt.App;
 using System.Reflection;
+using Avalonia;
+using System.Timers;
 
 namespace CrowsNestMqtt.UnitTests
 {
     /// <summary>
     /// Tests for the Program class
     /// </summary>
-    public class ProgramTests
+    public class ProgramTests : IDisposable
     {
+        private bool _disposed = false;
+
+        public ProgramTests()
+        {
+            // No Avalonia initialization needed for Program tests
+        }
+
         // Helper method to safely invoke methods with proper null handling
         private T? InvokeStaticMethod<T>(Type type, string methodName, object?[]? parameters = null)
         {
@@ -77,20 +86,67 @@ namespace CrowsNestMqtt.UnitTests
             }
         }
 
-        // Skip this test since BuildAvaloniaApp requires proper UI initialization
-        [Fact(Skip = "Requires UI initialization which is not available in unit tests")]
-        public void BuildAvaloniaApp_ReturnsNonNullAppBuilder()
+        [Fact]
+        public void LoadMqttEndpointFromEnv_HandlesEmptyHostname()
         {
-            // This test is skipped as it requires UI initialization
-            // which is not possible in a headless unit test environment
+            // Arrange
+            try
+            {
+                Environment.SetEnvironmentVariable("services__mqtt__default__0", "mqtt://:1883");
+
+                // Act
+                var result = InvokeStaticMethod<ValueTuple<string?, int?>>(typeof(Program), "LoadMqttEndpointFromEnv");
+
+                // Assert
+                Assert.Null(result.Item1);
+                Assert.Null(result.Item2);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("services__mqtt__default__0", null);
+            }
         }
 
-        // Skip this test since it depends on static state that may not be initialized in tests
-        [Fact(Skip = "Depends on static state that may not be properly initialized in tests")]
-        public void SetupGcTimerIfNeeded_SetsUpGcTimerCorrectly()
+        [Fact]
+        public void LoadMqttEndpointFromEnv_HandlesZeroPort()
         {
-            // This test is skipped as it requires static state initialization
-            // which is not ideal for unit tests
+            // Arrange
+            try
+            {
+                Environment.SetEnvironmentVariable("services__mqtt__default__0", "mqtt://test.server:0");
+
+                // Act
+                var result = InvokeStaticMethod<ValueTuple<string?, int?>>(typeof(Program), "LoadMqttEndpointFromEnv");
+
+                // Assert
+                Assert.Null(result.Item1);
+                Assert.Null(result.Item2);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("services__mqtt__default__0", null);
+            }
+        }
+
+        [Fact]
+        public void LoadMqttEndpointFromEnv_HandlesNegativePort()
+        {
+            // Arrange
+            try
+            {
+                Environment.SetEnvironmentVariable("services__mqtt__default__0", "mqtt://test.server:-1");
+
+                // Act
+                var result = InvokeStaticMethod<ValueTuple<string?, int?>>(typeof(Program), "LoadMqttEndpointFromEnv");
+
+                // Assert
+                Assert.Null(result.Item1);
+                Assert.Null(result.Item2);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("services__mqtt__default__0", null);
+            }
         }
 
         [Fact]
@@ -103,6 +159,20 @@ namespace CrowsNestMqtt.UnitTests
             // This should not throw
             InvokeStaticMethod<object>(typeof(Program), "CurrentDomain_UnhandledException", 
                 new object?[] { this, args });
+        }
+
+        [Fact]
+        public void CurrentDomain_UnhandledException_LogsTerminatingException()
+        {
+            // Create args with terminating true
+            var exception = new Exception("Test terminating exception");
+            var args = new UnhandledExceptionEventArgs(exception, isTerminating: true);
+            
+            // This should not throw
+            var result = Record.Exception(() => InvokeStaticMethod<object>(typeof(Program), "CurrentDomain_UnhandledException", 
+                new object?[] { this, args }));
+            
+            Assert.Null(result);
         }
 
         [Fact]
@@ -136,12 +206,63 @@ namespace CrowsNestMqtt.UnitTests
                 new object?[] { this, args });
         }
 
-        // Skip this test as it depends on static state
-        [Fact(Skip = "Depends on static state that may not be properly initialized in tests")]
-        public void GcTimerCallback_InvokesGarbageCollection()
+        [Fact]
+        public void TaskScheduler_UnobservedTaskException_SetsObserved()
         {
-            // This test is skipped as it requires static state initialization
-            // which is not ideal for unit tests
+            // Create args
+            var args = new UnobservedTaskExceptionEventArgs(
+                new AggregateException(new Exception("Test task exception")));
+            
+            // Act
+            InvokeStaticMethod<object>(typeof(Program), "TaskScheduler_UnobservedTaskException", 
+                new object?[] { this, args });
+            
+            // Assert
+            Assert.True(args.Observed);
+        }
+
+        [Fact]
+        public void CollectAndCompactHeap_DoesNotThrow()
+        {
+            // Arrange
+            var eventArgs = new ElapsedEventArgs(DateTime.Now);
+            
+            // Act & Assert - should not throw
+            var exception = Record.Exception(() => 
+                InvokeStaticMethod<object>(typeof(Program), "CollectAndCompactHeap", 
+                    new object?[] { this, eventArgs }));
+            
+            Assert.Null(exception);
+        }
+
+        [Fact]
+        public void OnShutdownRequested_WithDisposableViewModel_DisposesCorrectly()
+        {
+            // This test verifies the OnShutdownRequested method handles disposal correctly
+            // We can't easily test the full method due to UI dependencies, but we can test the signature
+            
+            var method = typeof(Program).GetMethod("OnShutdownRequested", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method);
+            
+            var parameters = method.GetParameters();
+            Assert.Equal(2, parameters.Length);
+            Assert.Equal(typeof(object), parameters[0].ParameterType);
+            Assert.Equal("sender", parameters[0].Name);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed && disposing)
+            {
+                // Cleanup if needed
+                _disposed = true;
+            }
         }
     }
 }

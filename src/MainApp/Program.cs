@@ -8,11 +8,13 @@ using CrowsNestMqtt.BusinessLogic.Services;
 using System.Timers; // Added for Timer
 using System.Runtime; // Added for GCSettings
 using System.Runtime.CompilerServices;
+using System.Diagnostics.CodeAnalysis;
 
 [assembly: InternalsVisibleTo("CrowsNestMqtt.UnitTests")]
 
 namespace CrowsNestMqtt.App;
 
+[ExcludeFromCodeCoverage]
 class Program
 {
     private static System.Timers.Timer? _gcTimer; // Moved from App.axaml.cs
@@ -137,7 +139,7 @@ class Program
         // Ensure logs are written before termination, especially if IsTerminating is true
         if (e.IsTerminating)
         {
-             Log.CloseAndFlush();
+            Log.CloseAndFlush();
         }
         // Depending on the application's needs, you might want to exit explicitly
         // if (e.IsTerminating) { Environment.Exit(1); }

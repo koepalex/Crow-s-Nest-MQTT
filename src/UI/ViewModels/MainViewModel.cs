@@ -19,6 +19,7 @@ using CrowsNestMqtt.BusinessLogic; // Required for MqttEngine, MqttConnectionSta
 using CrowsNestMqtt.BusinessLogic.Commands; // Added for command parsing
 using CrowsNestMqtt.BusinessLogic.Services; // Added for command parsing
 using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
+using CrowsNestMqtt.Utils; // Added for AppLogger
 using DynamicData; // Added for SourceList and reactive filtering
 using DynamicData.Binding; // Added for Bind()
 using FuzzySharp; // Added for fuzzy search
@@ -337,10 +338,23 @@ public byte[]? VideoPayload
         CopyTextToClipboardInteraction = new Interaction<string, Unit>(); // Initialize the interaction
         CopyImageToClipboardInteraction = new Interaction<Bitmap, Unit>(); // Initialize the image interaction
 
-        Core.Initialize();
-        _libVLC = new LibVLC();
-        _vlcMediaPlayer = new MediaPlayer(_libVLC);
-        VlcMediaPlayer = _vlcMediaPlayer;
+        // Initialize LibVLC with error handling for test environments
+        try
+        {
+            Core.Initialize();
+            _libVLC = new LibVLC();
+            _vlcMediaPlayer = new MediaPlayer(_libVLC);
+            VlcMediaPlayer = _vlcMediaPlayer;
+        }
+        catch (VLCException ex)
+        {
+            // LibVLC initialization failed (likely in test environment)
+            // Log the error but continue without video functionality
+            AppLogger.Warning($"LibVLC initialization failed: {ex.Message}. Video playback will not be available.");
+            _libVLC = null;
+            _vlcMediaPlayer = null;
+            VlcMediaPlayer = null;
+        }
 
         // Populate the list of available commands (using the help dictionary keys)
         _availableCommands = CommandHelpDetails.Keys

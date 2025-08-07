@@ -84,13 +84,13 @@ Set per-topic message buffer limits to manage memory usage:
 Crow's NestMQTT automatically render content of MQTT message as image when the content-type indicates an image
 ![](./doc/images/image-viewer.png)
 
-or plays a video when the content-type indicates one
+or plays a video when the content-type indicates one  
 ![](./doc/images/video-viewer.gif)
 
-or renders a JSON object when the content-type is set to `application/json`
+or renders a JSON object when the content-type is set to `application/json`  
 ![](./doc/images/json-viewer.png)
 
-if the special viewer can't be applied the default content viewer is used
+if the special viewer can't be applied the default content viewer is used  
 ![](./doc/images/raw-viewer.png)
 
 You can switch between viewers for the currently selected MQTT message using the `:view` command.
