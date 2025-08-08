@@ -5,7 +5,8 @@ param(
     [string]$SettingsPath = "$env:LOCALAPPDATA\CrowsNestMqtt\settings.json",
     [string]$ImagePath = "tests\TestData\test-image.png",
     [string]$VideoPath = "tests\TestData\test-video.mp4",
-    [string]$JsonPath = "tests\TestData\test-struct.json"
+    [string]$JsonPath = "tests\TestData\test-struct.json",
+    [string]$BinaryPath = "tests\TestData\story.7z"
 )
 
 # Ensure MQTTnet is available
@@ -81,6 +82,20 @@ $jsonMessage = $jsonMsgBuilder.Build()
 
 $null = $client.PublishAsync($jsonMessage).GetAwaiter().GetResult()
 Write-Host "JSON sent to topic 'test/viewer/json' with content-type 'application/json'."
+
+# --- Send binary file ---
+
+$binaryBytes = [System.IO.File]::ReadAllBytes($BinaryPath)
+Write-Host "Loaded JSON file: $BinaryPath ($($binaryBytes.Length) bytes)"
+
+$binaryMsgBuilder = [MQTTnet.MqttApplicationMessageBuilder]::new()
+$binaryMsgBuilder = $jsonMsgBuilder.WithTopic("test/viewer/hex").WithPayload($binaryBytes)
+$binaryMsgBuilder = $jsonMsgBuilder.WithContentType("application/octet-stream")
+$binaryMsgBuilder = $jsonMsgBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+$binaryMessage = $binaryMsgBuilder.Build()
+
+$null = $client.PublishAsync($binaryMessage).GetAwaiter().GetResult()
+Write-Host "Binary sent to topic 'test/viewer/hex' with content-type 'application/octet-stream'."
 
 # Disconnect
 $opts = [MQTTnet.MqttClientDisconnectOptions]::new()
