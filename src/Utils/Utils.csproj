@@ -5,8 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MQTTnet" Version="5.0.1.1416" />
-    <PackageReference Include="Serilog" Version="4.2.0" />
+    <PackageReference Include="MQTTnet" />
+    <PackageReference Include="Serilog" />
   </ItemGroup>
 
 </Project>
