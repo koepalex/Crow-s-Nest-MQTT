@@ -261,10 +261,10 @@ namespace CrowsNestMqtt.UnitTests.Utils
                 AppLogger.Trace(testMessage);
 
                 // Assert
-                var debugMessages = logMessages.Where(m => m.level == "Debug" && m.message == testMessage).ToList(); // Trace maps to Debug level in the event
-                Assert.Single(debugMessages);
-                Assert.Equal("Debug", debugMessages[0].level);
-                Assert.Equal(testMessage, debugMessages[0].message);
+                var traceMessages = logMessages.Where(m => m.level == "Trace" && m.message == testMessage).ToList();
+                Assert.Single(traceMessages);
+                Assert.Equal("Trace", traceMessages[0].level);
+                Assert.Equal(testMessage, traceMessages[0].message);
             }
             finally
             {
