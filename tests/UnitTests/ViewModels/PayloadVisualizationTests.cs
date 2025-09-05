@@ -8,11 +8,33 @@ using System.Reflection;
 using System.Text;
 using Xunit;
 using System.Text.Json; // Added for JsonValueKind
+using System.Reactive.Threading.Tasks;
+
+using Avalonia.Threading;
 
 namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class PayloadVisualizationTests
     {
+        static PayloadVisualizationTests()
+        {
+            // Use reflection to set Dispatcher.UIThread to a synchronous dispatcher for tests
+            var dispatcherType = typeof(Dispatcher);
+            var field = dispatcherType.GetField("_uiThread", BindingFlags.Static | BindingFlags.NonPublic);
+            if (field != null)
+            {
+                field.SetValue(null, new ImmediateDispatcher());
+            }
+        }
+
+        private class ImmediateDispatcher : IDispatcher
+        {
+            public bool CheckAccess() => true;
+            public void Post(Action action) => action();
+            public void Post(Action action, DispatcherPriority priority) => action();
+            public void VerifyAccess() { }
+            public DispatcherPriority Priority => DispatcherPriority.Normal;
+        }
        private readonly ICommandParserService _commandParserService;
        private readonly IMqttService _mqttServiceMock;
        private readonly IStatusBarService _statusBarServiceMock;
@@ -182,6 +204,38 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         }
 
         [Fact]
+        public void VideoViewer_WithVideoPayload_ShouldDisplayCorrectly()
+        {
+            // Arrange
+            var viewModel = new MainViewModel(_commandParserService);
+            byte[] videoPayload = new byte[] { 0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70 }; // MP4 header fragment
+            var messageId = Guid.NewGuid();
+            var timestamp = DateTime.Now;
+            var topic = "test/video";
+            var fullMessage = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(videoPayload)
+                .WithContentType("video/mp4")
+                .Build();
+
+            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+                .Returns(x => { x[2] = fullMessage; return true; });
+
+            var testMessage = new MessageViewModel(messageId, topic, timestamp, "[video]", videoPayload.Length, _mqttServiceMock, _statusBarServiceMock);
+
+            // Act
+            viewModel.SelectedMessage = testMessage;
+
+            // Assert
+            Assert.True(viewModel.IsVideoViewerVisible);
+            Assert.False(viewModel.IsImageViewerVisible);
+            Assert.False(viewModel.IsJsonViewerVisible);
+            Assert.False(viewModel.IsRawTextViewerVisible);
+            Assert.NotNull(viewModel.VideoPayload);
+            Assert.Equal(videoPayload, viewModel.VideoPayload);
+        }
+
+        [Fact]
         public void RawTextViewer_WithTextPayload_ShouldDisplayCorrectly()
         {
             // Arrange
@@ -243,16 +297,22 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             var switchViewMethod = typeof(MainViewModel).GetMethod("SwitchPayloadView", 
                 BindingFlags.NonPublic | BindingFlags.Instance);
             
+            // Get the PayloadViewType enum type via reflection
+            var payloadViewTypeEnum = typeof(MainViewModel).GetNestedType("PayloadViewType", BindingFlags.NonPublic);
+            Assert.NotNull(payloadViewTypeEnum);
+            var rawValue = Enum.Parse(payloadViewTypeEnum, "Raw");
+            var jsonValue = Enum.Parse(payloadViewTypeEnum, "Json");
+
             // Act - Switch to raw view
-            switchViewMethod?.Invoke(viewModel, new object[] { true });
-            
+            switchViewMethod?.Invoke(viewModel, new object[] { rawValue });
+
             // Assert
             Assert.False(viewModel.IsJsonViewerVisible);
             Assert.True(viewModel.IsRawTextViewerVisible);
-            
+
             // Act - Switch back to JSON view
-            switchViewMethod?.Invoke(viewModel, new object[] { false });
-            
+            switchViewMethod?.Invoke(viewModel, new object[] { jsonValue });
+
             // Assert
             Assert.True(viewModel.IsJsonViewerVisible);
             Assert.False(viewModel.IsRawTextViewerVisible);

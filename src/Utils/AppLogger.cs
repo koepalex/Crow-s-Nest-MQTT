@@ -14,7 +14,8 @@ public static class AppLogger
     /// <param name="propertyValues">Objects positionally formatted into the message template.</param>
     public static void Information(string messageTemplate, params object[]? propertyValues)
     {
-        OnLogMessage?.Invoke("Information", messageTemplate);
+        var handler = OnLogMessage;
+        handler?.Invoke("Information", messageTemplate);
         Serilog.Log.Information(messageTemplate, propertyValues);
     }
 
@@ -25,7 +26,8 @@ public static class AppLogger
     /// <param name="propertyValues">Objects positionally formatted into the message template.</param>
     public static void Warning(string messageTemplate, params object[]? propertyValues)
     {
-        OnLogMessage?.Invoke("Warning", messageTemplate);
+        var handler = OnLogMessage;
+        handler?.Invoke("Warning", messageTemplate);
         Serilog.Log.Warning(messageTemplate, propertyValues);
     }
 
@@ -37,7 +39,8 @@ public static class AppLogger
     /// <param name="propertyValues">Objects positionally formatted into the message template.</param>
     public static void Warning(Exception? exception, string messageTemplate, params object[]? propertyValues)
     {
-        OnLogMessage?.Invoke("Warning", messageTemplate);
+        var handler = OnLogMessage;
+        handler?.Invoke("Warning", messageTemplate);
         Serilog.Log.Warning(exception, messageTemplate, propertyValues);
     }
 
@@ -48,7 +51,8 @@ public static class AppLogger
     /// <param name="propertyValues">Objects positionally formatted into the message template.</param>
     public static void Error(string messageTemplate, params object[]? propertyValues)
     {
-        OnLogMessage?.Invoke("Error", messageTemplate);
+        var handler = OnLogMessage;
+        handler?.Invoke("Error", messageTemplate);
         Serilog.Log.Error(messageTemplate, propertyValues);
     }
 
@@ -60,7 +64,8 @@ public static class AppLogger
     /// <param name="propertyValues">Objects positionally formatted into the message template.</param>
     public static void Error(Exception? exception, string messageTemplate, params object[]? propertyValues)
     {
-        OnLogMessage?.Invoke("Error", messageTemplate);
+        var handler = OnLogMessage;
+        handler?.Invoke("Error", messageTemplate);
         Serilog.Log.Error(exception, messageTemplate, propertyValues);
     }
 
@@ -71,7 +76,20 @@ public static class AppLogger
     /// <param name="propertyValues">Objects positionally formatted into the message template.</param>
     public static void Debug(string messageTemplate, params object[]? propertyValues)
     {
-        OnLogMessage?.Invoke("Debug", messageTemplate);
+        var handler = OnLogMessage;
+        handler?.Invoke("Debug", messageTemplate);
         Serilog.Log.Debug(messageTemplate, propertyValues);
+    }
+
+    /// <summary>
+    /// Writes a trace log message.
+    /// </summary>
+    /// <param name="messageTemplate">Message template describing the event.</param>
+    /// <param name="propertyValues">Objects positionally formatted into the message template.</param>
+    public static void Trace(string messageTemplate, params object[]? propertyValues)
+    {
+        var handler = OnLogMessage;
+        handler?.Invoke("Debug", messageTemplate);
+        Serilog.Log.Verbose(messageTemplate, propertyValues);
     }
 }

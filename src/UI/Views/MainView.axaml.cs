@@ -11,6 +11,8 @@ using System.Collections.Specialized; // Added for INotifyCollectionChanged
 using System.Reactive.Linq; // Added for INotifyPropertyChanged (optional but good practice)
 using System.Reactive; // Added for Unit
 using AvaloniaEdit.Editing; // Added for Selection
+
+// Dynamically load System.Windows.Forms for clipboard access on Windows
 namespace CrowsNestMqtt.UI.Views;
 
 /// <summary>
@@ -92,7 +94,7 @@ public partial class MainView : UserControl
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_ =>
                     {
-                        CrowsNestMqtt.Utils.AppLogger.Debug("MainView GotFocus event fired. Setting IsWindowFocused = true.");
+                        CrowsNestMqtt.Utils.AppLogger.Trace("MainView GotFocus event fired. Setting IsWindowFocused = true.");
                         viewModel.IsWindowFocused = true;
                     });
 #pragma warning restore IL2026
@@ -102,7 +104,7 @@ public partial class MainView : UserControl
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_ =>
                     {
-                        CrowsNestMqtt.Utils.AppLogger.Debug("MainView LostFocus event fired. Setting IsWindowFocused = false.");
+                        CrowsNestMqtt.Utils.AppLogger.Trace("MainView LostFocus event fired. Setting IsWindowFocused = false.");
                         viewModel.IsWindowFocused = false;
                     });
 #pragma warning restore IL2026
@@ -172,33 +174,72 @@ public partial class MainView : UserControl
                    CommandAutoCompleteBox?.Focus(); // Focus the control
                });
 
-           // Subscribe to the CopyTextToClipboardInteraction
-           _clipboardInteractionSubscription = vm.CopyTextToClipboardInteraction.RegisterHandler(async interaction =>
-           {
-               var textToCopy = interaction.Input;
-               var topLevel = TopLevel.GetTopLevel(this);
-               var clipboard = topLevel?.Clipboard;
+            // Subscribe to the CopyTextToClipboardInteraction
+            _clipboardInteractionSubscription = vm.CopyTextToClipboardInteraction.RegisterHandler(async interaction =>
+            {
+                var topLevel = TopLevel.GetTopLevel(this);
+                var clipboard = topLevel?.Clipboard;
 
-               if (clipboard != null && textToCopy != null)
-               {
-                   try
-                   {
-                       await clipboard.SetTextAsync(textToCopy);
-                       interaction.SetOutput(Unit.Default); // Signal completion
-                       CrowsNestMqtt.Utils.AppLogger.Debug("Successfully copied text to clipboard via interaction.");
-                   }
-                   catch (Exception clipEx)
-                   {
-                       CrowsNestMqtt.Utils.AppLogger.Error(clipEx, "Failed to set clipboard text via interaction.");
-                       // Optionally signal failure: interaction.SetException(clipEx);
-                   }
-               }
-               else
-               {
-                   CrowsNestMqtt.Utils.AppLogger.Warning("Clipboard service not available in MainView interaction handler.");
-                   // Optionally signal failure: interaction.SetException(new Exception("Clipboard not available."));
-               }
-           });
+                var textToCopy = interaction.Input;
+                if (clipboard != null && textToCopy != null)
+                {
+                    try
+                    {
+                        await clipboard.SetTextAsync(textToCopy);
+                        interaction.SetOutput(Unit.Default); // Signal completion
+                        CrowsNestMqtt.Utils.AppLogger.Debug("Successfully copied text to clipboard via interaction.");
+                    }
+                    catch (Exception clipEx)
+                    {
+                        CrowsNestMqtt.Utils.AppLogger.Error(clipEx, "Failed to set clipboard text via interaction.");
+                        // Optionally signal failure: interaction.SetException(clipEx);
+                    }
+                }
+                else
+                {
+                    CrowsNestMqtt.Utils.AppLogger.Warning("Clipboard service not available in MainView interaction handler.");
+                    // Optionally signal failure: interaction.SetException(new Exception("Clipboard not available."));
+                }
+            });
+
+            // Subscribe to the CopyImageToClipboardInteraction
+            vm.CopyImageToClipboardInteraction.RegisterHandler(async interaction =>
+            {
+                var bitmap = interaction.Input;
+                if (bitmap == null)
+                {
+                    CrowsNestMqtt.Utils.AppLogger.Warning("No bitmap provided to CopyImageToClipboardInteraction.");
+                    return;
+                }
+
+                try
+                {
+                    // Write image to temp file (PNG)
+                    var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"crowsnest_image_{Guid.NewGuid():N}.png");
+                    using (var fs = System.IO.File.OpenWrite(tempPath))
+                    {
+                        bitmap.Save(fs);
+                    }
+
+                    // Put the path into the clipboard as text
+                    var topLevel = TopLevel.GetTopLevel(this);
+                    var clipboard = topLevel?.Clipboard;
+                    if (clipboard != null)
+                    {
+                        await clipboard.SetTextAsync(tempPath);
+                        interaction.SetOutput(Unit.Default);
+                        CrowsNestMqtt.Utils.AppLogger.Debug($"Image written to temp file and path copied to clipboard: {tempPath}");
+                    }
+                    else
+                    {
+                        CrowsNestMqtt.Utils.AppLogger.Warning("Clipboard service not available in MainView image interaction handler.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    CrowsNestMqtt.Utils.AppLogger.Error(ex, "Failed to write image to temp file and set clipboard path.");
+                }
+            });
 
            // Focus tracking is now handled in OnAttachedToVisualTree
 

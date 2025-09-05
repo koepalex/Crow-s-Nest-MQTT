@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>CrowsNestMqtt.BusinessLogic</RootNamespace>
+    <AssemblyName>CrowsNestMqtt.BusinessLogic</AssemblyName>
+    <TargetFrameworks>net9.0</TargetFrameworks> 
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MQTTnet" Version="5.0.1.1416" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.5.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+   <ProjectReference Include="../Utils/Utils.csproj" />
+  </ItemGroup>
+
+</Project>

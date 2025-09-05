@@ -4,15 +4,18 @@ name: Build and Test
 # or can be triggered manually
 on:
   push:
-    branches: [ "**" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
-  build_test_cover: # Renamed job
+  build_test_cover: 
+    permissions:
+      pull-requests: write
+
     name: Build, Test & Coverage
-    runs-on: ubuntu-latest # Run only on Linux
+    runs-on: windows-latest 
 
     outputs: # Define output for the version
       semVer: ${{ steps.gitversion.outputs.semVer }}
@@ -47,10 +50,10 @@ jobs:
       run: dotnet restore
 
     - name: Build Desktop App
-      run: dotnet build src/MainApp/CrowsNestMqtt.App.csproj --no-restore --configuration Release
+      run: dotnet build CrowsNestMQTT.slnx --no-restore --configuration Release
 
     - name: Test with coverage
-      run: dotnet test --collect:"XPlat Code Coverage;Format=json,cobertura" --filter "Category!=LocalOnly"
+      run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage;Format=json,cobertura" --filter "Category!=LocalOnly" --diag:logs/log.txt
     
     - name: Generate coverage report
       run: |
@@ -63,22 +66,21 @@ jobs:
         name: code-coverage-report
         path: ./TestResults/CoverageReport
         if-no-files-found: warn
-    - name: Publish Code Coverage Summary
-      uses: irongut/CodeCoverageSummary@v1.3.0
-      with:
-        filename: ./TestResults/CoverageReport/Cobertura.xml
-        badge: true
-        fail_below_min: false
-        format: markdown
-        hide_branch_rate: false
-        hide_complexity: false
-        indicators: true
-        output: both
-        thresholds: '60 80'
+    
+    - name: Generate Coverage Summary
+      shell: pwsh
+      run: |
+        .\tools\Generate-CoverageSummary-Enhanced.ps1 `
+          -CoberturaFile "./TestResults/CoverageReport/Cobertura.xml" `
+          -OutputFile "./code-coverage-results.md" `
+          -LowerThreshold 60 `
+          -UpperThreshold 80 `
+          -FailBelowMin:$false `
+          -GitHubActions:$true
 
     - name: Add Coverage PR Comment
       if: github.event_name == 'pull_request'
       uses: marocchino/sticky-pull-request-comment@v2
       with:
         recreate: true
-        path: ./TestResults/CoverageReport/code-coverage-results.md
+        path: ./code-coverage-results.md

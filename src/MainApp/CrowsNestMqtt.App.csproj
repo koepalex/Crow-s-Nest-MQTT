@@ -16,6 +16,7 @@
     <Authors>Alexander Köpke</Authors>
     <Description>A cross-platform MQTT client and visualizer for browsing MQTT topic hierarchies and message payloads</Description>
     <PackageTags>mqtt;client;visualization;avalonia;cross-platform</PackageTags>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
@@ -47,5 +48,9 @@
   <ItemGroup>
     <Compile Remove="App.axaml.cs" />
     <AvaloniaXaml Remove="App.axaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute" />
   </ItemGroup>
 </Project>

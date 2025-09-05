@@ -248,10 +248,18 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
            viewModel.SelectedMessage = testMessageViewJson;
             
             // First switch to raw view
-            var switchViewMethod = typeof(MainViewModel).GetMethod("SwitchPayloadView", 
-                BindingFlags.NonPublic | BindingFlags.Instance);
-            switchViewMethod?.Invoke(viewModel, new object[] { true });
-            
+            var payloadViewTypeEnum = typeof(MainViewModel).GetNestedType("PayloadViewType", BindingFlags.NonPublic);
+            Assert.NotNull(payloadViewTypeEnum);
+            var rawValue = Enum.Parse(payloadViewTypeEnum, "Raw");
+            var typedRawValue = Convert.ChangeType(rawValue, payloadViewTypeEnum);
+            var switchViewMethod = typeof(MainViewModel).GetMethod(
+                "SwitchPayloadView",
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                null,
+                new[] { payloadViewTypeEnum },
+                null);
+            switchViewMethod?.Invoke(viewModel, new object[] { typedRawValue });
+
             // Confirm raw view is active
             Assert.False(viewModel.IsJsonViewerVisible);
             Assert.True(viewModel.IsRawTextViewerVisible);

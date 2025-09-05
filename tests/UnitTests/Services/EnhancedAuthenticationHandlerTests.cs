@@ -39,13 +39,22 @@ public class EnhancedAuthenticationHandlerTests
         var handler = new EnhancedAuthenticationHandler(options);
         
         var logMessages = new System.Collections.Generic.List<string>();
-        AppLogger.OnLogMessage += (level, message) => { if (level == "Information") logMessages.Add(message); };
+        Action<string, string> logHandler = (level, message) => { if (level == "Information") logMessages.Add(message); };
+        AppLogger.OnLogMessage += logHandler;
 
-        // Act
-        handler.Configure();
+        try
+        {
+            // Act
+            handler.Configure();
 
-        // Assert
-        Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token is valid until"));
+            // Assert
+            Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token is valid until"));
+        }
+        finally
+        {
+            // Cleanup
+            AppLogger.OnLogMessage -= logHandler;
+        }
     }
 
     [Fact]
@@ -57,13 +66,22 @@ public class EnhancedAuthenticationHandlerTests
         var handler = new EnhancedAuthenticationHandler(options);
 
         var logMessages = new System.Collections.Generic.List<string>();
-        AppLogger.OnLogMessage += (level, message) => { if (level == "Warning") logMessages.Add(message); };
+        Action<string, string> logHandler = (level, message) => { if (level == "Warning") logMessages.Add(message); };
+        AppLogger.OnLogMessage += logHandler;
 
-        // Act
-        handler.Configure();
+        try
+        {
+            // Act
+            handler.Configure();
 
-        // Assert
-        Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token has expired on"));
+            // Assert
+            Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token has expired on"));
+        }
+        finally
+        {
+            // Cleanup
+            AppLogger.OnLogMessage -= logHandler;
+        }
     }
 
     [Fact]
@@ -74,13 +92,22 @@ public class EnhancedAuthenticationHandlerTests
         var handler = new EnhancedAuthenticationHandler(options);
         
         var logMessages = new System.Collections.Generic.List<string>();
-        AppLogger.OnLogMessage += (level, message) => { if (level == "Warning") logMessages.Add(message); };
+        Action<string, string> logHandler = (level, message) => { if (level == "Warning") logMessages.Add(message); };
+        AppLogger.OnLogMessage += logHandler;
 
-        // Act
-        handler.Configure();
+        try
+        {
+            // Act
+            handler.Configure();
 
-        // Assert
-        Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token not found in UserProperties."));
+            // Assert
+            Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token not found in UserProperties."));
+        }
+        finally
+        {
+            // Cleanup
+            AppLogger.OnLogMessage -= logHandler;
+        }
     }
     
     [Fact]
@@ -91,12 +118,21 @@ public class EnhancedAuthenticationHandlerTests
         var handler = new EnhancedAuthenticationHandler(options);
 
         var logMessages = new System.Collections.Generic.List<string>();
-        AppLogger.OnLogMessage += (level, message) => { if (level == "Warning") logMessages.Add(message); };
+        Action<string, string> logHandler = (level, message) => { if (level == "Warning") logMessages.Add(message); };
+        AppLogger.OnLogMessage += logHandler;
 
-        // Act
-        handler.Configure();
+        try
+        {
+            // Act
+            handler.Configure();
 
-        // Assert
-        Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token not found in UserProperties."));
+            // Assert
+            Assert.Contains(logMessages, log => log.Contains("Enhanced Authentication: Token not found in UserProperties."));
+        }
+        finally
+        {
+            // Cleanup
+            AppLogger.OnLogMessage -= logHandler;
+        }
     }
 }
