@@ -497,8 +497,8 @@ engine.MessagesBatchReceived += (sender, batch) =>
             Assert.NotNull(bufferedMessages);
             var messagesList = bufferedMessages.ToList();
             Assert.Single(messagesList);
-            Assert.Equal("test/getmessages/topic", messagesList[0].Topic);
-            Assert.Equal("test message content", messagesList[0].ConvertPayloadToString());
+Assert.Equal("test/getmessages/topic", messagesList[0].Message.Topic);
+Assert.Equal("test message content", messagesList[0].Message.ConvertPayloadToString());
 
             await publisher.DisconnectAsync(new MqttClientDisconnectOptions(), CancellationToken.None);
         }

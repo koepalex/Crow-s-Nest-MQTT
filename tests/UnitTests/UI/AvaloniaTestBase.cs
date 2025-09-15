@@ -22,6 +22,8 @@ namespace CrowsNestMqtt.UnitTests.UI
                         UseHeadlessDrawing = true
                     })
                     .SetupWithoutStarting();
+                // Ensure SynchronizationContext is set for UI thread access in tests
+                SynchronizationContext.SetSynchronizationContext(Avalonia.Threading.AvaloniaSynchronizationContext.Current);
             }
         }
 

@@ -64,7 +64,8 @@ public class TextExporterTests : IDisposable
             MessageExpiryInterval = messageExpiryInterval,
             PayloadFormatIndicator = payloadFormatIndicator
         };
-        return new BufferedMqttMessage(message, timestamp ?? DateTimeOffset.UtcNow);
+        var msgTimestamp = timestamp ?? DateTimeOffset.UtcNow;
+        return new BufferedMqttMessage(Guid.NewGuid(), message, msgTimestamp.DateTime);
     }
 
     // Helper to build expected content based on TextExporter format
@@ -141,7 +142,7 @@ public class TextExporterTests : IDisposable
         var expectedContent = BuildExpectedContent(bufferedMessage.Message, timestamp.DateTime);
 
         // Act
-        var filePath = exporter.ExportToFile(bufferedMessage.Message, bufferedMessage.ReceivedTimestamp.DateTime, _testDirectory);
+        var filePath = exporter.ExportToFile(bufferedMessage.Message, bufferedMessage.ReceivedTimestamp, _testDirectory);
 
         // Assert
         Assert.NotNull(filePath);
@@ -162,7 +163,7 @@ public class TextExporterTests : IDisposable
         var expectedContent = BuildExpectedContent(bufferedMessage.Message, timestamp.DateTime);
 
         // Act
-        var filePath = exporter.ExportToFile(bufferedMessage.Message, bufferedMessage.ReceivedTimestamp.DateTime, _testDirectory);
+        var filePath = exporter.ExportToFile(bufferedMessage.Message, bufferedMessage.ReceivedTimestamp, _testDirectory);
 
         // Assert
         Assert.NotNull(filePath);
@@ -184,7 +185,7 @@ public class TextExporterTests : IDisposable
         var expectedContent = BuildExpectedContent(bufferedMessage.Message, timestamp.DateTime);
 
         // Act
-        var filePath = exporter.ExportToFile(bufferedMessage.Message, bufferedMessage.ReceivedTimestamp.DateTime, _testDirectory);
+        var filePath = exporter.ExportToFile(bufferedMessage.Message, bufferedMessage.ReceivedTimestamp, _testDirectory);
 
         // Assert
         Assert.NotNull(filePath);
@@ -207,7 +208,7 @@ public class TextExporterTests : IDisposable
         var expectedContent = BuildExpectedContent(bufferedMessage.Message, timestamp.DateTime);
 
         // Act
-        var filePath = exporter.ExportToFile(bufferedMessage.Message, bufferedMessage.ReceivedTimestamp.DateTime, _testDirectory);
+        var filePath = exporter.ExportToFile(bufferedMessage.Message, bufferedMessage.ReceivedTimestamp, _testDirectory);
 
         // Assert
         Assert.NotNull(filePath);
@@ -229,7 +230,7 @@ public class TextExporterTests : IDisposable
         var expectedFilename = $"{timestamp:yyyyMMdd_HHmmssfff}_a_b_c.txt";
 
         // Act
-        var filePath = exporter.ExportToFile(bufferedMessage.Message, bufferedMessage.ReceivedTimestamp.DateTime, _testDirectory);
+        var filePath = exporter.ExportToFile(bufferedMessage.Message, bufferedMessage.ReceivedTimestamp, _testDirectory);
 
         // Assert
         Assert.NotNull(filePath);
@@ -249,7 +250,7 @@ public class TextExporterTests : IDisposable
         var expectedFilename = $"{timestamp:yyyyMMdd_HHmmssfff}_{expectedSanitizedTopicPart}.txt";
 
         // Act
-        var filePath = exporter.ExportToFile(bufferedMessage.Message, bufferedMessage.ReceivedTimestamp.DateTime, _testDirectory);
+        var filePath = exporter.ExportToFile(bufferedMessage.Message, bufferedMessage.ReceivedTimestamp, _testDirectory);
 
         // Assert
         Assert.NotNull(filePath);

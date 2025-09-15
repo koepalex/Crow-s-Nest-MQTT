@@ -88,8 +88,8 @@ public static class AppLogger
     /// <param name="propertyValues">Objects positionally formatted into the message template.</param>
     public static void Trace(string messageTemplate, params object[]? propertyValues)
     {
-        var handler = OnLogMessage;
-        handler?.Invoke("Debug", messageTemplate);
-        Serilog.Log.Verbose(messageTemplate, propertyValues);
+    var handler = OnLogMessage;
+    handler?.Invoke("Trace", messageTemplate);
+    Serilog.Log.Verbose(messageTemplate, propertyValues);
     }
 }

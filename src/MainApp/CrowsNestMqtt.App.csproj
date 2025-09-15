@@ -25,7 +25,7 @@
     <PackageReference Include="Avalonia.ReactiveUI" />
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
-    <PackageReference Include="GitVersion.MsBuild">
+    <PackageReference Include="GitVersion.MsBuild" >
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>

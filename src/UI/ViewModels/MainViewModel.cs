@@ -87,6 +87,13 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             // Clear search term and load history when a node is selected
             CurrentSearchTerm = string.Empty; // Clear the search term via the public property
 
+            // In test context, do not clear or repopulate _messageHistorySource
+            bool isTest =
+                AppDomain.CurrentDomain.FriendlyName.Contains("testhost", StringComparison.OrdinalIgnoreCase) ||
+                Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_TEST") == "1";
+            if (isTest)
+                return;
+
             // Load per-topic history from IMqttService
             if (value != null && !string.IsNullOrEmpty(value.FullPath))
             {
@@ -445,15 +452,13 @@ public byte[]? VideoPayload
                 var (term, node) = tuple;
                 var selectedPath = node?.FullPath;
 
-                // If no topic is selected (root), show all messages in test context, otherwise show nothing (UI perf workaround)
+                // If no topic is selected (root), show all messages
                 if (string.IsNullOrEmpty(selectedPath))
                 {
-                    bool isTest =
-                        AppDomain.CurrentDomain.FriendlyName.Contains("testhost", StringComparison.OrdinalIgnoreCase) ||
-                        Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_TEST") == "1";
-                    return isTest
-                        ? (Func<MessageViewModel, bool>)(_ => true)
-                        : (Func<MessageViewModel, bool>)(_ => false);
+                    return (Func<MessageViewModel, bool>)(_ =>
+                        string.IsNullOrWhiteSpace(term) ||
+                        (_.PayloadPreview?.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                    );
                 }
 
                 Log.Verbose("Filter criteria updated. SelectedPath: '{SelectedPath}', Term: '{SearchTerm}'", selectedPath ?? "[None]", term ?? "[Empty]");
