@@ -136,7 +136,7 @@ var connectionStateEventArgs = new MqttConnectionStateChangedEventArgs(true, nul
 
            // Act - Simulate message received event
            // Raise the event on the mock interface
-           _mqttServiceMock.MessageReceived += Raise.EventWith(_mqttServiceMock, identifiedArgs);
+           _mqttServiceMock.MessagesBatchReceived += Raise.Event<EventHandler<IReadOnlyList<IdentifiedMqttApplicationMessageReceivedEventArgs>>>(_mqttServiceMock, new List<IdentifiedMqttApplicationMessageReceivedEventArgs> { identifiedArgs });
 
            // Assert - Check that the topic tree contains the new topic
             // bool topicFound = false; // Cannot assert if event handler not invoked
@@ -186,7 +186,7 @@ var connectionStateEventArgs = new MqttConnectionStateChangedEventArgs(true, nul
                 viewModel.PauseResumeCommand.Execute().Subscribe();
 
                 // Act - Simulate message received event
-                _mqttServiceMock.MessageReceived += Raise.EventWith(_mqttServiceMock, identifiedArgs);
+                _mqttServiceMock.MessagesBatchReceived += Raise.Event<EventHandler<IReadOnlyList<IdentifiedMqttApplicationMessageReceivedEventArgs>>>(_mqttServiceMock, new List<IdentifiedMqttApplicationMessageReceivedEventArgs> { identifiedArgs });
 
                 // Assert - Check that no nodes were added for the paused message
                 bool topicFound = false;

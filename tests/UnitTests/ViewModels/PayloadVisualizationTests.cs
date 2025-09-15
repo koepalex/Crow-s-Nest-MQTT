@@ -397,5 +397,48 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.True(interactionTriggered);
             // Assert.Contains("copied to clipboard", viewModel.StatusBarText.ToLower()); // Interaction testing can be unreliable without proper setup
         }
+
+        [Fact]
+        public void HexViewer_AutoAndManualSwitch_ShouldDisplayHexForBinaryPayload()
+        {
+            // Arrange
+            var viewModel = new MainViewModel(_commandParserService);
+            byte[] binaryPayload = Enumerable.Range(0, 32).Select(i => (byte)i).ToArray();
+            var messageId = Guid.NewGuid();
+            var timestamp = DateTime.Now;
+            var topic = "test/binary";
+            var fullMessage = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(binaryPayload)
+                .WithContentType("application/octet-stream")
+                .Build();
+
+            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+                .Returns(x => { x[2] = fullMessage; return true; });
+
+            var testMessage = new MessageViewModel(messageId, topic, timestamp, "[binary]", binaryPayload.Length, _mqttServiceMock, _statusBarServiceMock);
+
+            // Act: Select message (should auto-switch to hex viewer)
+            viewModel.SelectedMessage = testMessage;
+
+            // Assert auto-switch
+            Assert.True(viewModel.IsHexViewerVisible);
+            Assert.NotNull(viewModel.HexPayloadBytes);
+            Assert.Equal(binaryPayload, viewModel.HexPayloadBytes);
+
+            // Act: Switch away and back using reflection (simulate :view hex)
+            var switchViewHexMethod = typeof(MainViewModel).GetMethod("SwitchPayloadViewHex", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            // Hide hex viewer first
+            typeof(MainViewModel).GetProperty("IsHexViewerVisible")?.SetValue(viewModel, false);
+            Assert.False(viewModel.IsHexViewerVisible);
+
+            // Now call manual switch
+            switchViewHexMethod?.Invoke(viewModel, null);
+
+            // Assert manual switch
+            Assert.True(viewModel.IsHexViewerVisible);
+            Assert.NotNull(viewModel.HexPayloadBytes);
+            Assert.Equal(binaryPayload, viewModel.HexPayloadBytes);
+        }
     }
 }

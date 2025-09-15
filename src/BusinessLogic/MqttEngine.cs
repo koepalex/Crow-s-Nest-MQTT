@@ -51,7 +51,7 @@ private MqttClientOptions? _currentOptions;
     private readonly Dictionary<string, long> _topicBufferSizeCache = new(); // Cache buffer sizes to avoid repeated calculations
 
     // Modified event signature
-    public event EventHandler<IdentifiedMqttApplicationMessageReceivedEventArgs>? MessageReceived;
+    public event EventHandler<IReadOnlyList<IdentifiedMqttApplicationMessageReceivedEventArgs>>? MessagesBatchReceived;
     public event EventHandler<MqttConnectionStateChangedEventArgs>? ConnectionStateChanged;
     public event EventHandler<string>? LogMessage;
 
@@ -59,6 +59,13 @@ private MqttClientOptions? _currentOptions;
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _topicSpecificBufferLimits = settings.TopicSpecificBufferLimits;
+        if (_topicSpecificBufferLimits == null || !_topicSpecificBufferLimits.Any())
+        {
+            _topicSpecificBufferLimits = new List<TopicBufferLimit>
+            {
+                new TopicBufferLimit("#", 1024 * 1024) // 1MB default
+            };
+        }
         var factory = new MqttClientFactory();
         _client = factory.CreateMqttClient();
         _topicBuffers = new ConcurrentDictionary<string, TopicRingBuffer>();
@@ -317,13 +324,25 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     }
 
     /// <summary>
-    /// Retrieves the buffered messages for a specific topic.
+    /// Retrieves the buffered messages for a specific topic, including their IDs.
     /// </summary>
-    public IEnumerable<MqttApplicationMessage>? GetMessagesForTopic(string topic)
+    public IEnumerable<CrowsNestMqtt.Utils.BufferedMqttMessage>? GetBufferedMessagesForTopic(string topic)
     {
         if (_topicBuffers.TryGetValue(topic, out var buffer))
         {
-            return buffer.GetMessages().ToList(); // Returns snapshot
+            return buffer.GetBufferedMessages().ToList();
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Retrieves the buffered messages for a specific topic, including their IDs.
+    /// </summary>
+    public IEnumerable<CrowsNestMqtt.Utils.BufferedMqttMessage>? GetMessagesForTopic(string topic)
+    {
+        if (_topicBuffers.TryGetValue(topic, out var buffer))
+        {
+            return buffer.GetBufferedMessages().ToList();
         }
         return null;
     }
@@ -636,11 +655,10 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
             topicStats[topic] = count + 1;
         }
         
-        // Batch fire events
-        foreach (var args in eventArgsToFire)
-        {
-            MessageReceived?.Invoke(this, args);
-        }
+        // Fire batch event for optimized UI processing
+        MessagesBatchReceived?.Invoke(this, eventArgsToFire);
+
+        // No longer fire MessageReceived for each message to avoid duplication.
         
         // Efficient logging - log per topic instead of per message
         // if (topicStats.Count <= 10) // Only log details for reasonable number of topics

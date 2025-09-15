@@ -16,6 +16,7 @@ public class MockMqttService : IMqttService
 
 #pragma warning disable CS0067
         public event EventHandler<IdentifiedMqttApplicationMessageReceivedEventArgs>? MessageReceived;
+        public event EventHandler<IReadOnlyList<IdentifiedMqttApplicationMessageReceivedEventArgs>>? MessagesBatchReceived;
         public event EventHandler<MqttConnectionStateChangedEventArgs>? ConnectionStateChanged;
         public event EventHandler<string>? LogMessage;
 #pragma warning restore CS0067
@@ -54,6 +55,8 @@ public class MockMqttService : IMqttService
         public Task ConnectAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task DisconnectAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task PublishAsync(string topic, string payload, bool retain, MqttQualityOfServiceLevel qos, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public IEnumerable<CrowsNestMqtt.Utils.BufferedMqttMessage>? GetBufferedMessagesForTopic(string topic) => null;
+        public IEnumerable<CrowsNestMqtt.Utils.BufferedMqttMessage> GetMessagesForTopic(string topic) => Enumerable.Empty<CrowsNestMqtt.Utils.BufferedMqttMessage>();
         public void ClearAllBuffers() { }
         public IEnumerable<string> GetBufferedTopics() => Array.Empty<string>();
         public void UpdateSettings(MqttConnectionSettings settings) { }

@@ -12,25 +12,23 @@ namespace CrowsNestMqtt.Utils;
 public class TopicRingBuffer
 {
     // --- Private Nested Class for Buffered Message ---
-    private class BufferedMqttMessage
+    private class InternalBufferedMqttMessage
     {
         public Guid MessageId { get; }
         public MqttApplicationMessage Message { get; }
-        public long Size { get; } // Cache the size
+        public long Size { get; }
 
-        public BufferedMqttMessage(MqttApplicationMessage message, Guid messageId)
+        public InternalBufferedMqttMessage(MqttApplicationMessage message, Guid messageId)
         {
             Message = message ?? throw new ArgumentNullException(nameof(message));
             MessageId = messageId;
-           // Simplified size calculation for testing purposes - primarily payload length.
-           // A more accurate calculation might be needed later.
-           Size = message.Payload.Length; // Use payload length directly for now
-       }
-   }
+            Size = message.Payload.Length;
+        }
+    }
     // -------------------------------------------------
 
-    private readonly LinkedList<BufferedMqttMessage> _messages;
-    private readonly Dictionary<Guid, LinkedListNode<BufferedMqttMessage>> _messageIndex; // Added for fast lookup
+    private readonly LinkedList<InternalBufferedMqttMessage> _messages;
+    private readonly Dictionary<Guid, LinkedListNode<InternalBufferedMqttMessage>> _messageIndex; // Added for fast lookup
     private readonly long _maxSizeInBytes;
     private long _currentSizeInBytes;
     private readonly object _lock = new object(); // Added for thread safety
@@ -68,8 +66,8 @@ public class TopicRingBuffer
             throw new ArgumentOutOfRangeException(nameof(maxSizeInBytes), "Maximum size must be positive.");
         }
         _maxSizeInBytes = maxSizeInBytes;
-        _messages = new LinkedList<BufferedMqttMessage>();
-        _messageIndex = new Dictionary<Guid, LinkedListNode<BufferedMqttMessage>>(); // Initialize index
+        _messages = new LinkedList<InternalBufferedMqttMessage>();
+        _messageIndex = new Dictionary<Guid, LinkedListNode<InternalBufferedMqttMessage>>(); // Initialize index
         _currentSizeInBytes = 0;
     }
 
@@ -90,7 +88,7 @@ public class TopicRingBuffer
                  return;
             }
 
-           var bufferedMessage = new BufferedMqttMessage(message, messageId);
+           var bufferedMessage = new InternalBufferedMqttMessage(message, messageId);
 
            // Remove the explicit check for oversized messages here.
            // The while loop below will handle making space.
@@ -115,12 +113,70 @@ public class TopicRingBuffer
                 // Log if a message couldn't be added even after clearing space (because it's intrinsically too large)
                 AppLogger.Warning("Message for topic '{Topic}' (ID: {MessageId}, Size: {Size} bytes) could not be added as it exceeds the buffer limit ({Limit} bytes) even after clearing space.",
                     message.Topic, messageId, bufferedMessage.Size, _maxSizeInBytes);
-                // Ensure buffer is clear if the only message was too large and couldn't be added
+
+                // If the buffer is empty, do not add a proxy message. Just leave the buffer empty.
                 if (_messages.Count == 0)
                 {
-                    // Clear is called within the lock
-                    Clear();
+                    // Nothing to add, just return.
+                    return;
                 }
+
+                // Otherwise, create a proxy message indicating the payload was too large
+                var builder = new MqttApplicationMessageBuilder()
+                    .WithTopic(message.Topic)
+                    .WithPayload("Payload too large for buffer")
+                    .WithUserProperty("CrowProxy", "PayloadTooLarge")
+                    .WithUserProperty("OriginalPayloadSize", bufferedMessage.Size.ToString())
+                    .WithUserProperty("ReceivedTime", DateTime.UtcNow.ToString("o"))
+                    .WithUserProperty("Preview", GetPreview(message));
+
+                if (message.UserProperties != null)
+                {
+                    foreach (var prop in message.UserProperties)
+                    {
+                        builder.WithUserProperty(prop.Name, prop.Value);
+                    }
+                }
+
+                var proxy = builder.Build();
+
+                var proxyId = Guid.NewGuid();
+                var proxyBuffered = new InternalBufferedMqttMessage(proxy, proxyId);
+
+                // Remove oldest messages until the proxy fits
+                while (_currentSizeInBytes + proxyBuffered.Size > _maxSizeInBytes && _messages.Count > 0)
+                {
+                    RemoveOldestMessage();
+                }
+                if (_currentSizeInBytes + proxyBuffered.Size <= _maxSizeInBytes)
+                {
+                    var node = _messages.AddLast(proxyBuffered);
+                    _messageIndex.Add(proxyId, node);
+                    _currentSizeInBytes += proxyBuffered.Size;
+                }
+                else
+                {
+                    AppLogger.Warning("Proxy message for topic '{Topic}' (ID: {ProxyId}) could not be added as it still exceeds the buffer limit ({Limit} bytes).", message.Topic, proxyId, _maxSizeInBytes);
+                }
+           }
+
+           // Helper for preview string
+           static string GetPreview(MqttApplicationMessage msg)
+           {
+               try
+               {
+                   if (msg.Payload.IsEmpty)
+                       return "[No Payload]";
+                   var bytes = msg.Payload.FirstSpan.ToArray();
+                   var preview = System.Text.Encoding.UTF8.GetString(bytes);
+                   if (preview.Length > 100)
+                       preview = preview.Substring(0, 100) + "...";
+                   return preview.Replace("\r", " ").Replace("\n", " ");
+               }
+               catch
+               {
+                   return "[Binary or non-UTF8 Payload]";
+               }
            }
         }
     }
@@ -155,9 +211,20 @@ public class TopicRingBuffer
     {
         lock (_lock)
         {
-            // Return a copy or snapshot to avoid issues with modification while enumerating
-            // ToList() creates the copy inside the lock
             return _messages.Select(bm => bm.Message).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Retrieves all buffered messages with their IDs, ordered from oldest to newest.
+    /// </summary>
+    public IEnumerable<BufferedMqttMessage> GetBufferedMessages()
+    {
+        lock (_lock)
+        {
+            return _messages
+                .Select(bm => new BufferedMqttMessage(bm.MessageId, bm.Message))
+                .ToList();
         }
     }
 

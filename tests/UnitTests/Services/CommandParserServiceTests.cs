@@ -710,7 +710,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         {
             var result = _parser.ParseCommand(":view invalid", _defaultSettings);
             Assert.False(result.IsSuccess);
-            Assert.Equal("Invalid arguments for :view. Expected: :view <raw|json|image|video>", result.ErrorMessage);
+            Assert.Equal("Invalid arguments for :view. Expected: :view <raw|json|image|video|hex>", result.ErrorMessage);
         }
 
         [Fact]
@@ -718,7 +718,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         {
             var result = _parser.ParseCommand(":view", _defaultSettings);
             Assert.False(result.IsSuccess);
-            Assert.Equal("Invalid arguments for :view. Expected: :view <raw|json|image|video>", result.ErrorMessage);
+            Assert.Equal("Invalid arguments for :view. Expected: :view <raw|json|image|video|hex>", result.ErrorMessage);
         }
 
         // Settings command tests

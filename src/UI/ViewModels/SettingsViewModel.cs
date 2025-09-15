@@ -86,11 +86,6 @@ public class SettingsViewModel : ReactiveObject
         _isLoading = true; // Set flag before loading
         LoadSettings(); // This calls From() which populates TopicSpecificLimits
 
-        // Ensure a default topic limit if the list is empty
-        if (!TopicSpecificLimits.Any())
-        {
-            TopicSpecificLimits.Add(new TopicBufferLimitViewModel { TopicFilter = "#", MaxSizeBytes = 1024 * 1024 }); // 1MB default
-        }
         _isLoading = false; // Clear flag after loading
 
         AddTopicLimitCommand = ReactiveCommand.Create(() =>

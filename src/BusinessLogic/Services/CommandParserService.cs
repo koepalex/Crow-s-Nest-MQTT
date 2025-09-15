@@ -252,8 +252,12 @@ public class CommandParserService : ICommandParserService
                     {
                         return CommandResult.SuccessCommand(new ParsedCommand(CommandType.ViewVideo, arguments));
                     }
+                    else if (viewType == "hex")
+                    {
+                        return CommandResult.SuccessCommand(new ParsedCommand(CommandType.ViewHex, arguments));
+                    }
                 }
-                return CommandResult.Failure("Invalid arguments for :view. Expected: :view <raw|json|image|video>");
+                return CommandResult.Failure("Invalid arguments for :view. Expected: :view <raw|json|image|video|hex>");
 
             case "setuser":
                 if (arguments.Count == 1)

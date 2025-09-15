@@ -23,6 +23,7 @@ Whether you're a seasoned developer or a newcomer to IoT, Crow’s NestMQTT prov
   * Json
   * Images
   * Video
+  * Hex (for binary data)
 * dotnet Aspire context aware
 
 ## Graphical User Interface
@@ -93,6 +94,10 @@ or renders a JSON object when the content-type is set to `application/json`
 if the special viewer can't be applied the default content viewer is used  
 ![](./doc/images/raw-viewer.png)
 
+If the content-type indicates binary data (but not image/video), Crow's NestMQTT will automatically show the payload in a read-only hex viewer:
+
+![](./doc/images/raw-viewer.png) <!-- Replace with a hex viewer screenshot if available -->
+
 You can switch between viewers for the currently selected MQTT message using the `:view` command.
 
 
@@ -111,7 +116,7 @@ Crow's Nest MQTT provides a command interface (likely accessible via a dedicated
 *   `:resume` - Resume the display of new messages.
 *   `:expand` - Expand all nodes in the topic tree.
 *   `:collapse` - Collapse all nodes in the topic tree.
-*   `:view <raw|json|image|video>` - Set the payload view to raw text, formatted JSON tree, image, or video viewer.
+*   `:view <raw|json|image|video|hex>` - Set the payload view to raw text, formatted JSON tree, image, video, or hex viewer. The hex viewer displays binary payloads in a classic hex+ASCII table.
 *   `:settings` - Toggle the visibility of the settings panel.
 *   `:setuser <username>` - Set the username for MQTT authentication.
 *   `:setpass <password>` - Set the password for MQTT authentication.
