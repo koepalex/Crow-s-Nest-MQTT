@@ -3,6 +3,7 @@
              x:Class="CrowsNestMqtt.UI.Views.HexViewer"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             x:Name="Root"
              mc:Ignorable="d"
              d:DesignWidth="600" d:DesignHeight="400">
   <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
@@ -10,6 +11,6 @@
                FontFamily="Consolas, Courier New, monospace"
                FontSize="12"
                TextWrapping="NoWrap"
-               Text="{Binding HexDump, Mode=OneWay}" />
+               Text="{Binding HexDump, ElementName=Root, Mode=OneWay}" />
   </ScrollViewer>
 </UserControl>

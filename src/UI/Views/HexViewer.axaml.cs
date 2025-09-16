@@ -26,12 +26,34 @@ namespace CrowsNestMqtt.UI.Views
             }
         }
 
-        public string HexDump => Bytes == null ? string.Empty : FormatHexDump(Bytes);
+        // Direct property for HexDump so Avalonia change notifications are reliable (no reliance on INotifyPropertyChanged)
+        public static readonly DirectProperty<HexViewer, string> HexDumpProperty =
+            AvaloniaProperty.RegisterDirect<HexViewer, string>(
+                nameof(HexDump),
+                o => o.HexDump);
+
+        private string _hexDump = string.Empty;
+
+        public string HexDump
+        {
+            get => _hexDump;
+            private set => SetAndRaise(HexDumpProperty, ref _hexDump, value);
+        }
+
+        static HexViewer()
+        {
+            // Recompute HexDump whenever Bytes changes (binding sets the styled property directly)
+            BytesProperty.Changed.AddClassHandler<HexViewer>((x, e) =>
+            {
+                var bytes = x.Bytes;
+                x.HexDump = (bytes == null || bytes.Length == 0) ? string.Empty : FormatHexDump(bytes);
+            });
+        }
 
         public HexViewer()
         {
             InitializeComponent();
-            DataContext = this;
+            // Removed DataContext=self to allow parent DataContext (MainViewModel) to flow for external bindings.
         }
 
         private void InitializeComponent()
