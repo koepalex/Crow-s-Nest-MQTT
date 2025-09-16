@@ -145,7 +145,7 @@
               <!-- Moved this Grid to Column 2 -->
               <!-- Right Panel: Details, JSON Viewer, and History -->
               <!-- Changed RowDefinitions: Details(Auto), Splitter(Auto), JsonViewer(*), Splitter(Auto), History(*) -->
-              <Grid Grid.Column="2" RowDefinitions="*,Auto,*,Auto,*"> <!-- Changed first row to '*' -->
+              <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,Auto,*"> <!-- Row layout: Details, Splitter, Payload (auto if visible), Splitter, History -->
 
                   <!-- Row 0: Message Details (Metadata & User Properties) -->
                   <!-- Removed ScrollViewer and Border, Grid now expands within Row 0 -->
@@ -186,7 +186,7 @@
                   <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows"/>
 
                   <!-- Row 2: Payload Viewers Container -->
-                  <Panel Grid.Row="2" Margin="5,0,5,0">
+                  <Panel Grid.Row="2" Margin="5,0,5,0" IsVisible="{Binding IsAnyPayloadViewerVisible}">
                       <!-- JSON Viewer (Conditionally Visible) -->
                       <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsJsonViewerVisible}">
                           <TreeView ItemsSource="{Binding JsonViewer.RootNodes}" MinWidth="200">

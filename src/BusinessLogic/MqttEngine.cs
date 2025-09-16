@@ -44,6 +44,7 @@ private MqttClientOptions? _currentOptions;
     private readonly ConcurrentDictionary<string, TopicRingBuffer> _topicBuffers;
     private IList<TopicBufferLimit> _topicSpecificBufferLimits = new List<TopicBufferLimit>();
     internal const long DefaultMaxTopicBufferSize = 1 * 1024 * 1024; // Changed to internal const
+    private readonly object _bufferReconfigLock = new(); // Lock for reconfiguring existing topic buffers
 
     // Batch processing for high-volume message scenarios  
     private readonly ConcurrentQueue<MqttApplicationMessageReceivedEventArgs> _pendingMessages = new();
@@ -83,7 +84,23 @@ private MqttClientOptions? _currentOptions;
     {
         _settings = newSettings ?? throw new ArgumentNullException(nameof(newSettings));
         _topicSpecificBufferLimits = newSettings.TopicSpecificBufferLimits;
-        LogMessage?.Invoke(this, "MqttEngine settings updated.");
+
+        // Guarantee a default catch-all rule exists
+        if (_topicSpecificBufferLimits == null || !_topicSpecificBufferLimits.Any())
+        {
+            _topicSpecificBufferLimits = new List<TopicBufferLimit>
+            {
+                new TopicBufferLimit("#", DefaultMaxTopicBufferSize)
+            };
+        }
+
+        // Clear cached computed sizes so they are recalculated using new rules
+        _topicBufferSizeCache.Clear();
+
+        // Reapply (and resize/trim) existing buffers
+        ApplyCurrentLimitsToExistingBuffers();
+
+        LogMessage?.Invoke(this, "MqttEngine settings updated and buffer limits reapplied.");
     }
 
     // Helper method for initial subscription and resubscription
@@ -365,6 +382,7 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
             buffer.Clear();
         }
         _topicBuffers.Clear();
+        _topicBufferSizeCache.Clear();
         LogMessage?.Invoke(this, "All topic buffers cleared.");
     }
 
@@ -386,6 +404,103 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
         return false;
     }
     // ---------------
+
+    // --- Internal Test Helper Methods (exposed via InternalsVisibleTo UnitTests) ---
+    /// <summary>
+    /// Injects a synthetic test message directly into the engine buffers (bypassing MQTT client).
+    /// </summary>
+    internal bool InjectTestMessage(string topic, byte[] payload)
+    {
+        if (string.IsNullOrWhiteSpace(topic) || payload == null)
+            return false;
+
+        var msg = new MqttApplicationMessageBuilder()
+            .WithTopic(topic)
+            .WithPayload(payload)
+            .Build();
+
+        if (!_topicBufferSizeCache.TryGetValue(topic, out var bufferSize))
+        {
+            bufferSize = GetMaxBufferSizeForTopic(topic);
+            _topicBufferSizeCache[topic] = bufferSize;
+        }
+
+        var buffer = _topicBuffers.GetOrAdd(topic, _ => new TopicRingBuffer(bufferSize));
+        buffer.AddMessage(msg, Guid.NewGuid());
+        return true;
+    }
+
+    /// <summary>
+    /// Returns the current aggregated byte size of the buffer for the given topic.
+    /// </summary>
+    internal long GetCurrentBufferedSize(string topic)
+    {
+        if (_topicBuffers.TryGetValue(topic, out var buffer))
+        {
+            return buffer.CurrentSizeInBytes;
+        }
+        return 0;
+    }
+
+    /// <summary>
+    /// Returns the current message count for the given topic buffer.
+    /// </summary>
+    internal int GetBufferedMessageCount(string topic)
+    {
+        if (_topicBuffers.TryGetValue(topic, out var buffer))
+        {
+            return buffer.Count;
+        }
+        return 0;
+    }
+    // --- End Test Helpers ---
+
+    /// <summary>
+    /// Re-evaluates buffer size rules for all existing topic buffers and recreates any whose
+    /// configured maximum differs from the newly computed rule-based size.
+    /// </summary>
+    private void ApplyCurrentLimitsToExistingBuffers()
+    {
+        lock (_bufferReconfigLock)
+        {
+            // Snapshot keys to avoid issues if dictionary mutated during loop
+            var topics = _topicBuffers.Keys.ToList();
+            foreach (var topic in topics)
+            {
+                if (!_topicBuffers.TryGetValue(topic, out var existingBuffer))
+                    continue;
+
+                long newMax = GetMaxBufferSizeForTopic(topic);
+                if (newMax == existingBuffer.MaxSizeInBytes)
+                {
+                    // Still update cache so subsequent batches don't recompute
+                    _topicBufferSizeCache[topic] = newMax;
+                    continue;
+                }
+
+                try
+                {
+                    var buffered = existingBuffer.GetBufferedMessages().ToList(); // Oldest -> newest
+                    var newBuffer = new TopicRingBuffer(newMax);
+
+                    // Re-add messages; overflow eviction handled by TopicRingBuffer itself
+                    foreach (var bm in buffered)
+                    {
+                        newBuffer.AddMessage(bm.Message, bm.MessageId);
+                    }
+
+                    _topicBuffers[topic] = newBuffer;
+                    _topicBufferSizeCache[topic] = newMax;
+
+                    LogMessage?.Invoke(this, $"Rebuilt buffer for topic '{topic}' with new max {newMax} bytes (was {existingBuffer.MaxSizeInBytes}).");
+                }
+                catch (Exception ex)
+                {
+                    LogMessage?.Invoke(this, $"Error rebuilding buffer for topic '{topic}': {ex.Message}");
+                }
+            }
+        }
+    }
 
     internal static int MatchTopic(string topic, string filter) // Changed to internal static
     {

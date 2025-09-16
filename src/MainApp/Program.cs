@@ -66,7 +66,7 @@ class Program
                 {
                     desktop.MainWindow = new MainWindow
                     {
-                        DataContext = new MainViewModel(new CommandParserService(), aspireHostname, aspirePort)
+                        DataContext = new MainViewModel(new CommandParserService(), null, aspireHostname, aspirePort)
                     };
 
                     if (!string.IsNullOrEmpty(aspireHostname) && aspirePort.HasValue)

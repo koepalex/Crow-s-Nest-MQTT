@@ -656,4 +656,88 @@ engine.MessagesBatchReceived += (sender, batch) =>
         Assert.False(result);
         Assert.Null(message);
     }
+
+    [Fact]
+    public void UpdateSettings_Should_Reapply_And_Trim_Existing_Topic_Buffers()
+    {
+        // Arrange: initial rule allows larger buffer for topic pattern
+        var initialSettings = new MqttConnectionSettings
+        {
+            Hostname = TestConfiguration.MqttHostname,
+            Port = TestConfiguration.MqttPort,
+            TopicSpecificBufferLimits = new List<TopicBufferLimit>
+            {
+                new TopicBufferLimit("#", 50_000),
+                new TopicBufferLimit("sensors/+/temp", 15_000)
+            }
+        };
+        var engine = new MqttEngine(initialSettings);
+
+        string topic = "sensors/a/temp";
+        int payloadSize = 1500; // bytes
+        int messageCount = 12;  // total ~18 KB before trimming to 15 KB
+
+        byte[] MakePayload()
+        {
+            var bytes = new byte[payloadSize];
+            for (int i = 0; i < bytes.Length; i++)
+                bytes[i] = (byte)(i % 251);
+            return bytes;
+        }
+
+        for (int i = 0; i < messageCount; i++)
+        {
+            Assert.True(engine.InjectTestMessage(topic, MakePayload()), "Injection should succeed");
+        }
+
+        long sizeAfterInitial = engine.GetCurrentBufferedSize(topic);
+        Assert.True(sizeAfterInitial <= 15_000, $"Initial buffer size should respect initial limit (<=15000), was {sizeAfterInitial}");
+
+        // Act: shrink rule to 8 KB
+        var shrinkSettings = new MqttConnectionSettings
+        {
+            Hostname = TestConfiguration.MqttHostname,
+            Port = TestConfiguration.MqttPort,
+            TopicSpecificBufferLimits = new List<TopicBufferLimit>
+            {
+                new TopicBufferLimit("#", 50_000),
+                new TopicBufferLimit("sensors/+/temp", 8_000)
+            }
+        };
+        engine.UpdateSettings(shrinkSettings);
+
+        long sizeAfterShrink = engine.GetCurrentBufferedSize(topic);
+        Assert.True(sizeAfterShrink <= 8_000, $"Buffer should be trimmed to new limit (<=8000), was {sizeAfterShrink}");
+
+        // Inject more messages; size must not exceed 8 KB
+        for (int i = 0; i < 10; i++)
+        {
+            engine.InjectTestMessage(topic, MakePayload());
+        }
+        long sizeAfterMoreInjected = engine.GetCurrentBufferedSize(topic);
+        Assert.True(sizeAfterMoreInjected <= 8_000, $"After more injections, size must still respect 8K limit, was {sizeAfterMoreInjected}");
+
+        // Act: expand rule to 20 KB
+        var expandSettings = new MqttConnectionSettings
+        {
+            Hostname = TestConfiguration.MqttHostname,
+            Port = TestConfiguration.MqttPort,
+            TopicSpecificBufferLimits = new List<TopicBufferLimit>
+            {
+                new TopicBufferLimit("#", 50_000),
+                new TopicBufferLimit("sensors/+/temp", 20_000)
+            }
+        };
+        engine.UpdateSettings(expandSettings);
+
+        // Inject more messages to allow growth
+        for (int i = 0; i < 10; i++)
+        {
+            engine.InjectTestMessage(topic, MakePayload());
+        }
+
+        long sizeAfterExpand = engine.GetCurrentBufferedSize(topic);
+        Assert.True(sizeAfterExpand > 8_000, $"Buffer should have grown beyond previous 8K limit after expansion, was {sizeAfterExpand}");
+        Assert.True(sizeAfterExpand <= 20_000, $"Buffer should not exceed new 20K limit, was {sizeAfterExpand}");
+    }
 }

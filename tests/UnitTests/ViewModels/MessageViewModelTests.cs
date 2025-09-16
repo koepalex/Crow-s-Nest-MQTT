@@ -148,7 +148,16 @@ public class MockMqttService : IMqttService
 
             mqttService.TryGetMessageHandler = (t, g) => (false, null);
 
-            var vm = new MessageViewModel(id, topic, timestamp, preview, size, mqttService, statusBarService);
+            var vm = new MessageViewModel(
+                id,
+                topic,
+                timestamp,
+                preview,
+                size,
+                mqttService,
+                statusBarService,
+                fullMessage: null,
+                enableFallbackFullMessage: false);
 
             var result = vm.GetFullMessage();
 
