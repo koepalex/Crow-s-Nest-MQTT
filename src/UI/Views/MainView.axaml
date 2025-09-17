@@ -145,7 +145,7 @@
               <!-- Moved this Grid to Column 2 -->
               <!-- Right Panel: Details, JSON Viewer, and History -->
               <!-- Changed RowDefinitions: Details(Auto), Splitter(Auto), JsonViewer(*), Splitter(Auto), History(*) -->
-              <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,Auto,*"> <!-- Row layout: Details, Splitter, Payload (auto if visible), Splitter, History -->
+              <Grid Grid.Column="2" RowDefinitions="*,Auto,*,Auto,*"> <!-- Row layout: Details (*), Splitter, Payload (*), Splitter, History (*) -->
 
                   <!-- Row 0: Message Details (Metadata & User Properties) -->
                   <!-- Removed ScrollViewer and Border, Grid now expands within Row 0 -->
@@ -183,10 +183,12 @@
                   </Grid>
 
                   <!-- Row 1: Horizontal Grid Splitter -->
-                  <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows"/>
+                  <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows"
+                                Focusable="True" IsTabStop="True" Cursor="SizeNorthSouth"
+                                AutomationProperties.Name="Section Splitter 1"/>
 
                   <!-- Row 2: Payload Viewers Container -->
-                  <Panel Grid.Row="2" Margin="5,0,5,0" IsVisible="{Binding IsAnyPayloadViewerVisible}">
+                  <Panel Grid.Row="2" Margin="5,0,5,0" IsVisible="{Binding IsAnyPayloadViewerVisible}" VerticalAlignment="Stretch" MinHeight="80">
                       <!-- JSON Viewer (Conditionally Visible) -->
                       <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsJsonViewerVisible}">
                           <TreeView ItemsSource="{Binding JsonViewer.RootNodes}" MinWidth="200">
@@ -250,7 +252,9 @@
                   </Panel>
 
                   <!-- Row 3: Horizontal Grid Splitter (Visible if either viewer is visible) -->
-                  <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows" IsVisible="{Binding IsAnyPayloadViewerVisible}"/>
+                  <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows" IsVisible="{Binding IsAnyPayloadViewerVisible}"
+                                Focusable="True" IsTabStop="True" Cursor="SizeNorthSouth"
+                                AutomationProperties.Name="Section Splitter 2"/>
 
                   <!-- Row 4: Message History -->
                   <ListBox x:Name="MessageHistoryListBox" Grid.Row="4"

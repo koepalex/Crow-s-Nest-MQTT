@@ -193,7 +193,23 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     public MessageViewModel? SelectedMessage
     {
         get => _selectedMessage;
-        set => this.RaiseAndSetIfChanged(ref _selectedMessage, value);
+        set
+        {
+            var changed = !EqualityComparer<MessageViewModel?>.Default.Equals(_selectedMessage, value);
+            this.RaiseAndSetIfChanged(ref _selectedMessage, value);
+            if (changed && value != null)
+            {
+                try
+                {
+                    // Immediate (synchronous) update for unit tests asserting right after assignment
+                    UpdateMessageDetails(value);
+                }
+                catch (Exception ex)
+                {
+                    Serilog.Log.Error(ex, "Error during immediate UpdateMessageDetails in SelectedMessage setter.");
+                }
+            }
+        }
     }
 
     // Removed MessageDetails property, replaced by MessageMetadata and MessageUserProperties
@@ -2150,6 +2166,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         IsJsonViewerVisible = false;
         IsImageViewerVisible = false;
         IsVideoViewerVisible = false;
+        IsHexViewerVisible = false;
 
         switch (viewType)
         {

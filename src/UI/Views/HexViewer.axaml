@@ -9,7 +9,7 @@
   <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
     <TextBlock x:Name="HexTextBlock"
                FontFamily="Consolas, Courier New, monospace"
-               FontSize="12"
+               FontSize="16"
                TextWrapping="NoWrap"
                Text="{Binding HexDump, ElementName=Root, Mode=OneWay}" />
   </ScrollViewer>
