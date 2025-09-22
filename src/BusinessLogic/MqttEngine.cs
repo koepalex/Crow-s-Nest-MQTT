@@ -59,14 +59,7 @@ private MqttClientOptions? _currentOptions;
     public MqttEngine(MqttConnectionSettings settings)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        _topicSpecificBufferLimits = settings.TopicSpecificBufferLimits;
-        if (_topicSpecificBufferLimits == null || !_topicSpecificBufferLimits.Any())
-        {
-            _topicSpecificBufferLimits = new List<TopicBufferLimit>
-            {
-                new TopicBufferLimit("#", 1024 * 1024) // 1MB default
-            };
-        }
+        _topicSpecificBufferLimits = EnsureDefaultTopicLimit(settings.TopicSpecificBufferLimits, settings.DefaultTopicBufferSizeBytes);
         var factory = new MqttClientFactory();
         _client = factory.CreateMqttClient();
         _topicBuffers = new ConcurrentDictionary<string, TopicRingBuffer>();
@@ -78,21 +71,33 @@ private MqttClientOptions? _currentOptions;
         _messageProcessingTimer = new Timer(ProcessMessageBatch, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(200));
     }
 
+    /// <summary>
+    /// Ensures the default '#' topic limit is present in the provided list.
+    /// Returns a new list with the default limit if it wasn't present.
+    /// </summary>
+    private static IList<TopicBufferLimit> EnsureDefaultTopicLimit(IList<TopicBufferLimit>? limits, long? customDefaultSize = null)
+    {
+        var result = limits?.ToList() ?? new List<TopicBufferLimit>();
+        
+        // Check if '#' limit already exists
+        bool hasDefaultLimit = result.Any(limit => limit.TopicFilter == "#");
+        
+        // Only add default '#' limit if not present
+        if (!hasDefaultLimit)
+        {
+            long defaultSize = customDefaultSize ?? DefaultMaxTopicBufferSize;
+            result.Add(new TopicBufferLimit("#", defaultSize));
+        }
+        
+        return result;
+    }
+
     // ... (UpdateSettings, SubscribeToTopicsAsync, BuildMqttOptions, ConnectAsync, DisconnectAsync, PublishAsync, SubscribeAsync, UnsubscribeAsync remain largely the same) ...
     // UpdateSettings method
     public void UpdateSettings(MqttConnectionSettings newSettings)
     {
         _settings = newSettings ?? throw new ArgumentNullException(nameof(newSettings));
-        _topicSpecificBufferLimits = newSettings.TopicSpecificBufferLimits;
-
-        // Guarantee a default catch-all rule exists
-        if (_topicSpecificBufferLimits == null || !_topicSpecificBufferLimits.Any())
-        {
-            _topicSpecificBufferLimits = new List<TopicBufferLimit>
-            {
-                new TopicBufferLimit("#", DefaultMaxTopicBufferSize)
-            };
-        }
+        _topicSpecificBufferLimits = EnsureDefaultTopicLimit(newSettings.TopicSpecificBufferLimits, newSettings.DefaultTopicBufferSizeBytes);
 
         // Clear cached computed sizes so they are recalculated using new rules
         _topicBufferSizeCache.Clear();

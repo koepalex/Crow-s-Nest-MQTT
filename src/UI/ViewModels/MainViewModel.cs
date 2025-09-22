@@ -26,6 +26,7 @@ using FuzzySharp; // Added for fuzzy search
 using SharpHook.Native; // Added SharpHook Native for KeyCode and ModifierMask
 using SharpHook.Reactive; // Added SharpHook Reactive
 using System.Reactive.Concurrency;
+using System.Linq;
 
 namespace CrowsNestMqtt.UI.ViewModels;
 
@@ -49,6 +50,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly IReactiveGlobalHook? _globalHook; // Added SharpHook global hook
     private readonly IDisposable? _globalHookSubscription; // Added subscription for the hook
     private bool _disposedValue; // For IDisposable pattern
+    private string? _normalizedSelectedPath; // Normalized selected topic path (no trailing slash)
     private readonly CancellationTokenSource _cts = new(); // Added cancellation token source for graceful shutdown
     private bool _isWindowFocused; // Added to track window focus for global hook
     private bool _isTopicFilterActive; // Added to track if the topic filter is active
@@ -58,6 +60,18 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly object _batchLock = new object();
     private Timer? _batchProcessingTimer;
     private readonly IScheduler _uiScheduler;
+    // Per-topic message storage (prevents cross-topic eviction)
+    private readonly ITopicMessageStore _messageStore;
+    private readonly Dictionary<Guid, MessageViewModel> _messageIndex = new();
+
+    // Topic normalization helper (single place)
+    private static string? NormalizeTopic(string? t) => string.IsNullOrWhiteSpace(t) ? null : t.Trim().TrimEnd('/');
+
+    // Filter diagnostics (lightweight; logs only when selected topic present but filtered list empty)
+    private const int FilterDiagnosticsSampleLimit = 250;
+    private int _filterDiagnosticsEvaluations = 0;
+    private int _filterDiagnosticsMatches = 0;
+    private int _filterDiagnosticsSelectedTopicMisses = 0;
 
     /// <summary>
     /// Gets or sets the current search term used for filtering message history.
@@ -86,6 +100,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         set
         {
             this.RaiseAndSetIfChanged(ref _selectedNode, value);
+            _normalizedSelectedPath = NormalizeTopic(_selectedNode?.FullPath);
+            Log.Debug("SelectedNode changed. Raw='{Raw}' Normalized='{Norm}'", _selectedNode?.FullPath, _normalizedSelectedPath);
             CurrentSearchTerm = string.Empty;
 
             // Immediate best-effort selection using current filtered snapshot
@@ -376,11 +392,27 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                     {
                         var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"crowsnest_video_{Guid.NewGuid():N}.mp4");
                         System.IO.File.WriteAllBytes(tempPath, value);
-                        _vlcMediaPlayer!.Stop();
-                        _vlcMediaPlayer.Media?.Dispose();
-                        var media = new Media(_libVLC!, tempPath, FromType.FromPath);
-                        _vlcMediaPlayer.Media = media;
-                        _vlcMediaPlayer.Play();
+                        if (_vlcMediaPlayer != null)
+                        {
+                            try
+                            {
+                                _vlcMediaPlayer.Stop();
+                            }
+                            catch { /* swallow stop race */ }
+
+                            try
+                            {
+                                _vlcMediaPlayer.Media?.Dispose();
+                            }
+                            catch { /* swallow dispose race */ }
+
+                            if (_libVLC != null)
+                            {
+                                var media = new Media(_libVLC, tempPath, FromType.FromPath);
+                                _vlcMediaPlayer.Media = media;
+                                _vlcMediaPlayer.Play();
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -400,8 +432,19 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 {
                     try
                     {
-                        _vlcMediaPlayer!.Stop();
-                        _vlcMediaPlayer.Media?.Dispose();
+                        if (_vlcMediaPlayer != null)
+                        {
+                            try
+                            {
+                                _vlcMediaPlayer.Stop();
+                            }
+                            catch { }
+                            try
+                            {
+                                _vlcMediaPlayer.Media?.Dispose();
+                            }
+                            catch { }
+                        }
                     }
                     catch { }
                 }
@@ -577,6 +620,22 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         }
 
         // Populate the list of available commands (using the help dictionary keys)
+        
+        // Initialize per-topic store with settings-derived limits if available
+        _messageStore = new TopicMessageStore(1 * 1024 * 1024); // Default assignment to satisfy non-nullable requirement
+        try
+        {
+            var limits = Settings.Into().TopicSpecificBufferLimits?
+                .ToDictionary(l => l.TopicFilter.Trim().TrimEnd('/'),
+                              l => l.MaxSizeBytes)
+                ?? new Dictionary<string, long>();
+            _messageStore = new TopicMessageStore(1 * 1024 * 1024, limits);
+            Log.Information("Initialized TopicMessageStore with {Count} specific limits.", limits.Count);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to initialize TopicMessageStore with specific limits. Falling back to default.");
+        }
         _availableCommands = CommandHelpDetails.Keys
                                   .Select(name => ":" + name.ToLowerInvariant()) // Prefix with ':'
                                   .OrderBy(cmd => cmd) // Sort alphabetically
@@ -603,47 +662,98 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         // Define the filter predicate based on the search term
         // Define the filter predicate based on the search term AND the selected node
         var filterPredicate = this.WhenAnyValue(x => x.CurrentSearchTerm, x => x.SelectedNode)
-            .ObserveOn(_uiScheduler) // Ensure predicate re-evaluation is scheduled (injected scheduler)
+            .ObserveOn(_uiScheduler)
             .Select(tuple =>
             {
-                var (term, node) = tuple;
-                var selectedPath = node?.FullPath;
+                var (termRaw, node) = tuple;
+                var term = termRaw?.Trim() ?? string.Empty;
+                var normalizedSelected = NormalizeTopic(node?.FullPath);
 
-                // If no topic is selected (root), show all messages
-                if (string.IsNullOrEmpty(selectedPath))
+                // Reset diagnostics counters when criteria change
+                _filterDiagnosticsEvaluations = 0;
+                _filterDiagnosticsMatches = 0;
+                _filterDiagnosticsSelectedTopicMisses = 0;
+
+                if (normalizedSelected == null && string.IsNullOrEmpty(term))
                 {
-                    return (Func<MessageViewModel, bool>)(_ =>
-                        string.IsNullOrWhiteSpace(term) ||
-                        (_.PayloadPreview?.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
-                    );
+                    Log.Debug("Filter criteria updated. SelectedPath='[None]' Term='[Empty]' (pass-through all).");
+                    return (Func<MessageViewModel, bool>)(_ => true);
                 }
 
-                Log.Verbose("Filter criteria updated. SelectedPath: '{SelectedPath}', Term: '{SearchTerm}'", selectedPath ?? "[None]", term ?? "[Empty]");
+                Log.Debug("Filter criteria updated. SelectedPath='{Sel}' Term='{Term}'",
+                    normalizedSelected ?? "[None]", string.IsNullOrEmpty(term) ? "[Empty]" : term);
 
-return (Func<MessageViewModel, bool>)(message =>
-{
-    // Normalize topic for robust matching
-    string? msgTopic = message.Topic?.Trim().TrimEnd('/');
+                return new Func<MessageViewModel, bool>(m =>
+                {
+                    // Stop logging after limit to avoid log flooding
+                    bool underSampleLimit = _filterDiagnosticsEvaluations < FilterDiagnosticsSampleLimit;
 
-    // Topic match logic
-    bool topicMatch = false;
-    if (string.IsNullOrEmpty(selectedPath))
-    {
-        topicMatch = true; // No node selected, show all topics
-    }
-    else if (!string.IsNullOrEmpty(msgTopic))
-    {
-        // Match if the message topic is the selected topic or a sub-topic
-        topicMatch = msgTopic.Equals(selectedPath, StringComparison.OrdinalIgnoreCase) ||
-                     msgTopic.StartsWith(selectedPath + "/", StringComparison.OrdinalIgnoreCase);
-    }
+                    Interlocked.Increment(ref _filterDiagnosticsEvaluations);
 
-    // Search term match logic
-    bool searchTermMatch = string.IsNullOrWhiteSpace(term) ||
-                           (message.PayloadPreview?.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0);
+                    var topic = NormalizeTopic(m.Topic);
+                    bool topicMatch = normalizedSelected == null
+                        ? true
+                        : (topic == normalizedSelected ||
+                           (topic != null && topic.StartsWith(normalizedSelected + "/", StringComparison.OrdinalIgnoreCase)));
 
-    return topicMatch && searchTermMatch;
-});
+                    if (!topicMatch)
+                    {
+                        if (underSampleLimit && normalizedSelected != null && topic == normalizedSelected)
+                        {
+                            // Extreme corner (should not happen because branch above catches)
+                            Log.Debug("FilterEval (ANOMALY) sel='{Sel}' topic='{Topic}' topicMatch=false", normalizedSelected, topic);
+                        }
+                        return false;
+                    }
+
+                    if (string.IsNullOrEmpty(term))
+                    {
+                        if (underSampleLimit)
+                        {
+                            Interlocked.Increment(ref _filterDiagnosticsMatches);
+                            if (normalizedSelected != null && topic == normalizedSelected && _filterDiagnosticsMatches <= 5)
+                            {
+                                Log.Debug("FilterEval PASS sel='{Sel}' topic='{Topic}' term='[Empty]'", normalizedSelected, topic);
+                            }
+                        }
+                        return true;
+                    }
+
+                    bool searchMatch = (m.PayloadPreview?.IndexOf(term, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0;
+
+                    if (underSampleLimit && normalizedSelected != null && topic == normalizedSelected)
+                    {
+                        if (searchMatch)
+                        {
+                            if (_filterDiagnosticsMatches < 10)
+                            {
+                                var previewText = m.PayloadPreview ?? string.Empty;
+                                Log.Debug("FilterEval PASS sel='{Sel}' topic='{Topic}' term='{Term}' previewSample='{Preview}'",
+                                    normalizedSelected, topic, term, previewText.Length > 40 ? previewText.Substring(0, 40) : previewText);
+                            }
+                        }
+                        else
+                        {
+                            int misses = Interlocked.Increment(ref _filterDiagnosticsSelectedTopicMisses);
+                            if (misses <= 15)
+                            {
+                                var previewTextMiss = m.PayloadPreview ?? string.Empty;
+                                Log.Debug("FilterEval MISS(sel-topic) sel='{Sel}' topic='{Topic}' term='{Term}' previewSample='{Preview}'",
+                                    normalizedSelected, topic, term, previewTextMiss.Length > 40 ? previewTextMiss.Substring(0, 40) : previewTextMiss);
+                            }
+                            else if (misses == 16)
+                            {
+                                Log.Debug("FilterEval further misses suppressed for selected topic '{Sel}'", normalizedSelected);
+                            }
+                        }
+                    }
+
+                    if (searchMatch)
+                    {
+                        Interlocked.Increment(ref _filterDiagnosticsMatches);
+                    }
+                    return searchMatch;
+                });
             });
 
         _messageHistorySubscription = _messageHistorySource.Connect() // Connect to the source
@@ -895,13 +1005,89 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         messageViewModels.Add(messageVm);
     }
 
-    _messageHistorySource.AddRange(messageViewModels);
+    // Removed direct AddRange; additions now handled after store AddBatch to avoid duplicates.
 
-    const int maxMessages = 1000;
-    if (_messageHistorySource.Count > maxMessages)
+    // Per-topic retention integration: add to store & apply only per-topic evictions
+    try
     {
-        int removeCount = _messageHistorySource.Count - maxMessages;
-        _messageHistorySource.RemoveMany(_messageHistorySource.Items.Take(removeCount));
+        var batchTuples = messageViewModels
+            .Select(vm => (vm.MessageId, vm.Topic, vm.GetFullMessage()!))
+            .Where(t => t.Item3 != null)
+            .Select(t => (t.MessageId, t.Topic, t.Item3))
+            .ToList();
+
+        var (added, evicted) = _messageStore.AddBatch(
+            batchTuples.Select(t => (t.MessageId, t.Topic, t.Item3)));
+
+        // Map added VMs (by id) to actual VMs we constructed
+        var addedVmList = new List<MessageViewModel>();
+        foreach (var add in added)
+        {
+            if (_messageIndex.ContainsKey(add.MessageId))
+                continue; // already present
+            var vm = messageViewModels.FirstOrDefault(m => m.MessageId == add.MessageId);
+            if (vm != null)
+            {
+                addedVmList.Add(vm);
+                _messageIndex[vm.MessageId] = vm;
+            }
+        }
+        if (addedVmList.Count > 0)
+        {
+            _messageHistorySource.AddRange(addedVmList);
+        }
+
+        if (evicted.Count > 0)
+        {
+            var toRemove = new List<MessageViewModel>();
+            foreach (var ev in evicted)
+            {
+                if (_messageIndex.TryGetValue(ev.MessageId, out var vm))
+                {
+                    toRemove.Add(vm);
+                    _messageIndex.Remove(ev.MessageId);
+                }
+            }
+            if (toRemove.Count > 0)
+            {
+                _messageHistorySource.RemoveMany(toRemove);
+                // Reselect if current selection was removed
+                if (SelectedMessage != null && toRemove.Contains(SelectedMessage))
+                {
+                    var selNorm = _normalizedSelectedPath;
+                    if (selNorm != null)
+                    {
+                        var replacement = _messageHistorySource.Items
+                            .Where(m =>
+                            {
+                                var tn = NormalizeTopic(m.Topic);
+                                return tn == selNorm || (tn != null && tn.StartsWith(selNorm + "/", StringComparison.OrdinalIgnoreCase));
+                            })
+                            .OrderByDescending(m => m.Timestamp)
+                            .FirstOrDefault();
+                        if (replacement != null)
+                        {
+                            SelectedMessage = replacement;
+                        }
+                        else
+                        {
+                            SelectedMessage = null;
+                        }
+                    }
+                    else
+                    {
+                        SelectedMessage = _messageHistorySource.Items.OrderByDescending(m => m.Timestamp).FirstOrDefault();
+                    }
+                }
+            }
+            Log.Debug("Per-topic evictions applied. Added={Added} Evicted={Evicted}", addedVmList.Count, evicted.Count);
+        }
+    }
+    catch (Exception exStore)
+    {
+        Log.Error(exStore, "Error applying per-topic retention store results.");
+        // Fallback: add all directly if store failed
+        _messageHistorySource.AddRange(messageViewModels.Where(vm => !_messageIndex.ContainsKey(vm.MessageId)));
     }
 
     foreach (var kvp in topicCounts)
@@ -913,6 +1099,121 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
     Log.Verbose("Processed batch of {Count} messages across {TopicCount} topics. Source count: {Total}",
         messages.Count, topicCounts.Count, _messageHistorySource.Count);
+
+    // Diagnostics & fallback selection
+    try
+    {
+        // Immediate (pre-pipeline-flush) fallback: select from source if filter not yet populated.
+        if (_normalizedSelectedPath != null && _filteredMessageHistory.Count == 0)
+        {
+            var candidate = _messageHistorySource.Items
+                .FirstOrDefault(m => NormalizeTopic(m.Topic) == _normalizedSelectedPath);
+            if (candidate != null && SelectedMessage != candidate)
+            {
+                SelectedMessage = candidate;
+            }
+        }
+
+        // Defer a second-phase check so DynamicData filter & sort have time to process new additions.
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                var sel = _normalizedSelectedPath;
+                if (sel != null)
+                {
+                    bool sourceHasSelected = _messageHistorySource.Items.Any(m => NormalizeTopic(m.Topic) == sel);
+                    bool filteredHasSelected = _filteredMessageHistory.Any(m => NormalizeTopic(m.Topic) == sel);
+
+                    if (sourceHasSelected && !filteredHasSelected)
+                    {
+                        Log.Warning("Deferred check: source has messages for selected topic '{Sel}' but filtered list still empty after UI flush.", sel);
+
+                        // Collect detailed diagnostics for selected topic messages present in source.
+                        var selectedSourceMessages = _messageHistorySource.Items
+                            .Where(m => NormalizeTopic(m.Topic) == sel)
+                            .OrderByDescending(m => m.Timestamp)
+                            .ToList();
+
+                        Log.Debug("Diagnostics: SourceSelectedCount={Cnt} FilteredSelectedCount=0 TotalSource={SrcTot} TotalFiltered={FiltTot}",
+                            selectedSourceMessages.Count, _filteredMessageHistory.Count, _messageHistorySource.Count, _filteredMessageHistory.Count);
+
+                        // Log up to first 5 message IDs & timestamps for the selected topic
+                        int diagIndex = 0;
+                        foreach (var sm in selectedSourceMessages.Take(5))
+                        {
+                            Log.Debug("Diagnostics SelectedTopic Message[{Idx}] Id={Id} Ts={Ts} PreviewLen={Len}",
+                                diagIndex++, sm.MessageId, sm.Timestamp.ToString("HH:mm:ss.fff"), sm.PayloadPreview?.Length ?? 0);
+                        }
+                        if (selectedSourceMessages.Count > 5)
+                        {
+                            Log.Debug("Diagnostics: {Extra} additional messages for selected topic omitted from log.", selectedSourceMessages.Count - 5);
+                        }
+
+                        // Attempt stronger fallback selection from source
+                        var deferredCandidate = selectedSourceMessages.FirstOrDefault();
+
+                        if (deferredCandidate != null && SelectedMessage != deferredCandidate)
+                        {
+                            Log.Debug("Deferred fallback selecting message {MessageId} for topic '{Topic}'.", deferredCandidate.MessageId, deferredCandidate.Topic);
+                            SelectedMessage = deferredCandidate;
+                        }
+
+                        // Force a refresh of the source list so DynamicData re-evaluates predicates (in case no change set triggered).
+                        try
+                        {
+                            // Removed _messageHistorySource.Refresh() (method not available on SourceList).
+                            // If predicate re-evaluation still required, a future change can toggle a lightweight
+                            // transient flag or reassign SelectedNode to itself. For now rely on next batch or UI action.
+                            Log.Debug("Skipped forcing DynamicData refresh (no Refresh() API on SourceList) for selected topic '{Sel}'.", sel);
+                        }
+                        catch (Exception refreshEx)
+                        {
+                            Log.Error(refreshEx, "Unexpected error in refresh fallback block for selected topic '{Sel}'.", sel);
+                        }
+
+                        // Schedule a second deferred verification after refresh
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            try
+                            {
+                                bool filteredNowHasSelected = _filteredMessageHistory.Any(m => NormalizeTopic(m.Topic) == sel);
+                                if (!filteredNowHasSelected)
+                                {
+                                    Log.Warning("Post-refresh verification: filtered list STILL missing messages for selected topic '{Sel}'. Will attempt manual selection again.", sel);
+                                    var secondCandidate = _messageHistorySource.Items
+                                        .Where(m => NormalizeTopic(m.Topic) == sel)
+                                        .OrderByDescending(m => m.Timestamp)
+                                        .FirstOrDefault();
+                                    if (secondCandidate != null && SelectedMessage != secondCandidate)
+                                    {
+                                        Log.Debug("Second deferred fallback selecting message {MessageId} for topic '{Topic}'.", secondCandidate.MessageId, secondCandidate.Topic);
+                                        SelectedMessage = secondCandidate;
+                                    }
+                                }
+                                else
+                                {
+                                    Log.Debug("Post-refresh verification: filtered list now contains messages for '{Sel}'.", sel);
+                                }
+                            }
+                            catch (Exception ex3)
+                            {
+                                Log.Error(ex3, "Error during second deferred verification for selected topic '{Sel}'.", sel);
+                            }
+                        });
+                    }
+                }
+            }
+            catch (Exception ex2)
+            {
+                Log.Error(ex2, "Error during deferred post-AddRange selection check.");
+            }
+        });
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "Error during post-AddRange diagnostics.");
+    }
 }
 
     // --- UI Update Logic ---
@@ -1995,7 +2296,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             if (existingNode == null)
             {
                 // Create new node
-                Log.Verbose("Creating new node '{Part}' under parent '{ParentName}' with path '{FullPath}'", part, parentNode?.Name ?? "[Root]", currentPath);
+                Log.Debug("Creating new node '{Part}' under parent '{ParentName}' with path '{FullPath}'", part, parentNode?.Name ?? "[Root]", currentPath);
                 existingNode = new NodeViewModel(part, parentNode) { FullPath = currentPath }; // Pass parent and set full path
 
                 // Insert the new node in sorted order instead of rebuilding the collection
@@ -2008,7 +2309,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             }
             else
             {
-                Log.Verbose("Found existing node '{Part}' under parent '{ParentName}'", part, parentNode?.Name ?? "[Root]");
+                Log.Debug("Found existing node '{Part}' under parent '{ParentName}'", part, parentNode?.Name ?? "[Root]");
             }
 
             // Increment count only for the final node in the path if requested
@@ -2048,7 +2349,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
             if (existingNode == null)
             {
-                Log.Verbose("Creating new node '{Part}' under parent '{ParentName}' with path '{FullPath}'", part, parentNode?.Name ?? "[Root]", currentPath);
+                Log.Debug("Creating new node '{Part}' under parent '{ParentName}' with path '{FullPath}'", part, parentNode?.Name ?? "[Root]", currentPath);
                 existingNode = new NodeViewModel(part, parentNode) { FullPath = currentPath };
 
                 int insertIndex = 0;
@@ -2145,7 +2446,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         {
             CommandSuggestions.Add(cmd);
         }
-        Log.Verbose("Updated command suggestions for '{InputText}'. Found {Count} matches.", currentText, CommandSuggestions.Count);
+        Log.Debug("Updated command suggestions for '{InputText}'. Found {Count} matches.", currentText, CommandSuggestions.Count);
     }
 
     private enum PayloadViewType { Raw, Json, Image, Video }
@@ -2233,7 +2534,12 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             return;
         }
         var msg = SelectedMessage.GetFullMessage();
-        if (msg == null || msg.Payload.IsEmpty)
+        if (msg == null)
+        {
+            StatusBarText = "No payload to display in hex.";
+            return;
+        }
+        if (msg.Payload.IsEmpty)
         {
             StatusBarText = "No payload to display in hex.";
             return;

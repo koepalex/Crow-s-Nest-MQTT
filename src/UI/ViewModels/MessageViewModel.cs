@@ -49,15 +49,12 @@ public class MessageViewModel : ReactiveObject
     // Method to be called when details are requested (e.g., on selection)
     public MqttApplicationMessage? GetFullMessage()
     {
-        System.Diagnostics.Debug.WriteLine($"[DEBUG] GetFullMessage called for Topic='{Topic}', MessageId={MessageId}");
         if (_cachedMessage != null)
         {
-            System.Diagnostics.Debug.WriteLine($"[DEBUG] Returning cached message for Topic='{Topic}', MessageId={MessageId}");
             return _cachedMessage;
         }
         if (_mqttService.TryGetMessage(Topic, MessageId, out var message))
         {
-            System.Diagnostics.Debug.WriteLine($"[DEBUG] Message found in buffer for Topic='{Topic}', MessageId={MessageId}");
             _cachedMessage = message;
             return _cachedMessage;
         }

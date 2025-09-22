@@ -412,7 +412,7 @@
                             <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto" Margin="0,2">
                                 <TextBox Grid.Column="0" Text="{Binding TopicFilter, Mode=TwoWay}" Watermark="Topic Filter (e.g., # or /some/topic)" Margin="0,0,5,0" MinWidth="150"/>
                                 <NumericUpDown Grid.Column="1" Value="{Binding MaxSizeBytes, Mode=TwoWay, StringFormat=N0}" ParsingNumberStyle="Integer" Minimum="0" Watermark="Bytes" Margin="0,0,5,0" MinWidth="100"/>
-                                <Button Grid.Column="2" Content="Remove" Command="{Binding $parent[ItemsControl].DataContext.Settings.RemoveTopicLimitCommand}" CommandParameter="{Binding}" Padding="5,2"/>
+                                <Button Grid.Column="2" Content="Remove" Command="{Binding $parent[ItemsControl].DataContext.Settings.RemoveTopicLimitCommand}" CommandParameter="{Binding}" Padding="5,2" IsEnabled="{Binding CanBeRemoved}"/>
                             </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

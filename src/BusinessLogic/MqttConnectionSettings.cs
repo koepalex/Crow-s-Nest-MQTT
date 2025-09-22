@@ -17,6 +17,11 @@ public class MqttConnectionSettings
     public bool CleanSession { get; set; } = true;
     public uint? SessionExpiryInterval { get; set; } = 3600;
     public IList<TopicBufferLimit> TopicSpecificBufferLimits { get; set; } = new List<TopicBufferLimit>();
+    /// <summary>
+    /// Default buffer size in bytes for topics that don't match any specific rules.
+    /// If null, uses the system default (1 MB). This only applies when no "#" wildcard rule is configured.
+    /// </summary>
+    public long? DefaultTopicBufferSizeBytes { get; set; }
     public AuthenticationMode AuthMode { get; set; } = new AnonymousAuthenticationMode();
     public bool UseTls { get; set; } = false;
 }
