@@ -96,7 +96,7 @@ if the special viewer can't be applied the default content viewer is used
 
 If the content-type indicates binary data (but not image/video), Crow's NestMQTT will automatically show the payload in a read-only hex viewer:
 
-![](./doc/images/raw-viewer.png) <!-- Replace with a hex viewer screenshot if available -->
+![](./doc/images/hex-viewer.png)
 
 You can switch between viewers for the currently selected MQTT message using the `:view` command.
 
