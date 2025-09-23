@@ -167,8 +167,104 @@ public class TopicMessageStore : ITopicMessageStore
         if (_specificTopicLimits.TryGetValue(topic, out var exact))
             return exact;
 
-        // Optional: pattern match (wildcards) future enhancement.
-        return _defaultPerTopicLimitBytes;
+        // Pattern matching using the same logic as MqttEngine
+        long bestMatchSize = _defaultPerTopicLimitBytes;
+        int bestMatchScore = -1;
+
+        foreach (var kvp in _specificTopicLimits)
+        {
+            var filter = kvp.Key;
+            var size = kvp.Value;
+            
+            int score = MatchTopic(topic, filter);
+            if (score > bestMatchScore)
+            {
+                bestMatchScore = score;
+                bestMatchSize = size;
+            }
+        }
+
+        return bestMatchSize;
+    }
+
+    /// <summary>
+    /// Matches a topic against a filter pattern using the same logic as MqttEngine.
+    /// </summary>
+    private static int MatchTopic(string topic, string filter)
+    {
+        if (string.IsNullOrEmpty(topic) || string.IsNullOrEmpty(filter))
+        {
+            return -1;
+        }
+
+        if (filter == topic)
+        {
+            return 1000; // Exact match score
+        }
+
+        var topicSegments = topic.Split('/');
+        var filterSegments = filter.Split('/');
+
+        int score = 0;
+        int i = 0; // topic segment index
+        int j = 0; // filter segment index
+
+        while (i < topicSegments.Length && j < filterSegments.Length)
+        {
+            if (filterSegments[j] == "#")
+            {
+                if (j == filterSegments.Length - 1) // '#' must be the last segment in the filter.
+                {
+                    // The '#' matches the rest of the topic segments.
+                    // Score for '#' (1) will be added post-loop if this condition leads to a match.
+                    i = topicSegments.Length; // Mark all remaining topic segments as "matched" by '#'.
+                    break; // Exit loop; post-loop logic will determine final score.
+                }
+                else
+                {
+                    return -1; // '#' is not the last segment, invalid filter for this context.
+                }
+            }
+
+            if (filterSegments[j] == topicSegments[i])
+            {
+                score += 10;
+            }
+            else if (filterSegments[j] == "+")
+            {
+                score += 5;
+            }
+            else
+            {
+                return -1; // Segments do not match.
+            }
+            i++;
+            j++;
+        }
+
+        // After loop, check conditions for a valid match.
+
+        // Case 1: All segments in both topic and filter have been processed and matched.
+        if (i == topicSegments.Length && j == filterSegments.Length)
+        {
+            return score;
+        }
+
+        // Case 2: Filter ended with '#' (so j is at the '#' segment) and all topic segments were covered.
+        // This covers both "topic/sub" vs "topic/#" (where '#' matches "sub")
+        // and "topic" vs "topic/#" (where '#' matches zero levels).
+        if (j == filterSegments.Length - 1 && filterSegments[j] == "#" && i == topicSegments.Length)
+        {
+            return score + 1; // Add score for the '#' wildcard itself.
+        }
+        
+        // Case 3: Topic has more segments, but filter ended before '#'. (e.g. "a/b/c" vs "a/b")
+        // This is implicitly handled as not a match by falling through if not covered above.
+
+        // Case 4: Filter has more segments, but topic ended. (e.g. "a/b" vs "a/b/c")
+        // This is also implicitly handled as not a match.
+
+        return -1; // No match based on the rules.
     }
 
     private static string NormalizeTopic(string topic)

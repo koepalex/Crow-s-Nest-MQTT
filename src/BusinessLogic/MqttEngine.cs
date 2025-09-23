@@ -430,7 +430,37 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
             _topicBufferSizeCache[topic] = bufferSize;
         }
 
-        var buffer = _topicBuffers.GetOrAdd(topic, _ => new TopicRingBuffer(bufferSize));
+        // Use AddOrUpdate to ensure correct buffer size - same logic as ProcessMessageBatchInternal
+        var buffer = _topicBuffers.AddOrUpdate(topic, 
+            // Factory for new buffer - use correct calculated size
+            _ => {
+                AppLogger.Information($"InjectTestMessage: Creating NEW TopicRingBuffer for '{topic}' with size {bufferSize} bytes");
+                return new TopicRingBuffer(bufferSize);
+            },
+            // Update factory for existing buffer - check size and recreate if needed
+            (_, existingBuffer) => {
+                if (existingBuffer.MaxSizeInBytes != bufferSize)
+                {
+                    AppLogger.Warning($"InjectTestMessage: BUFFER SIZE MISMATCH for '{topic}': existing={existingBuffer.MaxSizeInBytes}, calculated={bufferSize}. Recreating buffer immediately.");
+                    
+                    // Get existing messages
+                    var existingMessages = existingBuffer.GetBufferedMessages().ToList();
+                    
+                    // Create new buffer with correct size
+                    var newBuffer = new TopicRingBuffer(bufferSize);
+                    
+                    // Restore existing messages
+                    foreach (var existingMsg in existingMessages)
+                    {
+                        newBuffer.AddMessage(existingMsg.Message, existingMsg.MessageId);
+                    }
+                    
+                    AppLogger.Information($"InjectTestMessage: Recreated buffer for '{topic}' with correct size {bufferSize} bytes");
+                    return newBuffer;
+                }
+                return existingBuffer;
+            });
+            
         buffer.AddMessage(msg, Guid.NewGuid());
         return true;
     }
@@ -457,6 +487,19 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
             return buffer.Count;
         }
         return 0;
+    }
+
+    /// <summary>
+    /// Returns the actual MaxSizeInBytes property of the buffer for the given topic.
+    /// This is different from GetMaxBufferSizeForTopic which calculates what the size should be.
+    /// </summary>
+    internal long GetActualBufferMaxSize(string topic)
+    {
+        if (_topicBuffers.TryGetValue(topic, out var buffer))
+        {
+            return buffer.MaxSizeInBytes;
+        }
+        return -1; // Buffer doesn't exist
     }
     // --- End Test Helpers ---
 
@@ -589,19 +632,31 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
         long bestMatchSize = DefaultMaxTopicBufferSize;
         int bestMatchScore = -1;
 
-        if (_topicSpecificBufferLimits == null) return bestMatchSize;
+        AppLogger.Information($"GetMaxBufferSizeForTopic called for '{topic}'. Starting with default {bestMatchSize} bytes");
+        AppLogger.Information($"Available buffer limits count: {_topicSpecificBufferLimits?.Count ?? 0}");
+
+        if (_topicSpecificBufferLimits == null) 
+        {
+            AppLogger.Warning($"No topic buffer limits configured, using default {bestMatchSize} bytes for '{topic}'");
+            return bestMatchSize;
+        }
 
         foreach (var rule in _topicSpecificBufferLimits)
         {
             if (string.IsNullOrEmpty(rule.TopicFilter)) continue;
 
             int currentScore = MatchTopic(topic, rule.TopicFilter);
+            AppLogger.Information($"Topic '{topic}' vs rule '{rule.TopicFilter}' ({rule.MaxSizeBytes} bytes): score = {currentScore}");
+            
             if (currentScore > bestMatchScore)
             {
                 bestMatchScore = currentScore;
                 bestMatchSize = rule.MaxSizeBytes;
+                AppLogger.Information($"New best match for '{topic}': rule '{rule.TopicFilter}' with {rule.MaxSizeBytes} bytes (score {currentScore})");
             }
         }
+        
+        AppLogger.Information($"Final result for '{topic}': {bestMatchSize} bytes (best score: {bestMatchScore})");
         return bestMatchSize;
     }
 
@@ -758,8 +813,38 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
                 _topicBufferSizeCache[topic] = bufferSize;
             }
             
-            // Store message in buffer with the new ID
-            var buffer = _topicBuffers.GetOrAdd(topic, _ => new TopicRingBuffer(bufferSize));
+            // Store message in buffer with the new ID - ensuring correct size
+            var buffer = _topicBuffers.AddOrUpdate(topic, 
+                // Factory for new buffer - use correct calculated size
+                _ => {
+                    AppLogger.Information($"Creating NEW TopicRingBuffer for '{topic}' with size {bufferSize} bytes");
+                    return new TopicRingBuffer(bufferSize);
+                },
+                // Update factory for existing buffer - check size and recreate if needed
+                (_, existingBuffer) => {
+                    if (existingBuffer.MaxSizeInBytes != bufferSize)
+                    {
+                        AppLogger.Warning($"BUFFER SIZE MISMATCH for '{topic}': existing={existingBuffer.MaxSizeInBytes}, calculated={bufferSize}. Recreating buffer immediately.");
+                        
+                        // Get existing messages
+                        var existingMessages = existingBuffer.GetBufferedMessages().ToList();
+                        
+                        // Create new buffer with correct size
+                        var newBuffer = new TopicRingBuffer(bufferSize);
+                        
+                        // Restore existing messages
+                        foreach (var msg in existingMessages)
+                        {
+                            newBuffer.AddMessage(msg.Message, msg.MessageId);
+                        }
+                        
+                        AppLogger.Information($"Recreated buffer for '{topic}' with correct size {bufferSize} bytes");
+                        return newBuffer;
+                    }
+                    return existingBuffer;
+                });
+            
+            
             buffer.AddMessage(e.ApplicationMessage, messageId);
             
             // Prepare event args for batch firing

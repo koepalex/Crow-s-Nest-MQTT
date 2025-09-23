@@ -32,7 +32,8 @@ namespace CrowsNestMqtt.UnitTests
                 TopicSpecificBufferLimits = new List<TopicBufferLimit>
                 {
                     new TopicBufferLimit("test/topic1", 10000),
-                    new TopicBufferLimit("test/topic2", 20000)
+                    new TopicBufferLimit("test/topic2", 20000),
+                    new TopicBufferLimit("#", 5000) // Include default to avoid auto-addition
                 }
             };
             
@@ -46,11 +47,13 @@ namespace CrowsNestMqtt.UnitTests
             
             // Assert
             Assert.NotNull(limits);
-            Assert.Equal(2, limits.Count);
+            Assert.Equal(3, limits.Count); // Now expecting 3 including the default '#'
             Assert.Equal("test/topic1", limits[0].TopicFilter);
             Assert.Equal(10000, limits[0].MaxSizeBytes);
             Assert.Equal("test/topic2", limits[1].TopicFilter);
             Assert.Equal(20000, limits[1].MaxSizeBytes);
+            Assert.Equal("#", limits[2].TopicFilter);
+            Assert.Equal(5000, limits[2].MaxSizeBytes);
         }
         
         

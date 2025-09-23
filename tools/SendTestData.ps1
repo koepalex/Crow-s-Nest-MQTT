@@ -38,7 +38,7 @@ $settings = Get-Content $SettingsPath | ConvertFrom-Json
 $mqttHost = $settings.Hostname
 $port = $settings.Port
 $useTls = $settings.UseTls
-$clientId = if ($settings.ClientId -and $settings.ClientId -ne "") { $settings.ClientId } else { "pwsh-mqtt-$(Get-Random)" }
+$clientId = "pwsh-mqtt-$(Get-Random)"
 
 # Read image as bytes
 $imageBytes = [System.IO.File]::ReadAllBytes($ImagePath)

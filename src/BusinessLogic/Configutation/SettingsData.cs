@@ -16,6 +16,11 @@ public record SettingsData(
     bool UseTls = false)
 {
     public IList<TopicBufferLimit> TopicSpecificBufferLimits { get; init; } = new List<TopicBufferLimit>();
+    /// <summary>
+    /// Default buffer size in bytes for topics that don't match any specific rules.
+    /// If null, uses the system default (1 MB). This only applies when no "#" wildcard rule is configured.
+    /// </summary>
+    public long? DefaultTopicBufferSizeBytes { get; init; }
     // Ensure AuthMode is never null, defaulting to Anonymous if not provided.
     public AuthenticationMode AuthMode { get; init; } = AuthMode ?? new AnonymousAuthenticationMode();
 }

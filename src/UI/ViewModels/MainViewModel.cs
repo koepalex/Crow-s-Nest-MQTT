@@ -802,8 +802,9 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             CleanSession = Settings.CleanSession,
             SessionExpiryInterval = Settings.SessionExpiryInterval,
             TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits,
-            AuthMode = Settings.Into().AuthMode
-            // TODO: Map other settings like TLS, Credentials if added
+            DefaultTopicBufferSizeBytes = Settings.Into().DefaultTopicBufferSizeBytes,
+            AuthMode = Settings.Into().AuthMode,
+            UseTls = Settings.UseTls
         });
 
         _mqttService.ConnectionStateChanged += OnConnectionStateChanged;
@@ -1689,6 +1690,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             CleanSession = Settings.CleanSession,
             SessionExpiryInterval = Settings.SessionExpiryInterval,
             TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits,
+            DefaultTopicBufferSizeBytes = Settings.Into().DefaultTopicBufferSizeBytes,
             AuthMode = Settings.Into().AuthMode,
             UseTls = Settings.UseTls
         };
@@ -2295,8 +2297,6 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
             if (existingNode == null)
             {
-                // Create new node
-                Log.Debug("Creating new node '{Part}' under parent '{ParentName}' with path '{FullPath}'", part, parentNode?.Name ?? "[Root]", currentPath);
                 existingNode = new NodeViewModel(part, parentNode) { FullPath = currentPath }; // Pass parent and set full path
 
                 // Insert the new node in sorted order instead of rebuilding the collection
@@ -2349,7 +2349,6 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
             if (existingNode == null)
             {
-                Log.Debug("Creating new node '{Part}' under parent '{ParentName}' with path '{FullPath}'", part, parentNode?.Name ?? "[Root]", currentPath);
                 existingNode = new NodeViewModel(part, parentNode) { FullPath = currentPath };
 
                 int insertIndex = 0;
