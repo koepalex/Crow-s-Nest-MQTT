@@ -28,9 +28,24 @@ As an MQTT developer, I want to clear all retained messages from a topic and its
 - **FR-003**: System MUST use the currently selected topic when no argument is provided
 - **FR-004**: System MUST identify all subtopics under the specified topic that have retained messages
 - **FR-005**: System MUST publish empty payload retained messages to clear each identified topic
-- **FR-006**: System MUST provide visual feedback showing progress of the deletion operation
+- **FR-006**: System MUST display minimal notifications in the status bar showing operation start and completion
+- **FR-014**: System MUST update the MQTT topic tree to reflect removed retained message counts in real-time
 - **FR-007**: System MUST log all deletion attempts including success/failure status
-- **FR-008**: System MUST handle MQTT broker disconnection gracefully during operation
+- **FR-008**: System MUST abort deletion operation immediately upon MQTT broker disconnection and notify user to manually restart
+- **FR-009**: System MUST process all matched topics for deletion in parallel for maximum performance
+- **FR-010**: System MUST continue deletion operation when encountering unauthorized topics, skipping them silently
+- **FR-011**: System MUST display a summary warning at completion listing any topics that could not be deleted due to permissions
+- **FR-012**: System MUST enforce a configurable maximum topic limit per deletion operation, defaulting to 500 topics
+- **FR-013**: System MUST warn user and require confirmation when deletion operation would exceed the configured topic limit
+
+## Clarifications
+
+### Session 2025-09-23
+- Q: When hundreds of subtopics contain retained messages, how should the deletion operation behave? → A: Process all topics immediately in parallel (fastest but resource intensive)
+- Q: When the user lacks publish permissions to some matched topics, what should happen? → A: Skip unauthorized topics silently and continue with others, but bring a summary warning at the end
+- Q: What should be the maximum number of topics that can be processed in a single :deletetopic operation? → A: Configurable limit with default of 500 topics
+- Q: How should the visual progress feedback be displayed during the deletion operation? → A: Minimal notification showing only start and completion messages in the normal StatusBarText, the number of messages removed should be deducted from the count shown in MQTT topic tree
+- Q: When MQTT broker disconnection occurs during deletion, how should the operation resume when reconnected? → A: Abort the operation and require user to manually restart
 
 ### Key Entities
 - **Topic Pattern**: The root topic specified by user or currently selected topic
