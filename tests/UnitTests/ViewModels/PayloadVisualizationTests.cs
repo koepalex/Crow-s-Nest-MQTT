@@ -9,6 +9,9 @@ using System.Text;
 using Xunit;
 using System.Text.Json; // Added for JsonValueKind
 using System.Reactive.Threading.Tasks;
+using CrowsNestMqtt.Utils;
+using System.IO;
+using LibVLCSharp.Shared;
 
 using Avalonia.Threading;
 
@@ -50,7 +53,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void JsonViewer_WithValidJson_ShouldParseCorrectly()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+        var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
            string jsonPayload = "{\"name\":\"test\",\"value\":123}";
            var messageId = Guid.NewGuid();
            var timestamp = DateTime.Now;
@@ -66,7 +69,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, jsonPayload, Encoding.UTF8.GetBytes(jsonPayload).Length, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, jsonPayload, Encoding.UTF8.GetBytes(jsonPayload).Length, _mqttServiceMock, _statusBarServiceMock, fullMessage);
 
            // Act
             viewModel.SelectedMessage = testMessage;
@@ -82,7 +85,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void JsonViewer_WithInvalidJson_ShouldShowError()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
            string invalidJsonPayload = "{\"name\":\"test\",\"value\":123"; // Missing closing brace
            var messageId = Guid.NewGuid();
            var timestamp = DateTime.Now;
@@ -98,7 +101,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, invalidJsonPayload, Encoding.UTF8.GetBytes(invalidJsonPayload).Length, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, invalidJsonPayload, Encoding.UTF8.GetBytes(invalidJsonPayload).Length, _mqttServiceMock, _statusBarServiceMock, fullMessage);
 
            // Act
             viewModel.SelectedMessage = testMessage;
@@ -113,7 +116,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void JsonViewer_WithComplexNestedJson_ShouldCreateTreeStructure()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
             string complexJsonPayload = @"{
                 ""person"": {
                     ""name"": ""John"",
@@ -142,7 +145,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, complexJsonPayload, Encoding.UTF8.GetBytes(complexJsonPayload).Length, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, complexJsonPayload, Encoding.UTF8.GetBytes(complexJsonPayload).Length, _mqttServiceMock, _statusBarServiceMock, fullMessage);
 
            // Act
             viewModel.SelectedMessage = testMessage;
@@ -166,7 +169,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void JsonViewer_WithJsonArray_ShouldHandleArraysCorrectly()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
             string arrayJsonPayload = @"[
                 {""id"": 1, ""name"": ""Item 1""},
                 {""id"": 2, ""name"": ""Item 2""},
@@ -186,7 +189,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                   return true;
               });
 
-          var testMessage = new MessageViewModel(messageId, topic, timestamp, arrayJsonPayload, Encoding.UTF8.GetBytes(arrayJsonPayload).Length, _mqttServiceMock, _statusBarServiceMock);
+          var testMessage = new MessageViewModel(messageId, topic, timestamp, arrayJsonPayload, Encoding.UTF8.GetBytes(arrayJsonPayload).Length, _mqttServiceMock, _statusBarServiceMock, fullMessage);
 
           // Act
             viewModel.SelectedMessage = testMessage;
@@ -201,13 +204,33 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             
             // Array should have 3 children (items)
             Assert.Equal(3, viewModel.JsonViewer.RootNodes[0].Children.Count);
+       }
+
+        private class MockLibVLC : LibVLC
+        {
+            public MockLibVLC() : base() { }
         }
 
-        [Fact]
-        public void VideoViewer_WithVideoPayload_ShouldDisplayCorrectly()
+        private class MockMediaPlayer : MediaPlayer
+        {
+            public MockMediaPlayer(LibVLC libvlc) : base(libvlc) { }
+
+            public new virtual void Play()
+            {
+                // Do nothing
+            }
+
+            public new virtual void Stop()
+            {
+                // Do nothing
+            }
+        }
+
+        [Fact(Timeout = 60000)]
+        public Task VideoViewer_WithVideoPayload_ShouldDisplayCorrectly()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
             byte[] videoPayload = new byte[] { 0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70 }; // MP4 header fragment
             var messageId = Guid.NewGuid();
             var timestamp = DateTime.Now;
@@ -221,7 +244,12 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
                 .Returns(x => { x[2] = fullMessage; return true; });
 
-            var testMessage = new MessageViewModel(messageId, topic, timestamp, "[video]", videoPayload.Length, _mqttServiceMock, _statusBarServiceMock);
+            var testMessage = new MessageViewModel(messageId, topic, timestamp, "[video]", videoPayload.Length, _mqttServiceMock, _statusBarServiceMock, fullMessage);
+
+            // Mock LibVLC and MediaPlayer
+            var mockLibVLC = Substitute.For<LibVLC>();
+            var mockMediaPlayer = Substitute.For<MediaPlayer>(mockLibVLC);
+            viewModel.VlcMediaPlayer = mockMediaPlayer;
 
             // Act
             viewModel.SelectedMessage = testMessage;
@@ -233,44 +261,53 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.False(viewModel.IsRawTextViewerVisible);
             Assert.NotNull(viewModel.VideoPayload);
             Assert.Equal(videoPayload, viewModel.VideoPayload);
+
+            // Clean up
+            viewModel.VlcMediaPlayer = null;
+            mockLibVLC.Dispose();
+            mockMediaPlayer.Dispose();
+
+            return Task.CompletedTask;
         }
 
-        [Fact]
-        public void RawTextViewer_WithTextPayload_ShouldDisplayCorrectly()
+        [Fact(Timeout = 60000)]
+        public Task RawTextViewer_WithTextPayload_ShouldDisplayCorrectly()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
-           string textPayload = "This is a simple text payload that is not JSON.";
-           var messageId = Guid.NewGuid();
-           var timestamp = DateTime.Now;
-           var topic = "test/text";
-           var fullMessage = new MqttApplicationMessageBuilder()
-               .WithTopic(topic)
-               .WithPayload(Encoding.UTF8.GetBytes(textPayload))
-               .Build();
+            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+            string textPayload = "This is a simple text payload that is not JSON.";
+            var messageId = Guid.NewGuid();
+            var timestamp = DateTime.Now;
+            var topic = "test/text";
+            var fullMessage = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(Encoding.UTF8.GetBytes(textPayload))
+                .Build();
 
-           _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
-               .Returns(x => {
-                   x[2] = fullMessage;
-                   return true;
-               });
+            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+                .Returns(x => {
+                    x[2] = fullMessage;
+                    return true;
+                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, textPayload, Encoding.UTF8.GetBytes(textPayload).Length, _mqttServiceMock, _statusBarServiceMock);
+            var testMessage = new MessageViewModel(messageId, topic, timestamp, textPayload, Encoding.UTF8.GetBytes(textPayload).Length, _mqttServiceMock, _statusBarServiceMock, fullMessage);
 
-           // Act
+            // Act
             viewModel.SelectedMessage = testMessage;
 
             // Assert
             Assert.False(viewModel.IsJsonViewerVisible);
             Assert.True(viewModel.IsRawTextViewerVisible);
             Assert.Equal(textPayload, viewModel.RawPayloadDocument.Text);
+
+            return Task.CompletedTask;
         }
 
-        [Fact]
-        public void ViewToggle_ShouldSwitchBetweenRawAndJsonViews()
+        [Fact(Timeout = 60000)]
+        public Task ViewToggle_ShouldSwitchBetweenRawAndJsonViews()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
            string jsonPayload = "{\"name\":\"test\",\"value\":123}";
            var messageId = Guid.NewGuid();
            var timestamp = DateTime.Now;
@@ -286,7 +323,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, jsonPayload, Encoding.UTF8.GetBytes(jsonPayload).Length, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, jsonPayload, Encoding.UTF8.GetBytes(jsonPayload).Length, _mqttServiceMock, _statusBarServiceMock, fullMessage);
            viewModel.SelectedMessage = testMessage;
             
             // Initially JSON viewer should be visible for valid JSON
@@ -294,9 +331,9 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.False(viewModel.IsRawTextViewerVisible);
             
             // Get the method via reflection
-            var switchViewMethod = typeof(MainViewModel).GetMethod("SwitchPayloadView", 
+            var switchViewMethod = typeof(MainViewModel).GetMethod("SwitchPayloadView",
                 BindingFlags.NonPublic | BindingFlags.Instance);
-            
+
             // Get the PayloadViewType enum type via reflection
             var payloadViewTypeEnum = typeof(MainViewModel).GetNestedType("PayloadViewType", BindingFlags.NonPublic);
             Assert.NotNull(payloadViewTypeEnum);
@@ -316,14 +353,16 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Assert
             Assert.True(viewModel.IsJsonViewerVisible);
             Assert.False(viewModel.IsRawTextViewerVisible);
+
+            return Task.CompletedTask;
         }
 
         [Fact]
         public void GuessSyntaxHighlighting_ShouldDetectFormatFromContentType()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
-            var guessSyntaxMethod = typeof(MainViewModel).GetMethod("GuessSyntaxHighlighting", 
+            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            var guessSyntaxMethod = typeof(MainViewModel).GetMethod("GuessSyntaxHighlighting",
                 BindingFlags.NonPublic | BindingFlags.Instance);
             
             // Act & Assert for different content types
@@ -343,8 +382,8 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void GuessSyntaxHighlighting_ShouldDetectFormatFromContent()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
-            var guessSyntaxMethod = typeof(MainViewModel).GetMethod("GuessSyntaxHighlighting", 
+            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            var guessSyntaxMethod = typeof(MainViewModel).GetMethod("GuessSyntaxHighlighting",
                 BindingFlags.NonPublic | BindingFlags.Instance);
             
             // Act & Assert for different content patterns
@@ -362,7 +401,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void CopyPayloadToClipboard_ShouldInteractWithClipboard()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
            string textPayload = "Test payload for clipboard copy";
            var messageId = Guid.NewGuid();
            var timestamp = DateTime.Now;
@@ -378,7 +417,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                    return true;
                });
 
-           var testMessage = new MessageViewModel(messageId, topic, timestamp, textPayload, Encoding.UTF8.GetBytes(textPayload).Length, _mqttServiceMock, _statusBarServiceMock);
+           var testMessage = new MessageViewModel(messageId, topic, timestamp, textPayload, Encoding.UTF8.GetBytes(textPayload).Length, _mqttServiceMock, _statusBarServiceMock, fullMessage);
 
            bool interactionTriggered = false;
             
@@ -396,6 +435,101 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Assert
             Assert.True(interactionTriggered);
             // Assert.Contains("copied to clipboard", viewModel.StatusBarText.ToLower()); // Interaction testing can be unreliable without proper setup
+        }
+
+        [Fact]
+        public void HexViewer_AutoAndManualSwitch_ShouldDisplayHexForBinaryPayload()
+        {
+            // Arrange
+            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            byte[] binaryPayload = Enumerable.Range(0, 32).Select(i => (byte)i).ToArray();
+            var messageId = Guid.NewGuid();
+            var timestamp = DateTime.Now;
+            var topic = "test/binary";
+            var fullMessage = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(binaryPayload)
+                .WithContentType("application/octet-stream")
+                .Build();
+
+            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+                .Returns(x => { x[2] = fullMessage; return true; });
+
+            var testMessage = new MessageViewModel(messageId, topic, timestamp, "[binary]", binaryPayload.Length, _mqttServiceMock, _statusBarServiceMock, fullMessage);
+
+            // Act: Select message (should auto-switch to hex viewer)
+            viewModel.SelectedMessage = testMessage;
+
+            // Assert auto-switch
+            Assert.True(viewModel.IsHexViewerVisible);
+            Assert.NotNull(viewModel.HexPayloadBytes);
+            Assert.Equal(binaryPayload, viewModel.HexPayloadBytes);
+
+            // Act: Switch away and back using reflection (simulate :view hex)
+            var switchViewHexMethod = typeof(MainViewModel).GetMethod("SwitchPayloadViewHex", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            // Hide hex viewer first
+            typeof(MainViewModel).GetProperty("IsHexViewerVisible")?.SetValue(viewModel, false);
+            Assert.False(viewModel.IsHexViewerVisible);
+
+            // Now call manual switch
+            switchViewHexMethod?.Invoke(viewModel, null);
+
+            // Assert manual switch
+            Assert.True(viewModel.IsHexViewerVisible);
+            Assert.NotNull(viewModel.HexPayloadBytes);
+            Assert.Equal(binaryPayload, viewModel.HexPayloadBytes);
+        }
+
+        [Fact]
+        public void SelectingTopicWithImage_ShouldShowImageAndHistory()
+        {
+            // Arrange
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            var topic = "test/topic";
+            var assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            if (assemblyPath == null) throw new DirectoryNotFoundException("Could not get assembly path.");
+            var imagePath = Path.Combine(assemblyPath, "../../../..", "TestData/test-image.png");
+            var imagePayload = File.ReadAllBytes(imagePath);
+            var messageId = Guid.NewGuid();
+
+            var fullMessage = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(imagePayload)
+                .WithContentType("image/png")
+                .Build();
+
+            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+               .Returns(x => {
+                   x[2] = fullMessage;
+                   return true;
+               });
+
+            // Create a message view model directly
+            var messageVm = new MessageViewModel(messageId, topic, DateTime.Now, "[image]", imagePayload.Length, _mqttServiceMock, _statusBarServiceMock, fullMessage);
+
+            // Manually build the topic tree (simulating what the event handler does)
+            var testNode = new NodeViewModel("test", null) { FullPath = "test" };
+            var topicNode = new NodeViewModel("topic", testNode) { FullPath = topic };
+            testNode.Children.Add(topicNode);
+            viewModel.TopicTreeNodes.Add(testNode);
+
+            // Simple approach: Just set the message directly and test the viewer logic
+            viewModel.SelectedMessage = messageVm;
+            
+            // Assert - Topic tree should be populated
+            Assert.Single(viewModel.TopicTreeNodes);
+            Assert.Equal("test", viewModel.TopicTreeNodes[0].Name);
+            Assert.Single(viewModel.TopicTreeNodes[0].Children);
+            Assert.Equal("topic", viewModel.TopicTreeNodes[0].Children[0].Name);
+            
+            // Assert - Message should be selected and image viewer should be visible
+            Assert.NotNull(viewModel.SelectedMessage);
+            Assert.Equal(messageId, viewModel.SelectedMessage.MessageId);
+            Assert.True(viewModel.IsImageViewerVisible);
+            Assert.True(viewModel.IsAnyPayloadViewerVisible);
+            Assert.False(viewModel.IsVideoViewerVisible);
+            Assert.False(viewModel.IsJsonViewerVisible);
+            Assert.False(viewModel.IsRawTextViewerVisible);
         }
     }
 }

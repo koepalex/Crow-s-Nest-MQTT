@@ -138,4 +138,107 @@ public class MqttEngineTopicLimitTests
         Assert.Equal(200, engine.GetMaxBufferSizeForTopic("real/topic"));
         Assert.Equal(MqttEngine.DefaultMaxTopicBufferSize, engine.GetMaxBufferSizeForTopic("another/topic"));
     }
+
+    [Fact]
+    public void EnsureDefaultTopicLimit_RespectsUserConfiguredHashRule()
+    {
+        // Test that user-configured "#" rules are respected and not overridden
+        var rules = new List<TopicBufferLimit>
+        {
+            new TopicBufferLimit(TopicFilter: "#", MaxSizeBytes: 6117121), // User configured 6MB limit
+            new TopicBufferLimit(TopicFilter: "test/#", MaxSizeBytes: 6117121)
+        };
+        var engine = CreateEngineWithRules(rules);
+
+        // Should use the user-configured "#" rule, not add a default one
+        Assert.Equal(6117121, engine.GetMaxBufferSizeForTopic("test/viewer/image"));
+        Assert.Equal(6117121, engine.GetMaxBufferSizeForTopic("other/topic"));
+    }
+
+    [Fact]
+    public void EnsureDefaultTopicLimit_AddsDefaultWhenNoHashRule()
+    {
+        // Test that default "#" rule is added when none exists
+        var rules = new List<TopicBufferLimit>
+        {
+            new TopicBufferLimit(TopicFilter: "test/#", MaxSizeBytes: 6117121)
+        };
+        var engine = CreateEngineWithRules(rules);
+
+        // Should match test/# rule for test topics
+        Assert.Equal(6117121, engine.GetMaxBufferSizeForTopic("test/viewer/image"));
+        // Should use default 1MB for other topics
+        Assert.Equal(MqttEngine.DefaultMaxTopicBufferSize, engine.GetMaxBufferSizeForTopic("other/topic"));
+    }
+
+    [Fact]
+    public void EnsureDefaultTopicLimit_UsesCustomDefaultSize()
+    {
+        // Test that custom default size is used when no "#" rule exists
+        var settings = new MqttConnectionSettings
+        {
+            TopicSpecificBufferLimits = new List<TopicBufferLimit>
+            {
+                new TopicBufferLimit(TopicFilter: "test/#", MaxSizeBytes: 6117121)
+            },
+            DefaultTopicBufferSizeBytes = 10 * 1024 * 1024 // 10MB custom default
+        };
+        var engine = new MqttEngine(settings);
+
+        // Should match test/# rule for test topics
+        Assert.Equal(6117121, engine.GetMaxBufferSizeForTopic("test/viewer/image"));
+        // Should use custom 10MB default for other topics
+        Assert.Equal(10 * 1024 * 1024, engine.GetMaxBufferSizeForTopic("other/topic"));
+    }
+
+    [Fact]
+    public void EnsureDefaultTopicLimit_DoesNotOverrideUserHashRule()
+    {
+        // Test that existing user "#" rule is not overridden even with custom default
+        var settings = new MqttConnectionSettings
+        {
+            TopicSpecificBufferLimits = new List<TopicBufferLimit>
+            {
+                new TopicBufferLimit(TopicFilter: "#", MaxSizeBytes: 6117121), // User's 6MB rule
+                new TopicBufferLimit(TopicFilter: "test/#", MaxSizeBytes: 2000000)
+            },
+            DefaultTopicBufferSizeBytes = 10 * 1024 * 1024 // 10MB custom default (should be ignored)
+        };
+        var engine = new MqttEngine(settings);
+
+        // Should use the more specific test/# rule
+        Assert.Equal(2000000, engine.GetMaxBufferSizeForTopic("test/viewer/image"));
+        // Should use user's "#" rule, not the custom default
+        Assert.Equal(6117121, engine.GetMaxBufferSizeForTopic("other/topic"));
+    }
+
+    [Fact]
+    public void UpdateSettings_RespectsCustomDefaultSize()
+    {
+        // Test that UpdateSettings also respects custom default size
+        var initialSettings = new MqttConnectionSettings
+        {
+            TopicSpecificBufferLimits = new List<TopicBufferLimit>
+            {
+                new TopicBufferLimit(TopicFilter: "test/#", MaxSizeBytes: 1000000)
+            }
+        };
+        var engine = new MqttEngine(initialSettings);
+
+        var updatedSettings = new MqttConnectionSettings
+        {
+            TopicSpecificBufferLimits = new List<TopicBufferLimit>
+            {
+                new TopicBufferLimit(TopicFilter: "test/#", MaxSizeBytes: 6117121)
+            },
+            DefaultTopicBufferSizeBytes = 8 * 1024 * 1024 // 8MB custom default
+        };
+
+        engine.UpdateSettings(updatedSettings);
+
+        // Should use updated test/# rule
+        Assert.Equal(6117121, engine.GetMaxBufferSizeForTopic("test/viewer/image"));
+        // Should use custom 8MB default for other topics
+        Assert.Equal(8 * 1024 * 1024, engine.GetMaxBufferSizeForTopic("other/topic"));
+    }
 }

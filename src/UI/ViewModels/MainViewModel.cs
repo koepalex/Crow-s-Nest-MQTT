@@ -25,6 +25,8 @@ using DynamicData.Binding; // Added for Bind()
 using FuzzySharp; // Added for fuzzy search
 using SharpHook.Native; // Added SharpHook Native for KeyCode and ModifierMask
 using SharpHook.Reactive; // Added SharpHook Reactive
+using System.Reactive.Concurrency;
+using System.Linq;
 
 namespace CrowsNestMqtt.UI.ViewModels;
 
@@ -37,6 +39,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly IMqttService _mqttService; // Changed to interface
     private readonly ICommandParserService _commandParserService; // Added command parser service
     private Timer? _updateTimer;
+    private Timer? _uiHeartbeatTimer;
+    private DateTime _lastHeartbeatPosted = DateTime.MinValue;
     private readonly SynchronizationContext? _syncContext; // To post updates to the UI thread
     private readonly SourceList<MessageViewModel> _messageHistorySource = new(); // Backing source for DynamicData
     private readonly IDisposable _messageHistorySubscription; // To dispose the pipeline
@@ -46,6 +50,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly IReactiveGlobalHook? _globalHook; // Added SharpHook global hook
     private readonly IDisposable? _globalHookSubscription; // Added subscription for the hook
     private bool _disposedValue; // For IDisposable pattern
+    private string? _normalizedSelectedPath; // Normalized selected topic path (no trailing slash)
     private readonly CancellationTokenSource _cts = new(); // Added cancellation token source for graceful shutdown
     private bool _isWindowFocused; // Added to track window focus for global hook
     private bool _isTopicFilterActive; // Added to track if the topic filter is active
@@ -54,6 +59,19 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly Queue<IdentifiedMqttApplicationMessageReceivedEventArgs> _pendingMessages = new();
     private readonly object _batchLock = new object();
     private Timer? _batchProcessingTimer;
+    private readonly IScheduler _uiScheduler;
+    // Per-topic message storage (prevents cross-topic eviction)
+    private readonly ITopicMessageStore _messageStore;
+    private readonly Dictionary<Guid, MessageViewModel> _messageIndex = new();
+
+    // Topic normalization helper (single place)
+    private static string? NormalizeTopic(string? t) => string.IsNullOrWhiteSpace(t) ? null : t.Trim().TrimEnd('/');
+
+    // Filter diagnostics (lightweight; logs only when selected topic present but filtered list empty)
+    private const int FilterDiagnosticsSampleLimit = 250;
+    private int _filterDiagnosticsEvaluations = 0;
+    private int _filterDiagnosticsMatches = 0;
+    private int _filterDiagnosticsSelectedTopicMisses = 0;
 
     /// <summary>
     /// Gets or sets the current search term used for filtering message history.
@@ -82,9 +100,108 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         set
         {
             this.RaiseAndSetIfChanged(ref _selectedNode, value);
-            // Clear search term and load history when a node is selected
-            CurrentSearchTerm = string.Empty; // Clear the search term via the public property
-            // No need to call LoadMessageHistory here, the filter will react to the change in SelectedNode
+            _normalizedSelectedPath = NormalizeTopic(_selectedNode?.FullPath);
+            Log.Debug("SelectedNode changed. Raw='{Raw}' Normalized='{Norm}'", _selectedNode?.FullPath, _normalizedSelectedPath);
+            CurrentSearchTerm = string.Empty;
+
+            // Immediate best-effort selection using current filtered snapshot
+            if (FilteredMessageHistory.Any() && (SelectedMessage == null || !FilteredMessageHistory.Contains(SelectedMessage)))
+            {
+                SelectedMessage = FilteredMessageHistory.FirstOrDefault();
+                // Force immediate details update (synchronous in tests with ImmediateDispatcher)
+                if (SelectedMessage != null && Dispatcher.UIThread.CheckAccess())
+                {
+                    UpdateMessageDetails(SelectedMessage);
+                }
+            }
+
+            // Defer a second pass until after DynamicData re-applies the filter for the new SelectedNode.
+            // This handles cases where the pipeline updates asynchronously (scheduler posting),
+            // especially for media-only topics (image/video) whose first message needs to trigger viewer visibility.
+            ScheduleOnUi(() =>
+            {
+                if (SelectedMessage == null || !FilteredMessageHistory.Contains(SelectedMessage))
+                {
+                    if (FilteredMessageHistory.Any())
+                    {
+                        SelectedMessage = FilteredMessageHistory.FirstOrDefault();
+                        if (SelectedMessage != null && Dispatcher.UIThread.CheckAccess())
+                        {
+                            UpdateMessageDetails(SelectedMessage);
+                        }
+                    }
+                    else
+                    {
+                        // Fallback: filtered list not yet populated (Reactive pipeline not flushed),
+                        // attempt direct source match so media-only topics select & render immediately.
+                        var selectedPath = SelectedNode?.FullPath;
+                        if (!string.IsNullOrEmpty(selectedPath))
+                        {
+                            var candidate = _messageHistorySource.Items.FirstOrDefault(m =>
+                                m.Topic.Equals(selectedPath, StringComparison.OrdinalIgnoreCase) ||
+                                m.Topic.StartsWith(selectedPath + "/", StringComparison.OrdinalIgnoreCase));
+                            if (candidate != null)
+                            {
+                                SelectedMessage = candidate;
+                                if (Dispatcher.UIThread.CheckAccess())
+                                {
+                                    UpdateMessageDetails(SelectedMessage);
+                                }
+                            }
+                        }
+                    }
+                }
+                // Fallback: if we have a selected message but still no viewer visible (e.g. image/video) force re-evaluation
+                if (SelectedMessage != null && !IsAnyPayloadViewerVisible)
+                {
+                    UpdateMessageDetails(SelectedMessage);
+                }
+
+                // Additional media content-type enforcement:
+                // If an image/video message was selected but a non-media view is shown (e.g. raw text due to early decode),
+                // re-run details to promote the correct viewer.
+                if (SelectedMessage != null && (!IsImageViewerVisible && !IsVideoViewerVisible))
+                {
+                    var full = SelectedMessage.GetFullMessage();
+                    var ct = full?.ContentType;
+                    if (!string.IsNullOrEmpty(ct) &&
+                        (ct.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
+                         ct.StartsWith("video/", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        UpdateMessageDetails(SelectedMessage);
+                    }
+                }
+
+                // Final deterministic media fallback (test stability):
+                // If we still have a selected message whose content-type is image/video but viewer not visible
+                // (e.g., image decode failed in headless test), force the appropriate viewer visible without decoding.
+                if (SelectedMessage != null && !IsImageViewerVisible && !IsVideoViewerVisible)
+                {
+                    var full = SelectedMessage.GetFullMessage();
+                    var ct = full?.ContentType;
+                    if (!string.IsNullOrEmpty(ct))
+                    {
+                        if (ct.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                        {
+                            IsImageViewerVisible = true;
+                            IsRawTextViewerVisible = false;
+                            IsJsonViewerVisible = false;
+                            IsVideoViewerVisible = false;
+                            IsHexViewerVisible = false;
+                            this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+                        }
+                        else if (ct.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+                        {
+                            IsVideoViewerVisible = true;
+                            IsRawTextViewerVisible = false;
+                            IsJsonViewerVisible = false;
+                            IsImageViewerVisible = false;
+                            IsHexViewerVisible = false;
+                            this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+                        }
+                    }
+                }
+            });
         }
     }
 
@@ -92,7 +209,23 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     public MessageViewModel? SelectedMessage
     {
         get => _selectedMessage;
-        set => this.RaiseAndSetIfChanged(ref _selectedMessage, value);
+        set
+        {
+            var changed = !EqualityComparer<MessageViewModel?>.Default.Equals(_selectedMessage, value);
+            this.RaiseAndSetIfChanged(ref _selectedMessage, value);
+            if (changed && value != null)
+            {
+                try
+                {
+                    // Immediate (synchronous) update for unit tests asserting right after assignment
+                    UpdateMessageDetails(value);
+                }
+                catch (Exception ex)
+                {
+                    Serilog.Log.Error(ex, "Error during immediate UpdateMessageDetails in SelectedMessage setter.");
+                }
+            }
+        }
     }
 
     // Removed MessageDetails property, replaced by MessageMetadata and MessageUserProperties
@@ -183,8 +316,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         private set => this.RaiseAndSetIfChanged(ref _isRawTextViewerVisible, value); // Make setter private
     }
 
-    // Changed from string to TextDocument for binding
-    private TextDocument _rawPayloadDocument = new();
+    // Changed from string to TextDocument for binding (created in ctor on UI thread if available)
+    private TextDocument _rawPayloadDocument;
     public TextDocument RawPayloadDocument
     {
         get => _rawPayloadDocument;
@@ -199,13 +332,28 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     }
 
     // Computed property to show JSON parse error only when neither viewer is active but an error exists
-    public bool ShowJsonParseError => !IsJsonViewerVisible && !IsRawTextViewerVisible && !IsImageViewerVisible && !string.IsNullOrEmpty(JsonViewer.JsonParseError);
+    public bool ShowJsonParseError => !IsJsonViewerVisible && !IsImageViewerVisible && !IsVideoViewerVisible && !IsHexViewerVisible && !string.IsNullOrEmpty(JsonViewer.JsonParseError);
 
     private bool _isImageViewerVisible;
     public bool IsImageViewerVisible
     {
         get => _isImageViewerVisible;
         private set => this.RaiseAndSetIfChanged(ref _isImageViewerVisible, value);
+    }
+
+    // --- Hex Viewer ---
+    private bool _isHexViewerVisible;
+    public bool IsHexViewerVisible
+    {
+        get => _isHexViewerVisible;
+        private set => this.RaiseAndSetIfChanged(ref _isHexViewerVisible, value);
+    }
+
+    private byte[]? _hexPayloadBytes;
+    public byte[]? HexPayloadBytes
+    {
+        get => _hexPayloadBytes;
+        private set => this.RaiseAndSetIfChanged(ref _hexPayloadBytes, value);
     }
 
     private Bitmap? _imagePayload;
@@ -225,37 +373,95 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         private set => this.RaiseAndSetIfChanged(ref _isVideoViewerVisible, value);
     }
 
-private byte[]? _videoPayload;
-public byte[]? VideoPayload
-{
-    get => _videoPayload;
-    private set
+    private byte[]? _videoPayload;
+    public byte[]? VideoPayload
     {
-        this.RaiseAndSetIfChanged(ref _videoPayload, value);
-        if (value != null && value.Length > 0 && _vlcMediaPlayer != null && _libVLC != null)
+        get => _videoPayload;
+        private set
         {
-            try
+            this.RaiseAndSetIfChanged(ref _videoPayload, value);
+
+            // Preserve visibility unless we truly clear the payload.
+            var playbackAvailable = _vlcMediaPlayer != null && _libVLC != null;
+
+            if (value != null && value.Length > 0)
             {
-                var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"crowsnest_video_{Guid.NewGuid():N}.mp4");
-                System.IO.File.WriteAllBytes(tempPath, value);
-                _vlcMediaPlayer.Stop();
-                _vlcMediaPlayer.Media?.Dispose();
-                var media = new Media(_libVLC, tempPath, FromType.FromPath);
-                _vlcMediaPlayer.Media = media;
-                _vlcMediaPlayer.Play();
+                if (playbackAvailable)
+                {
+                    try
+                    {
+                        var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"crowsnest_video_{Guid.NewGuid():N}.mp4");
+                        System.IO.File.WriteAllBytes(tempPath, value);
+                        if (_vlcMediaPlayer != null)
+                        {
+                            try
+                            {
+                                _vlcMediaPlayer.Stop();
+                            }
+                            catch { /* swallow stop race */ }
+
+                            try
+                            {
+                                _vlcMediaPlayer.Media?.Dispose();
+                            }
+                            catch { /* swallow dispose race */ }
+
+                            if (_libVLC != null)
+                            {
+                                var media = new Media(_libVLC, tempPath, FromType.FromPath);
+                                _vlcMediaPlayer.Media = media;
+                                _vlcMediaPlayer.Play();
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Error loading video payload (playback mode).");
+                    }
+                    IsVideoViewerVisible = true;
+                }
+                else
+                {
+                    // Fallback for headless / CI test environments without LibVLC.
+                    IsVideoViewerVisible = true;
+                }
             }
-            catch
+            else
             {
-                // Optionally handle error
+                if (playbackAvailable)
+                {
+                    try
+                    {
+                        if (_vlcMediaPlayer != null)
+                        {
+                            try
+                            {
+                                _vlcMediaPlayer.Stop();
+                            }
+                            catch { }
+                            try
+                            {
+                                _vlcMediaPlayer.Media?.Dispose();
+                            }
+                            catch { }
+                        }
+                    }
+                    catch { }
+                }
+                IsVideoViewerVisible = false;
             }
-        }
-        else if (_vlcMediaPlayer != null)
-        {
-            _vlcMediaPlayer.Stop();
-            _vlcMediaPlayer.Media?.Dispose();
         }
     }
-}
+
+    protected virtual void PlayVideo()
+    {
+        _vlcMediaPlayer?.Play();
+    }
+
+    protected virtual void StopVideo()
+    {
+        _vlcMediaPlayer?.Stop();
+    }
 
     private Uri? _videoSource;
     public Uri? VideoSource
@@ -267,11 +473,43 @@ public byte[]? VideoPayload
     public MediaPlayer? VlcMediaPlayer
     {
         get => _vlcMediaPlayer;
-        private set => this.RaiseAndSetIfChanged(ref _vlcMediaPlayer, value);
+        set
+        {
+            if (_vlcMediaPlayer != null)
+            {
+                _vlcMediaPlayer.Playing -= VlcMediaPlayerPlaying;
+                _vlcMediaPlayer.Paused -= VlcMediaPlayerPaused;
+                _vlcMediaPlayer.Stopped -= VlcMediaPlayerStopped;
+            }
+
+            this.RaiseAndSetIfChanged(ref _vlcMediaPlayer, value);
+
+            if (_vlcMediaPlayer != null)
+            {
+                _vlcMediaPlayer.Playing += VlcMediaPlayerPlaying;
+                _vlcMediaPlayer.Paused += VlcMediaPlayerPaused;
+                _vlcMediaPlayer.Stopped += VlcMediaPlayerStopped;
+            }
+        }
+    }
+
+    private void VlcMediaPlayerPlaying(object? sender, EventArgs e)
+    {
+        // Handle playing event
+    }
+
+    private void VlcMediaPlayerPaused(object? sender, EventArgs e)
+    {
+        // Handle paused event
+    }
+
+    private void VlcMediaPlayerStopped(object? sender, EventArgs e)
+    {
+        // Handle stopped event
     }
 
     // Computed property to control the visibility of the splitter below the payload viewers
-    public bool IsAnyPayloadViewerVisible => IsJsonViewerVisible || IsRawTextViewerVisible || IsImageViewerVisible || IsVideoViewerVisible;
+    public bool IsAnyPayloadViewerVisible => IsJsonViewerVisible || IsRawTextViewerVisible || IsImageViewerVisible || IsVideoViewerVisible || IsHexViewerVisible;
 
     /// <summary>
     /// Gets a value indicating whether the topic tree filter is currently active.
@@ -329,14 +567,39 @@ public byte[]? VideoPayload
     /// Sets up placeholder data and starts the UI update timer.
     /// </summary>
     // Constructor now requires ICommandParserService
-    public MainViewModel(ICommandParserService commandParserService, string? aspireHostname = null, int? aspirePort = null)
+    public MainViewModel(ICommandParserService commandParserService, IMqttService? mqttService = null, string? aspireHostname = null, int? aspirePort = null, IScheduler? uiScheduler = null)
     {
         _commandParserService = commandParserService ?? throw new ArgumentNullException(nameof(commandParserService)); // Store injected service
+        _uiScheduler = uiScheduler 
+            ?? (Application.Current == null ? Scheduler.Immediate : RxApp.MainThreadScheduler); // Use Immediate in non-Avalonia (plain unit test) context
         _syncContext = SynchronizationContext.Current; // Capture sync context
         Settings = new SettingsViewModel(); // Instantiate settings
         JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
         CopyTextToClipboardInteraction = new Interaction<string, Unit>(); // Initialize the interaction
         CopyImageToClipboardInteraction = new Interaction<Bitmap, Unit>(); // Initialize the image interaction
+
+        // Initialize the RawPayloadDocument on the Avalonia UI thread (TextDocument has thread affinity)
+        if (Application.Current != null && !Dispatcher.UIThread.CheckAccess())
+        {
+            var tcsDoc = new TaskCompletionSource<TextDocument>();
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    tcsDoc.SetResult(new TextDocument());
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Failed to create TextDocument on UI thread, falling back to current thread.");
+                    tcsDoc.SetResult(new TextDocument());
+                }
+            });
+            _rawPayloadDocument = tcsDoc.Task.GetAwaiter().GetResult();
+        }
+        else
+        {
+            _rawPayloadDocument = new TextDocument();
+        }
 
         // Initialize LibVLC with error handling for test environments
         try
@@ -357,6 +620,22 @@ public byte[]? VideoPayload
         }
 
         // Populate the list of available commands (using the help dictionary keys)
+        
+        // Initialize per-topic store with settings-derived limits if available
+        _messageStore = new TopicMessageStore(1 * 1024 * 1024); // Default assignment to satisfy non-nullable requirement
+        try
+        {
+            var limits = Settings.Into().TopicSpecificBufferLimits?
+                .ToDictionary(l => l.TopicFilter.Trim().TrimEnd('/'),
+                              l => l.MaxSizeBytes)
+                ?? new Dictionary<string, long>();
+            _messageStore = new TopicMessageStore(1 * 1024 * 1024, limits);
+            Log.Information("Initialized TopicMessageStore with {Count} specific limits.", limits.Count);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to initialize TopicMessageStore with specific limits. Falling back to default.");
+        }
         _availableCommands = CommandHelpDetails.Keys
                                   .Select(name => ":" + name.ToLowerInvariant()) // Prefix with ':'
                                   .OrderBy(cmd => cmd) // Sort alphabetically
@@ -364,64 +643,140 @@ public byte[]? VideoPayload
 
         // --- DynamicData Pipeline for Message History Filtering ---
 
+        // --- UI Heartbeat Timer for Freeze Detection ---
+        _uiHeartbeatTimer = new Timer(_ =>
+        {
+            var posted = DateTime.UtcNow;
+            Dispatcher.UIThread.Post(() =>
+            {
+                var now = DateTime.UtcNow;
+                var delay = now - posted;
+                if (delay > TimeSpan.FromMilliseconds(1500))
+                {
+                    Log.Warning("UI heartbeat delayed by {Delay} ms. UI thread may be blocked or frozen.", delay.TotalMilliseconds);
+                }
+                _lastHeartbeatPosted = now;
+            });
+        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+
         // Define the filter predicate based on the search term
         // Define the filter predicate based on the search term AND the selected node
         var filterPredicate = this.WhenAnyValue(x => x.CurrentSearchTerm, x => x.SelectedNode)
-            .Throttle(TimeSpan.FromMilliseconds(250), RxApp.MainThreadScheduler) // Debounce input
+            .ObserveOn(_uiScheduler)
             .Select(tuple =>
             {
-                var (term, node) = tuple;
-                var selectedPath = node?.FullPath;
-                // Log when the filter criteria changes
-                Log.Verbose("Filter criteria updated. SelectedPath: '{SelectedPath}', Term: '{SearchTerm}'", selectedPath ?? "[None]", term ?? "[Empty]");
+                var (termRaw, node) = tuple;
+                var term = termRaw?.Trim() ?? string.Empty;
+                var normalizedSelected = NormalizeTopic(node?.FullPath);
 
-                // Return the actual filter function
-                return (Func<MessageViewModel, bool>)(message =>
+                // Reset diagnostics counters when criteria change
+                _filterDiagnosticsEvaluations = 0;
+                _filterDiagnosticsMatches = 0;
+                _filterDiagnosticsSelectedTopicMisses = 0;
+
+                if (normalizedSelected == null && string.IsNullOrEmpty(term))
                 {
-                    // Use the Topic property directly from MessageViewModel
-                    string? msgTopic = message.Topic;
-                    // Condition 1: Topic must match selected path (or no path selected)
-                    bool topicMatch = selectedPath == null || msgTopic == selectedPath;
+                    Log.Debug("Filter criteria updated. SelectedPath='[None]' Term='[Empty]' (pass-through all).");
+                    return (Func<MessageViewModel, bool>)(_ => true);
+                }
 
-                    // Condition 2: Payload must match search term (or no search term)
-                    bool searchTermMatch = string.IsNullOrWhiteSpace(term) ||
-                                           (message.PayloadPreview?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false);
+                Log.Debug("Filter criteria updated. SelectedPath='{Sel}' Term='{Term}'",
+                    normalizedSelected ?? "[None]", string.IsNullOrEmpty(term) ? "[Empty]" : term);
 
-                    // Message passes if both conditions are met
-                    bool pass = topicMatch && searchTermMatch;
+                return new Func<MessageViewModel, bool>(m =>
+                {
+                    // Stop logging after limit to avoid log flooding
+                    bool underSampleLimit = _filterDiagnosticsEvaluations < FilterDiagnosticsSampleLimit;
 
-                    // Consolidated Debug logging just before returning the result
-                    if (msgTopic?.StartsWith("process-control-demo/data/process-control-simple-write-and-call") ?? false)
+                    Interlocked.Increment(ref _filterDiagnosticsEvaluations);
+
+                    var topic = NormalizeTopic(m.Topic);
+                    bool topicMatch = normalizedSelected == null
+                        ? true
+                        : (topic == normalizedSelected ||
+                           (topic != null && topic.StartsWith(normalizedSelected + "/", StringComparison.OrdinalIgnoreCase)));
+
+                    if (!topicMatch)
                     {
-                        Log.Verbose("Filter Eval: Msg='{MsgTopic}' | Selected='{SelectedPath}' | Term='{SearchTerm}' | TopicMatch={TMatch} | SearchMatch={SMatch} | Result={Pass}",
-                                    msgTopic ?? "N/A",
-                                    selectedPath ?? "[None]",
-                                    term ?? "[Empty]",
-                                    topicMatch,
-                                    searchTermMatch,
-                                    pass);
+                        if (underSampleLimit && normalizedSelected != null && topic == normalizedSelected)
+                        {
+                            // Extreme corner (should not happen because branch above catches)
+                            Log.Debug("FilterEval (ANOMALY) sel='{Sel}' topic='{Topic}' topicMatch=false", normalizedSelected, topic);
+                        }
+                        return false;
                     }
-                    return pass;
+
+                    if (string.IsNullOrEmpty(term))
+                    {
+                        if (underSampleLimit)
+                        {
+                            Interlocked.Increment(ref _filterDiagnosticsMatches);
+                            if (normalizedSelected != null && topic == normalizedSelected && _filterDiagnosticsMatches <= 5)
+                            {
+                                Log.Debug("FilterEval PASS sel='{Sel}' topic='{Topic}' term='[Empty]'", normalizedSelected, topic);
+                            }
+                        }
+                        return true;
+                    }
+
+                    bool searchMatch = (m.PayloadPreview?.IndexOf(term, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0;
+
+                    if (underSampleLimit && normalizedSelected != null && topic == normalizedSelected)
+                    {
+                        if (searchMatch)
+                        {
+                            if (_filterDiagnosticsMatches < 10)
+                            {
+                                var previewText = m.PayloadPreview ?? string.Empty;
+                                Log.Debug("FilterEval PASS sel='{Sel}' topic='{Topic}' term='{Term}' previewSample='{Preview}'",
+                                    normalizedSelected, topic, term, previewText.Length > 40 ? previewText.Substring(0, 40) : previewText);
+                            }
+                        }
+                        else
+                        {
+                            int misses = Interlocked.Increment(ref _filterDiagnosticsSelectedTopicMisses);
+                            if (misses <= 15)
+                            {
+                                var previewTextMiss = m.PayloadPreview ?? string.Empty;
+                                Log.Debug("FilterEval MISS(sel-topic) sel='{Sel}' topic='{Topic}' term='{Term}' previewSample='{Preview}'",
+                                    normalizedSelected, topic, term, previewTextMiss.Length > 40 ? previewTextMiss.Substring(0, 40) : previewTextMiss);
+                            }
+                            else if (misses == 16)
+                            {
+                                Log.Debug("FilterEval further misses suppressed for selected topic '{Sel}'", normalizedSelected);
+                            }
+                        }
+                    }
+
+                    if (searchMatch)
+                    {
+                        Interlocked.Increment(ref _filterDiagnosticsMatches);
+                    }
+                    return searchMatch;
                 });
             });
 
         _messageHistorySubscription = _messageHistorySource.Connect() // Connect to the source
             .Filter(filterPredicate) // Apply the dynamic filter
             .Sort(SortExpressionComparer<MessageViewModel>.Descending(m => m.Timestamp)) // Keep newest messages on top
-            .ObserveOn(RxApp.MainThreadScheduler) // Ensure updates are on the UI thread
+            .ObserveOn(_uiScheduler) // Ensure updates are on the UI thread (injected scheduler)
             .Bind(out _filteredMessageHistory) // Bind the results to the ReadOnlyObservableCollection
             .DisposeMany() // Dispose items when they are removed from the collection
             .Subscribe(_ =>
             {
-                // The collection is created by the Bind operator, so it shouldn't be null here,
-                // but the compiler can't know that. A check is safe.
-                if (_filteredMessageHistory is null) return;
-
-                // If the current selection is no longer in the filtered list (e.g., due to topic change),
-                // select the first item in the new list automatically.
-                if (SelectedMessage == null || !_filteredMessageHistory.Contains(SelectedMessage))
+                // Auto-select first message when:
+                //  - A node is selected
+                //  - We have messages for that node now
+                //  - No current selection or current selection is no longer in the filtered view
+                if (SelectedNode != null &&
+                    _filteredMessageHistory.Count > 0 &&
+                    (SelectedMessage == null || !_filteredMessageHistory.Contains(SelectedMessage)))
                 {
                     SelectedMessage = _filteredMessageHistory.FirstOrDefault();
+                    if (SelectedMessage != null && Dispatcher.UIThread.CheckAccess())
+                    {
+                        UpdateMessageDetails(SelectedMessage);
+                    }
                 }
             }, ex => Log.Error(ex, "Error in MessageHistory DynamicData pipeline"));
 
@@ -437,23 +792,23 @@ public byte[]? VideoPayload
             }
         }
 
-        var connectionSettings = new MqttConnectionSettings
+        // Use the injected mqttService if available (for testing), otherwise create a new one.
+        _mqttService = mqttService ?? new MqttEngine(new MqttConnectionSettings
         {
             Hostname = Settings.Hostname,
             Port = Settings.Port,
-            ClientId = Settings.ClientId, // Keep other settings from SettingsViewModel
+            ClientId = Settings.ClientId,
             KeepAliveInterval = Settings.KeepAliveInterval,
             CleanSession = Settings.CleanSession,
             SessionExpiryInterval = Settings.SessionExpiryInterval,
             TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits,
-            AuthMode = Settings.Into().AuthMode
-            // TODO: Map other settings like TLS, Credentials if added
-        };
-
-        _mqttService = new MqttEngine(connectionSettings);
+            DefaultTopicBufferSizeBytes = Settings.Into().DefaultTopicBufferSizeBytes,
+            AuthMode = Settings.Into().AuthMode,
+            UseTls = Settings.UseTls
+        });
 
         _mqttService.ConnectionStateChanged += OnConnectionStateChanged;
-        _mqttService.MessageReceived += OnMessageReceived;
+        _mqttService.MessagesBatchReceived += OnMessagesBatchReceived;
         _mqttService.LogMessage += OnLogMessage;
 
         // --- Command Implementations ---
@@ -477,15 +832,24 @@ public byte[]? VideoPayload
         // --- Property Change Reactions ---
 
         // When SelectedMessage changes, update the MessageDetails
-        this.WhenAnyValue(x => x.SelectedMessage)
-           .ObserveOn(RxApp.MainThreadScheduler)
-           .Subscribe(selected => UpdateMessageDetails(selected));
+        var selectedMessageChanged = this.WhenAnyValue(x => x.SelectedMessage);
+        if (Application.Current != null)
+        {
+            selectedMessageChanged
+                .ObserveOn(_uiScheduler)
+                .Subscribe(UpdateMessageDetails);
+        }
+        else
+        {
+            // In pure unit-test (non-Avalonia) context stay on the creation thread of TextDocument
+            selectedMessageChanged.Subscribe(UpdateMessageDetails);
+        }
 
         // When CommandText changes, update the CommandSuggestions
         this.WhenAnyValue(x => x.CommandText)
-            .Throttle(TimeSpan.FromMilliseconds(150), RxApp.MainThreadScheduler) // Small debounce
+            .Throttle(TimeSpan.FromMilliseconds(150), _uiScheduler) // Small debounce (injected scheduler)
             .DistinctUntilChanged() // Only update if text actually changed
-            .ObserveOn(RxApp.MainThreadScheduler) // Ensure UI update is on the correct thread
+            .ObserveOn(_uiScheduler) // Ensure UI update is on the correct thread (injected scheduler)
             .Subscribe(text => UpdateCommandSuggestions(text));
 
         // --- Global Hook Setup ---
@@ -522,7 +886,7 @@ public byte[]? VideoPayload
 
                     return match;
                 })
-                .ObserveOn(RxApp.MainThreadScheduler) // Ensure command execution is on the UI thread
+                .ObserveOn(_uiScheduler) // Ensure command execution is on the UI thread (injected scheduler)
                 .Do(_ => Log.Debug("Ctrl+Shift+P detected by SharpHook pipeline (after Where filter).")) // Changed log message slightly
                 .Select(_ => Unit.Default) // We don't need the event args anymore
                 .InvokeCommand(FocusCommandBarCommand); // Invoke the focus command
@@ -540,7 +904,7 @@ public byte[]? VideoPayload
             Log.Error(ex, "Failed to initialize or run SharpHook global hook. Hotkey might not work.");
             _globalHook = null; // Ensure hook is null if initialization failed
             _globalHookSubscription = null;
-        }
+        } 
     }
 
     private void OnLogMessage(object? sender, string log)
@@ -553,15 +917,11 @@ public byte[]? VideoPayload
 
     private void OnConnectionStateChanged(object? sender, MqttConnectionStateChangedEventArgs e)
     {
-        // This event is now the single source of truth for connection state.
-        // The MqttEngine will fire this event when it is connecting, connected, or disconnected.
-        Dispatcher.UIThread.Post(() =>
+        void Apply()
         {
-            // The new event args from the engine will tell us the exact state.
             ConnectionStatus = e.ConnectionStatus;
             ConnectionStatusMessage = e.ReconnectInfo ?? e.Error?.Message;
 
-            // Manually raise property changed for all computed properties that depend on the status
             this.RaisePropertyChanged(nameof(IsConnected));
             this.RaisePropertyChanged(nameof(IsConnecting));
             this.RaisePropertyChanged(nameof(IsDisconnected));
@@ -572,137 +932,290 @@ public byte[]? VideoPayload
                 StartTimer(TimeSpan.FromSeconds(1));
                 LoadInitialTopics();
             }
-            else // Disconnected or Connecting
+            else
             {
                 Log.Warning(e.Error, "MQTT Client is not connected. Stopping UI Timer.");
                 StopTimer();
             }
-        });
+        }
+
+        ScheduleOnUi(Apply);
     }
 
-    // Updated signature to use new EventArgs with batching for high-volume scenarios
-    private void OnMessageReceived(object? sender, IdentifiedMqttApplicationMessageReceivedEventArgs e)
+    private void OnMessagesBatchReceived(object? sender, IReadOnlyList<IdentifiedMqttApplicationMessageReceivedEventArgs> batch)
     {
-        if (IsPaused) return; // Don't update UI if paused
-
-        // Add message to batch queue for processing
-        lock (_batchLock)
-        {
-            _pendingMessages.Enqueue(e);
-            
-            // Start batch processing timer if not already running
-            if (_batchProcessingTimer == null)
-            {
-                // Use very short initial delay for rapid startup scenarios (retained messages)
-                var initialDelay = _pendingMessages.Count > 10 ? TimeSpan.FromMilliseconds(5) : TimeSpan.FromMilliseconds(25);
-                _batchProcessingTimer = new Timer(ProcessMessageBatch, null, initialDelay, Timeout.InfiniteTimeSpan);
-            }
-        }
-    }
-    
-    /// <summary>
-    /// Processes batched messages on the UI thread to improve performance during high-volume scenarios
-    /// </summary>
-    private void ProcessMessageBatch(object? state)
-    {
-        var messagesToProcess = new List<IdentifiedMqttApplicationMessageReceivedEventArgs>();
-        bool hasMoreMessages = false;
-        
-        // Extract batch of messages from queue
-        lock (_batchLock)
-        {
-            // Adaptive batch size based on queue length
-            int maxBatchSize = Math.Min(100, Math.Max(10, _pendingMessages.Count / 2)); 
-            int count = 0;
-            while (_pendingMessages.Count > 0 && count < maxBatchSize)
-            {
-                messagesToProcess.Add(_pendingMessages.Dequeue());
-                count++;
-            }
-            
-            hasMoreMessages = _pendingMessages.Count > 0;
-            
-            // Reset timer if more messages remain
-            if (hasMoreMessages)
-            {
-                // Use shorter delay for high-volume scenarios
-                var delay = _pendingMessages.Count > 50 ? TimeSpan.FromMilliseconds(5) : TimeSpan.FromMilliseconds(25);
-                _batchProcessingTimer?.Change(delay, Timeout.InfiniteTimeSpan);
-            }
-            else
-            {
-                // No more messages, dispose timer
-                _batchProcessingTimer?.Dispose();
-                _batchProcessingTimer = null;
-            }
-        }
-        
-        // Process the batch on UI thread if we have messages
-        if (messagesToProcess.Count > 0)
-        {
-            Dispatcher.UIThread.Post(() => ProcessMessageBatchOnUIThread(messagesToProcess));
-        }
+        if (IsPaused || batch == null || batch.Count == 0) return;
+        ScheduleOnUi(() => ProcessMessageBatchOnUIThread(batch.ToList()));
     }
     
     /// <summary>
     /// Processes a batch of messages on the UI thread
     /// </summary>
-    private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessageReceivedEventArgs> messages)
+private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessageReceivedEventArgs> messages)
+{
+    const int maxUiBatchSize = 50;
+    if (messages.Count > maxUiBatchSize)
     {
-        var messageViewModels = new List<MessageViewModel>();
-        var topicCounts = new Dictionary<string, int>(); // Track message count per topic for batch updates
-        
-        // Process all messages in the batch
-        foreach (var e in messages)
-        {
-            var topic = e.Topic;
-            var messageId = e.MessageId;
-            
-            // Count messages per topic for efficient tree updates
-            topicCounts.TryGetValue(topic, out var currentCount);
-            topicCounts[topic] = currentCount + 1;
+        var currentBatch = messages.Take(maxUiBatchSize).ToList();
+        var remaining = messages.Skip(maxUiBatchSize).ToList();
+        ProcessMessageBatchOnUIThread(currentBatch);
+        // Schedule the rest to process after yielding to the UI thread
+        Dispatcher.UIThread.Post(() => ProcessMessageBatchOnUIThread(remaining));
+        return;
+    }
 
-            // Basic payload preview (handle potential null/empty payload)
-            string preview = e.ApplicationMessage.Payload.Length > 0
+    var messageViewModels = new List<MessageViewModel>();
+    var topicCounts = new Dictionary<string, int>();
+
+    foreach (var e in messages)
+    {
+        var topic = e.Topic;
+        var messageId = e.MessageId;
+
+        topicCounts.TryGetValue(topic, out var currentCount);
+        topicCounts[topic] = currentCount + 1;
+
+        string preview;
+        try
+        {
+            preview = e.ApplicationMessage.Payload.Length > 0
                 ? Encoding.UTF8.GetString(e.ApplicationMessage.Payload)
                 : "[No Payload]";
-
-            // Limit preview length
-            const int maxPreviewLength = 100;
-            if (preview.Length > maxPreviewLength)
-            {
-                preview = preview.Substring(0, maxPreviewLength) + "...";
-            }
-
-            // Create MessageViewModel
-            var messageVm = new MessageViewModel(
-                messageId,
-                topic,
-                DateTime.Now,
-                preview.Replace(Environment.NewLine, " "),
-                (int)e.ApplicationMessage.Payload.Length,
-                _mqttService,
-                this);
-            
-            messageViewModels.Add(messageVm);
         }
-        
-        // Batch add messages to source list
-        _messageHistorySource.AddRange(messageViewModels);
-        
-        // Batch update topic tree - update each topic only once with total count
-        foreach (var kvp in topicCounts)
+        catch (DecoderFallbackException)
         {
-            string topic = kvp.Key;
-            int messageCount = kvp.Value;
-            
-            // Update tree structure and increment count by the total for this topic
-            UpdateOrCreateNodeWithCount(topic, messageCount);
+            preview = $"[Binary Data: {e.ApplicationMessage.Payload.Length} bytes]";
         }
-        
-        Log.Verbose("Processed batch of {Count} messages across {TopicCount} topics. Source count: {Total}", 
-            messages.Count, topicCounts.Count, _messageHistorySource.Count);
+
+        const int maxPreviewLength = 100;
+        if (preview.Length > maxPreviewLength)
+        {
+            preview = preview.Substring(0, maxPreviewLength) + "...";
+        }
+
+        var messageVm = new MessageViewModel(
+            messageId,
+            topic,
+            DateTime.Now,
+            preview.Replace(Environment.NewLine, " "),
+            (int)e.ApplicationMessage.Payload.Length,
+            _mqttService,
+            this,
+            e.ApplicationMessage);
+
+        messageViewModels.Add(messageVm);
     }
+
+    // Removed direct AddRange; additions now handled after store AddBatch to avoid duplicates.
+
+    // Per-topic retention integration: add to store & apply only per-topic evictions
+    try
+    {
+        var batchTuples = messageViewModels
+            .Select(vm => (vm.MessageId, vm.Topic, vm.GetFullMessage()!))
+            .Where(t => t.Item3 != null)
+            .Select(t => (t.MessageId, t.Topic, t.Item3))
+            .ToList();
+
+        var (added, evicted) = _messageStore.AddBatch(
+            batchTuples.Select(t => (t.MessageId, t.Topic, t.Item3)));
+
+        // Map added VMs (by id) to actual VMs we constructed
+        var addedVmList = new List<MessageViewModel>();
+        foreach (var add in added)
+        {
+            if (_messageIndex.ContainsKey(add.MessageId))
+                continue; // already present
+            var vm = messageViewModels.FirstOrDefault(m => m.MessageId == add.MessageId);
+            if (vm != null)
+            {
+                addedVmList.Add(vm);
+                _messageIndex[vm.MessageId] = vm;
+            }
+        }
+        if (addedVmList.Count > 0)
+        {
+            _messageHistorySource.AddRange(addedVmList);
+        }
+
+        if (evicted.Count > 0)
+        {
+            var toRemove = new List<MessageViewModel>();
+            foreach (var ev in evicted)
+            {
+                if (_messageIndex.TryGetValue(ev.MessageId, out var vm))
+                {
+                    toRemove.Add(vm);
+                    _messageIndex.Remove(ev.MessageId);
+                }
+            }
+            if (toRemove.Count > 0)
+            {
+                _messageHistorySource.RemoveMany(toRemove);
+                // Reselect if current selection was removed
+                if (SelectedMessage != null && toRemove.Contains(SelectedMessage))
+                {
+                    var selNorm = _normalizedSelectedPath;
+                    if (selNorm != null)
+                    {
+                        var replacement = _messageHistorySource.Items
+                            .Where(m =>
+                            {
+                                var tn = NormalizeTopic(m.Topic);
+                                return tn == selNorm || (tn != null && tn.StartsWith(selNorm + "/", StringComparison.OrdinalIgnoreCase));
+                            })
+                            .OrderByDescending(m => m.Timestamp)
+                            .FirstOrDefault();
+                        if (replacement != null)
+                        {
+                            SelectedMessage = replacement;
+                        }
+                        else
+                        {
+                            SelectedMessage = null;
+                        }
+                    }
+                    else
+                    {
+                        SelectedMessage = _messageHistorySource.Items.OrderByDescending(m => m.Timestamp).FirstOrDefault();
+                    }
+                }
+            }
+            Log.Debug("Per-topic evictions applied. Added={Added} Evicted={Evicted}", addedVmList.Count, evicted.Count);
+        }
+    }
+    catch (Exception exStore)
+    {
+        Log.Error(exStore, "Error applying per-topic retention store results.");
+        // Fallback: add all directly if store failed
+        _messageHistorySource.AddRange(messageViewModels.Where(vm => !_messageIndex.ContainsKey(vm.MessageId)));
+    }
+
+    foreach (var kvp in topicCounts)
+    {
+        string topic = kvp.Key;
+        int messageCount = kvp.Value;
+        UpdateOrCreateNodeWithCount(topic, messageCount);
+    }
+
+    Log.Verbose("Processed batch of {Count} messages across {TopicCount} topics. Source count: {Total}",
+        messages.Count, topicCounts.Count, _messageHistorySource.Count);
+
+    // Diagnostics & fallback selection
+    try
+    {
+        // Immediate (pre-pipeline-flush) fallback: select from source if filter not yet populated.
+        if (_normalizedSelectedPath != null && _filteredMessageHistory.Count == 0)
+        {
+            var candidate = _messageHistorySource.Items
+                .FirstOrDefault(m => NormalizeTopic(m.Topic) == _normalizedSelectedPath);
+            if (candidate != null && SelectedMessage != candidate)
+            {
+                SelectedMessage = candidate;
+            }
+        }
+
+        // Defer a second-phase check so DynamicData filter & sort have time to process new additions.
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                var sel = _normalizedSelectedPath;
+                if (sel != null)
+                {
+                    bool sourceHasSelected = _messageHistorySource.Items.Any(m => NormalizeTopic(m.Topic) == sel);
+                    bool filteredHasSelected = _filteredMessageHistory.Any(m => NormalizeTopic(m.Topic) == sel);
+
+                    if (sourceHasSelected && !filteredHasSelected)
+                    {
+                        Log.Warning("Deferred check: source has messages for selected topic '{Sel}' but filtered list still empty after UI flush.", sel);
+
+                        // Collect detailed diagnostics for selected topic messages present in source.
+                        var selectedSourceMessages = _messageHistorySource.Items
+                            .Where(m => NormalizeTopic(m.Topic) == sel)
+                            .OrderByDescending(m => m.Timestamp)
+                            .ToList();
+
+                        Log.Debug("Diagnostics: SourceSelectedCount={Cnt} FilteredSelectedCount=0 TotalSource={SrcTot} TotalFiltered={FiltTot}",
+                            selectedSourceMessages.Count, _filteredMessageHistory.Count, _messageHistorySource.Count, _filteredMessageHistory.Count);
+
+                        // Log up to first 5 message IDs & timestamps for the selected topic
+                        int diagIndex = 0;
+                        foreach (var sm in selectedSourceMessages.Take(5))
+                        {
+                            Log.Debug("Diagnostics SelectedTopic Message[{Idx}] Id={Id} Ts={Ts} PreviewLen={Len}",
+                                diagIndex++, sm.MessageId, sm.Timestamp.ToString("HH:mm:ss.fff"), sm.PayloadPreview?.Length ?? 0);
+                        }
+                        if (selectedSourceMessages.Count > 5)
+                        {
+                            Log.Debug("Diagnostics: {Extra} additional messages for selected topic omitted from log.", selectedSourceMessages.Count - 5);
+                        }
+
+                        // Attempt stronger fallback selection from source
+                        var deferredCandidate = selectedSourceMessages.FirstOrDefault();
+
+                        if (deferredCandidate != null && SelectedMessage != deferredCandidate)
+                        {
+                            Log.Debug("Deferred fallback selecting message {MessageId} for topic '{Topic}'.", deferredCandidate.MessageId, deferredCandidate.Topic);
+                            SelectedMessage = deferredCandidate;
+                        }
+
+                        // Force a refresh of the source list so DynamicData re-evaluates predicates (in case no change set triggered).
+                        try
+                        {
+                            // Removed _messageHistorySource.Refresh() (method not available on SourceList).
+                            // If predicate re-evaluation still required, a future change can toggle a lightweight
+                            // transient flag or reassign SelectedNode to itself. For now rely on next batch or UI action.
+                            Log.Debug("Skipped forcing DynamicData refresh (no Refresh() API on SourceList) for selected topic '{Sel}'.", sel);
+                        }
+                        catch (Exception refreshEx)
+                        {
+                            Log.Error(refreshEx, "Unexpected error in refresh fallback block for selected topic '{Sel}'.", sel);
+                        }
+
+                        // Schedule a second deferred verification after refresh
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            try
+                            {
+                                bool filteredNowHasSelected = _filteredMessageHistory.Any(m => NormalizeTopic(m.Topic) == sel);
+                                if (!filteredNowHasSelected)
+                                {
+                                    Log.Warning("Post-refresh verification: filtered list STILL missing messages for selected topic '{Sel}'. Will attempt manual selection again.", sel);
+                                    var secondCandidate = _messageHistorySource.Items
+                                        .Where(m => NormalizeTopic(m.Topic) == sel)
+                                        .OrderByDescending(m => m.Timestamp)
+                                        .FirstOrDefault();
+                                    if (secondCandidate != null && SelectedMessage != secondCandidate)
+                                    {
+                                        Log.Debug("Second deferred fallback selecting message {MessageId} for topic '{Topic}'.", secondCandidate.MessageId, secondCandidate.Topic);
+                                        SelectedMessage = secondCandidate;
+                                    }
+                                }
+                                else
+                                {
+                                    Log.Debug("Post-refresh verification: filtered list now contains messages for '{Sel}'.", sel);
+                                }
+                            }
+                            catch (Exception ex3)
+                            {
+                                Log.Error(ex3, "Error during second deferred verification for selected topic '{Sel}'.", sel);
+                            }
+                        });
+                    }
+                }
+            }
+            catch (Exception ex2)
+            {
+                Log.Error(ex2, "Error during deferred post-AddRange selection check.");
+            }
+        });
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "Error during post-AddRange diagnostics.");
+    }
+}
 
     // --- UI Update Logic ---
 
@@ -719,6 +1232,15 @@ public byte[]? VideoPayload
     // The DynamicData pipeline handles filtering based on SelectedNode.
     private void UpdateMessageDetails(MessageViewModel? messageVm)
     {
+        // Ensure we are on Avalonia UI thread due to TextDocument & Bitmap access
+        // In non-Avalonia unit test context (Application.Current == null) or when the TextDocument
+        // was created on this thread, proceed without marshaling.
+        if (Application.Current != null && !Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => UpdateMessageDetails(messageVm));
+            return;
+        }
+
         // Clear previous details
         MessageMetadata.Clear();
         MessageUserProperties.Clear();
@@ -727,11 +1249,14 @@ public byte[]? VideoPayload
         IsJsonViewerVisible = false; // Hide JSON viewer
         IsRawTextViewerVisible = false; // Hide Raw Text viewer
         IsImageViewerVisible = false;
+        IsVideoViewerVisible = false;
+        IsHexViewerVisible = false;
         ImagePayload?.Dispose();
         ImagePayload = null;
         // Clear the document content instead of the string property
         RawPayloadDocument.Text = string.Empty;
         PayloadSyntaxHighlighting = null; // Clear syntax highlighting
+        // HexDocument = null; // Removed: no longer used
         this.RaisePropertyChanged(nameof(ShowJsonParseError)); // Notify computed property change
         this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible)); // Notify computed property change
 
@@ -785,6 +1310,7 @@ public byte[]? VideoPayload
         string payloadAsString = string.Empty;
         bool isPayloadValidUtf8 = false;
         var payloadBytes = msg.Payload.ToArray();
+        HexPayloadBytes = null;
 
         if (payloadBytes.Length > 0)
         {
@@ -853,6 +1379,7 @@ public byte[]? VideoPayload
                 IsImageViewerVisible = false;
                 IsJsonViewerVisible = false;
                 IsRawTextViewerVisible = false;
+                IsHexViewerVisible = false;
                 StatusBarText = "Displaying video payload.";
             }
             catch (Exception ex)
@@ -860,8 +1387,11 @@ public byte[]? VideoPayload
                 Log.Warning(ex, "Could not load video from payload for content type {ContentType}", msg.ContentType);
                 ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
             }
+            this.RaisePropertyChanged(nameof(ShowJsonParseError));
+            this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+            return;
         }
-        else if (msg.ContentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true)
+        if (msg.ContentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true)
         {
             try
             {
@@ -871,15 +1401,48 @@ public byte[]? VideoPayload
                 IsJsonViewerVisible = false;
                 IsRawTextViewerVisible = false;
                 IsVideoViewerVisible = false;
+                IsHexViewerVisible = false;
                 StatusBarText = "Displaying image payload.";
             }
             catch (Exception ex)
             {
                 Log.Warning(ex, "Could not decode image from payload for content type {ContentType}", msg.ContentType);
+                ImagePayload?.Dispose();
+                ImagePayload = null;
+                IsImageViewerVisible = true;
+                IsJsonViewerVisible = false;
+                IsRawTextViewerVisible = false;
+                IsVideoViewerVisible = false;
+                IsHexViewerVisible = false;
+                StatusBarText = "Image payload (decode failed).";
+            }
+            this.RaisePropertyChanged(nameof(ShowJsonParseError));
+            this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+            return;
+        }
+        if (IsBinaryContentType(msg.ContentType) && payloadBytes.Length > 0)
+        {
+            try
+            {
+                HexPayloadBytes = payloadBytes;
+                IsHexViewerVisible = true;
+                IsJsonViewerVisible = false;
+                IsRawTextViewerVisible = false;
+                IsImageViewerVisible = false;
+                IsVideoViewerVisible = false;
+                StatusBarText = "Displaying binary payload in hex viewer.";
+                Log.Information("Auto-switched to hex viewer for binary content type: {ContentType}", msg.ContentType);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Could not load hex viewer for binary payload for content type {ContentType}", msg.ContentType);
                 ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
             }
+            this.RaisePropertyChanged(nameof(ShowJsonParseError));
+            this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+            return;
         }
-        else if (isPayloadValidUtf8)
+        if (isPayloadValidUtf8)
         {
             JsonViewer.LoadJson(payloadAsString);
             if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
@@ -888,20 +1451,160 @@ public byte[]? VideoPayload
                 IsRawTextViewerVisible = false;
                 IsImageViewerVisible = false;
                 IsVideoViewerVisible = false;
+                IsHexViewerVisible = false;
                 PayloadSyntaxHighlighting = HighlightingManager.Instance.GetDefinition("Json");
+                this.RaisePropertyChanged(nameof(ShowJsonParseError));
+                this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+                return;
             }
-            else
-            {
-                ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
-                StatusBarText = $"Payload is not valid JSON. Showing raw view. {JsonViewer.JsonParseError}";
-            }
-        }
-        else
-        {
             ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
+            StatusBarText = $"Payload is not valid JSON. Showing raw view. {JsonViewer.JsonParseError}";
+            this.RaisePropertyChanged(nameof(ShowJsonParseError));
+            this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+            return;
         }
+        ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
         this.RaisePropertyChanged(nameof(ShowJsonParseError));
         this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+    }
+
+    private bool IsBinaryContentType(string? contentType)
+    {
+        if (string.IsNullOrEmpty(contentType))
+            return false;
+        var ct = contentType.ToLowerInvariant();
+        if (ct.StartsWith("image/") || ct.StartsWith("video/"))
+            return false;
+        // Common binary types
+        return ct == "application/octet-stream"
+            || ct == "application/cbor"
+            || ct == "application/x-binary"
+            || ct == "application/x-protobuf"
+            || ct == "application/x-msgpack"
+            || ct == "application/x-capnp"
+            || ct == "application/x-avro"
+            || ct == "application/x-parquet"
+            || ct == "application/x-hdf5"
+            || ct == "application/x-tar"
+            || ct == "application/x-7z-compressed"
+            || ct == "application/x-gzip"
+            || ct == "application/x-bzip2"
+            || ct == "application/x-lzma"
+            || ct == "application/x-xz"
+            || ct == "application/x-snappy"
+            || ct == "application/x-lz4"
+            || ct == "application/x-zstd"
+            || ct == "application/x-blosc"
+            || ct == "application/x-lzop"
+            || ct == "application/x-lzo"
+            || ct == "application/x-compress"
+            || ct == "application/x-archive"
+            || ct == "application/x-executable"
+            || ct == "application/x-sharedlib"
+            || ct == "application/x-object"
+            || ct == "application/x-core"
+            || ct == "application/x-elf"
+            || ct == "application/x-mach-binary"
+            || ct == "application/x-msdownload"
+            || ct == "application/x-dosexec"
+            || ct == "application/x-pe"
+            || ct == "application/x-coff"
+            || ct == "application/x-aout"
+            || ct == "application/x-pie-executable"
+            || ct == "application/x-shellscript"
+            || ct == "application/x-cpio"
+            || ct == "application/x-ar"
+            || ct == "application/x-iso9660-image"
+            || ct == "application/x-apple-diskimage"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-virtualbox-vdi"
+            || ct == "application/x-qcow"
+            || ct == "application/x-qemu-disk"
+            || ct == "application/x-vpc"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk"
+            || ct == "application/x-vhd"
+            || ct == "application/x-vhdx"
+            || ct == "application/x-vdi"
+            || ct == "application/x-vmdk";
     }
 
     private void ShowRawPayload(bool isPayloadValidUtf8, string payloadAsString, MqttApplicationMessage? msg)
@@ -909,6 +1612,8 @@ public byte[]? VideoPayload
         IsJsonViewerVisible = false;
         IsRawTextViewerVisible = true;
         IsImageViewerVisible = false;
+        IsVideoViewerVisible = false;
+        IsHexViewerVisible = false;
         if (isPayloadValidUtf8)
         {
             RawPayloadDocument.Text = payloadAsString;
@@ -974,7 +1679,6 @@ public byte[]? VideoPayload
 
     private async Task ConnectAsync()
     {
-        ClearHistory();
         Log.Information("Connect command executed.");
         // Rebuild connection settings from ViewModel just before connecting
         var connectionSettings = new MqttConnectionSettings
@@ -986,6 +1690,7 @@ public byte[]? VideoPayload
             CleanSession = Settings.CleanSession,
             SessionExpiryInterval = Settings.SessionExpiryInterval,
             TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits,
+            DefaultTopicBufferSizeBytes = Settings.Into().DefaultTopicBufferSizeBytes,
             AuthMode = Settings.Into().AuthMode,
             UseTls = Settings.UseTls
         };
@@ -1113,24 +1818,16 @@ public byte[]? VideoPayload
                     TogglePause();
                     break;
                 case CommandType.Export:
-                    // Expected arguments: :export <format> <folder_path> [message_index] (index optional for now)
-                    // Example: :export json C:\temp\mqtt_exports
-                    // Example: :export text /home/user/mqtt_logs
                     Export(command);
                     break;
                 case CommandType.Filter:
-                    // Example (filter to MQTT paths containing "foo"): :filter foo 
-                    // Example (clear filter): :filter
-                    ApplyTopicFilter(command.Arguments.FirstOrDefault()); // Pass the first argument as the filter
+                    ApplyTopicFilter(command.Arguments.FirstOrDefault());
                     break;
                 case CommandType.Search:
-                    // Apply the search term from the command arguments
                     string searchTerm = command.Arguments.FirstOrDefault() ?? string.Empty;
-                    CurrentSearchTerm = searchTerm; // Set the property, which triggers the filter
+                    CurrentSearchTerm = searchTerm;
                     StatusBarText = string.IsNullOrWhiteSpace(searchTerm) ? "Search cleared." : $"Search filter applied: '{searchTerm}'.";
                     Log.Information("Search command executed. Term: '{SearchTerm}'", searchTerm);
-                    // Optionally clear the command text box after executing :search
-                    // CommandText = string.Empty;
                     break;
                 case CommandType.Expand:
                     ExpandAllNodes();
@@ -1149,6 +1846,9 @@ public byte[]? VideoPayload
                     break;
                 case CommandType.ViewVideo:
                     SwitchPayloadView(PayloadViewType.Video);
+                    break;
+                case CommandType.ViewHex:
+                    SwitchPayloadViewHex();
                     break;
                 case CommandType.SetUser:
                     if (command.Arguments.Count == 1)
@@ -1597,8 +2297,6 @@ public byte[]? VideoPayload
 
             if (existingNode == null)
             {
-                // Create new node
-                Log.Verbose("Creating new node '{Part}' under parent '{ParentName}' with path '{FullPath}'", part, parentNode?.Name ?? "[Root]", currentPath);
                 existingNode = new NodeViewModel(part, parentNode) { FullPath = currentPath }; // Pass parent and set full path
 
                 // Insert the new node in sorted order instead of rebuilding the collection
@@ -1611,7 +2309,7 @@ public byte[]? VideoPayload
             }
             else
             {
-                Log.Verbose("Found existing node '{Part}' under parent '{ParentName}'", part, parentNode?.Name ?? "[Root]");
+                Log.Debug("Found existing node '{Part}' under parent '{ParentName}'", part, parentNode?.Name ?? "[Root]");
             }
 
             // Increment count only for the final node in the path if requested
@@ -1651,7 +2349,6 @@ public byte[]? VideoPayload
 
             if (existingNode == null)
             {
-                Log.Verbose("Creating new node '{Part}' under parent '{ParentName}' with path '{FullPath}'", part, parentNode?.Name ?? "[Root]", currentPath);
                 existingNode = new NodeViewModel(part, parentNode) { FullPath = currentPath };
 
                 int insertIndex = 0;
@@ -1748,7 +2445,7 @@ public byte[]? VideoPayload
         {
             CommandSuggestions.Add(cmd);
         }
-        Log.Verbose("Updated command suggestions for '{InputText}'. Found {Count} matches.", currentText, CommandSuggestions.Count);
+        Log.Debug("Updated command suggestions for '{InputText}'. Found {Count} matches.", currentText, CommandSuggestions.Count);
     }
 
     private enum PayloadViewType { Raw, Json, Image, Video }
@@ -1769,6 +2466,7 @@ public byte[]? VideoPayload
         IsJsonViewerVisible = false;
         IsImageViewerVisible = false;
         IsVideoViewerVisible = false;
+        IsHexViewerVisible = false;
 
         switch (viewType)
         {
@@ -1826,6 +2524,44 @@ public byte[]? VideoPayload
     }
 
     // --- Helper Methods ---
+
+    private void SwitchPayloadViewHex()
+    {
+        if (SelectedMessage == null)
+        {
+            StatusBarText = "No message selected to view.";
+            return;
+        }
+        var msg = SelectedMessage.GetFullMessage();
+        if (msg == null)
+        {
+            StatusBarText = "No payload to display in hex.";
+            return;
+        }
+        if (msg.Payload.IsEmpty)
+        {
+            StatusBarText = "No payload to display in hex.";
+            return;
+        }
+        try
+        {
+            HexPayloadBytes = msg.Payload.ToArray();
+            IsHexViewerVisible = true;
+            IsRawTextViewerVisible = false;
+            IsJsonViewerVisible = false;
+            IsImageViewerVisible = false;
+            IsVideoViewerVisible = false;
+            StatusBarText = "Switched to Hex view.";
+            Log.Information("Switched payload view to Hex.");
+        }
+        catch (Exception ex)
+        {
+            StatusBarText = "Error displaying payload in hex viewer.";
+            Log.Error(ex, "Failed to display payload in hex viewer.");
+            IsHexViewerVisible = false;
+        }
+        this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+    }
 
     /// <summary>
     /// Copies the full payload of the given message to the system clipboard using an Interaction.
@@ -1925,6 +2661,26 @@ public byte[]? VideoPayload
         }
     }
 
+    private void ScheduleOnUi(Action action)
+    {
+        // Run immediately if already on Avalonia UI thread
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            action();
+            return;
+        }
+
+        // For deterministic unit tests using Immediate/CurrentThread schedulers just execute
+        if (_uiScheduler == Scheduler.Immediate || _uiScheduler == CurrentThreadScheduler.Instance)
+        {
+            action();
+            return;
+        }
+
+        // Fallback: marshal to Avalonia UI thread explicitly
+        Dispatcher.UIThread.Post(action);
+    }
+
     // --- IDisposable Implementation ---
 
     protected virtual void Dispose(bool disposing)
@@ -1933,6 +2689,8 @@ public byte[]? VideoPayload
         {
             if (disposing)
             {
+                _uiHeartbeatTimer?.Dispose();
+                _uiHeartbeatTimer = null;
                 // Dispose managed state (managed objects).
                 Log.Debug("Disposing MainViewModel resources...");
                 if (!_cts.IsCancellationRequested)

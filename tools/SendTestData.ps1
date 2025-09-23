@@ -3,13 +3,26 @@
 
 param(
     [string]$SettingsPath = "$env:LOCALAPPDATA\CrowsNestMqtt\settings.json",
-    [string]$ImagePath = "tests\TestData\test-image.png",
-    [string]$VideoPath = "tests\TestData\test-video.mp4",
-    [string]$JsonPath = "tests\TestData\test-struct.json"
+    [string]$ImagePath = "",
+    [string]$VideoPath = "",
+    [string]$JsonPath = "",
+    [string]$BinaryPath = ""
 )
 
+# --- Resolve repo root and test data paths ---
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+$defaultImagePath = Join-Path $repoRoot "tests\TestData\test-image.png"
+$defaultVideoPath = Join-Path $repoRoot "tests\TestData\test-video.mp4"
+$defaultJsonPath = Join-Path $repoRoot "tests\TestData\test-struct.json"
+$defaultBinaryPath = Join-Path $repoRoot "tests\TestData\story.7z"
+
+if (-not $ImagePath -or $ImagePath -eq "") { $ImagePath = $defaultImagePath }
+if (-not $VideoPath -or $VideoPath -eq "") { $VideoPath = $defaultVideoPath }
+if (-not $JsonPath -or $JsonPath -eq "") { $JsonPath = $defaultJsonPath }
+if (-not $BinaryPath -or $BinaryPath -eq "") { $BinaryPath = $defaultBinaryPath }
+
 # Ensure MQTTnet is available
-$nuget = [System.IO.Path]::Combine($env:TEMP, "MQTTnet.5.0.1.1416.nupkg")
+$nuget = [System.IO.Path]::Combine($env:TEMP, "mqttnet.5.0.1.1416.nupkg")
 if (-not (Test-Path $nuget)) {
     Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/MQTTnet/5.0.1.1416" -OutFile $nuget
 }
@@ -25,7 +38,7 @@ $settings = Get-Content $SettingsPath | ConvertFrom-Json
 $mqttHost = $settings.Hostname
 $port = $settings.Port
 $useTls = $settings.UseTls
-$clientId = if ($settings.ClientId -and $settings.ClientId -ne "") { $settings.ClientId } else { "pwsh-mqtt-$(Get-Random)" }
+$clientId = "pwsh-mqtt-$(Get-Random)"
 
 # Read image as bytes
 $imageBytes = [System.IO.File]::ReadAllBytes($ImagePath)
@@ -81,6 +94,20 @@ $jsonMessage = $jsonMsgBuilder.Build()
 
 $null = $client.PublishAsync($jsonMessage).GetAwaiter().GetResult()
 Write-Host "JSON sent to topic 'test/viewer/json' with content-type 'application/json'."
+
+# --- Send binary file ---
+
+$binaryBytes = [System.IO.File]::ReadAllBytes($BinaryPath)
+Write-Host "Loaded JSON file: $BinaryPath ($($binaryBytes.Length) bytes)"
+
+$binaryMsgBuilder = [MQTTnet.MqttApplicationMessageBuilder]::new()
+$binaryMsgBuilder = $jsonMsgBuilder.WithTopic("test/viewer/hex").WithPayload($binaryBytes)
+$binaryMsgBuilder = $jsonMsgBuilder.WithContentType("application/octet-stream")
+$binaryMsgBuilder = $jsonMsgBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+$binaryMessage = $binaryMsgBuilder.Build()
+
+$null = $client.PublishAsync($binaryMessage).GetAwaiter().GetResult()
+Write-Host "Binary sent to topic 'test/viewer/hex' with content-type 'application/octet-stream'."
 
 # Disconnect
 $opts = [MQTTnet.MqttClientDisconnectOptions]::new()

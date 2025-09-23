@@ -19,6 +19,11 @@ public class TopicBufferLimitViewModel : ReactiveObject
         set => this.RaiseAndSetIfChanged(ref _maxSizeBytes, value);
     }
 
+    /// <summary>
+    /// Indicates whether this topic limit can be removed. The default '#' limit cannot be removed.
+    /// </summary>
+    public bool CanBeRemoved => TopicFilter != "#";
+
     public TopicBufferLimitViewModel()
     {
     }

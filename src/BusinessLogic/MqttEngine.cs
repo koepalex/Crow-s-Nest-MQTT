@@ -44,6 +44,7 @@ private MqttClientOptions? _currentOptions;
     private readonly ConcurrentDictionary<string, TopicRingBuffer> _topicBuffers;
     private IList<TopicBufferLimit> _topicSpecificBufferLimits = new List<TopicBufferLimit>();
     internal const long DefaultMaxTopicBufferSize = 1 * 1024 * 1024; // Changed to internal const
+    private readonly object _bufferReconfigLock = new(); // Lock for reconfiguring existing topic buffers
 
     // Batch processing for high-volume message scenarios  
     private readonly ConcurrentQueue<MqttApplicationMessageReceivedEventArgs> _pendingMessages = new();
@@ -51,14 +52,14 @@ private MqttClientOptions? _currentOptions;
     private readonly Dictionary<string, long> _topicBufferSizeCache = new(); // Cache buffer sizes to avoid repeated calculations
 
     // Modified event signature
-    public event EventHandler<IdentifiedMqttApplicationMessageReceivedEventArgs>? MessageReceived;
+    public event EventHandler<IReadOnlyList<IdentifiedMqttApplicationMessageReceivedEventArgs>>? MessagesBatchReceived;
     public event EventHandler<MqttConnectionStateChangedEventArgs>? ConnectionStateChanged;
     public event EventHandler<string>? LogMessage;
 
     public MqttEngine(MqttConnectionSettings settings)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        _topicSpecificBufferLimits = settings.TopicSpecificBufferLimits;
+        _topicSpecificBufferLimits = EnsureDefaultTopicLimit(settings.TopicSpecificBufferLimits, settings.DefaultTopicBufferSizeBytes);
         var factory = new MqttClientFactory();
         _client = factory.CreateMqttClient();
         _topicBuffers = new ConcurrentDictionary<string, TopicRingBuffer>();
@@ -70,13 +71,41 @@ private MqttClientOptions? _currentOptions;
         _messageProcessingTimer = new Timer(ProcessMessageBatch, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(200));
     }
 
+    /// <summary>
+    /// Ensures the default '#' topic limit is present in the provided list.
+    /// Returns a new list with the default limit if it wasn't present.
+    /// </summary>
+    private static IList<TopicBufferLimit> EnsureDefaultTopicLimit(IList<TopicBufferLimit>? limits, long? customDefaultSize = null)
+    {
+        var result = limits?.ToList() ?? new List<TopicBufferLimit>();
+        
+        // Check if '#' limit already exists
+        bool hasDefaultLimit = result.Any(limit => limit.TopicFilter == "#");
+        
+        // Only add default '#' limit if not present
+        if (!hasDefaultLimit)
+        {
+            long defaultSize = customDefaultSize ?? DefaultMaxTopicBufferSize;
+            result.Add(new TopicBufferLimit("#", defaultSize));
+        }
+        
+        return result;
+    }
+
     // ... (UpdateSettings, SubscribeToTopicsAsync, BuildMqttOptions, ConnectAsync, DisconnectAsync, PublishAsync, SubscribeAsync, UnsubscribeAsync remain largely the same) ...
     // UpdateSettings method
     public void UpdateSettings(MqttConnectionSettings newSettings)
     {
         _settings = newSettings ?? throw new ArgumentNullException(nameof(newSettings));
-        _topicSpecificBufferLimits = newSettings.TopicSpecificBufferLimits;
-        LogMessage?.Invoke(this, "MqttEngine settings updated.");
+        _topicSpecificBufferLimits = EnsureDefaultTopicLimit(newSettings.TopicSpecificBufferLimits, newSettings.DefaultTopicBufferSizeBytes);
+
+        // Clear cached computed sizes so they are recalculated using new rules
+        _topicBufferSizeCache.Clear();
+
+        // Reapply (and resize/trim) existing buffers
+        ApplyCurrentLimitsToExistingBuffers();
+
+        LogMessage?.Invoke(this, "MqttEngine settings updated and buffer limits reapplied.");
     }
 
     // Helper method for initial subscription and resubscription
@@ -317,13 +346,25 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     }
 
     /// <summary>
-    /// Retrieves the buffered messages for a specific topic.
+    /// Retrieves the buffered messages for a specific topic, including their IDs.
     /// </summary>
-    public IEnumerable<MqttApplicationMessage>? GetMessagesForTopic(string topic)
+    public IEnumerable<CrowsNestMqtt.Utils.BufferedMqttMessage>? GetBufferedMessagesForTopic(string topic)
     {
         if (_topicBuffers.TryGetValue(topic, out var buffer))
         {
-            return buffer.GetMessages().ToList(); // Returns snapshot
+            return buffer.GetBufferedMessages().ToList();
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Retrieves the buffered messages for a specific topic, including their IDs.
+    /// </summary>
+    public IEnumerable<CrowsNestMqtt.Utils.BufferedMqttMessage>? GetMessagesForTopic(string topic)
+    {
+        if (_topicBuffers.TryGetValue(topic, out var buffer))
+        {
+            return buffer.GetBufferedMessages().ToList();
         }
         return null;
     }
@@ -346,6 +387,7 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
             buffer.Clear();
         }
         _topicBuffers.Clear();
+        _topicBufferSizeCache.Clear();
         LogMessage?.Invoke(this, "All topic buffers cleared.");
     }
 
@@ -367,6 +409,146 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
         return false;
     }
     // ---------------
+
+    // --- Internal Test Helper Methods (exposed via InternalsVisibleTo UnitTests) ---
+    /// <summary>
+    /// Injects a synthetic test message directly into the engine buffers (bypassing MQTT client).
+    /// </summary>
+    internal bool InjectTestMessage(string topic, byte[] payload)
+    {
+        if (string.IsNullOrWhiteSpace(topic) || payload == null)
+            return false;
+
+        var msg = new MqttApplicationMessageBuilder()
+            .WithTopic(topic)
+            .WithPayload(payload)
+            .Build();
+
+        if (!_topicBufferSizeCache.TryGetValue(topic, out var bufferSize))
+        {
+            bufferSize = GetMaxBufferSizeForTopic(topic);
+            _topicBufferSizeCache[topic] = bufferSize;
+        }
+
+        // Use AddOrUpdate to ensure correct buffer size - same logic as ProcessMessageBatchInternal
+        var buffer = _topicBuffers.AddOrUpdate(topic, 
+            // Factory for new buffer - use correct calculated size
+            _ => {
+                AppLogger.Information($"InjectTestMessage: Creating NEW TopicRingBuffer for '{topic}' with size {bufferSize} bytes");
+                return new TopicRingBuffer(bufferSize);
+            },
+            // Update factory for existing buffer - check size and recreate if needed
+            (_, existingBuffer) => {
+                if (existingBuffer.MaxSizeInBytes != bufferSize)
+                {
+                    AppLogger.Warning($"InjectTestMessage: BUFFER SIZE MISMATCH for '{topic}': existing={existingBuffer.MaxSizeInBytes}, calculated={bufferSize}. Recreating buffer immediately.");
+                    
+                    // Get existing messages
+                    var existingMessages = existingBuffer.GetBufferedMessages().ToList();
+                    
+                    // Create new buffer with correct size
+                    var newBuffer = new TopicRingBuffer(bufferSize);
+                    
+                    // Restore existing messages
+                    foreach (var existingMsg in existingMessages)
+                    {
+                        newBuffer.AddMessage(existingMsg.Message, existingMsg.MessageId);
+                    }
+                    
+                    AppLogger.Information($"InjectTestMessage: Recreated buffer for '{topic}' with correct size {bufferSize} bytes");
+                    return newBuffer;
+                }
+                return existingBuffer;
+            });
+            
+        buffer.AddMessage(msg, Guid.NewGuid());
+        return true;
+    }
+
+    /// <summary>
+    /// Returns the current aggregated byte size of the buffer for the given topic.
+    /// </summary>
+    internal long GetCurrentBufferedSize(string topic)
+    {
+        if (_topicBuffers.TryGetValue(topic, out var buffer))
+        {
+            return buffer.CurrentSizeInBytes;
+        }
+        return 0;
+    }
+
+    /// <summary>
+    /// Returns the current message count for the given topic buffer.
+    /// </summary>
+    internal int GetBufferedMessageCount(string topic)
+    {
+        if (_topicBuffers.TryGetValue(topic, out var buffer))
+        {
+            return buffer.Count;
+        }
+        return 0;
+    }
+
+    /// <summary>
+    /// Returns the actual MaxSizeInBytes property of the buffer for the given topic.
+    /// This is different from GetMaxBufferSizeForTopic which calculates what the size should be.
+    /// </summary>
+    internal long GetActualBufferMaxSize(string topic)
+    {
+        if (_topicBuffers.TryGetValue(topic, out var buffer))
+        {
+            return buffer.MaxSizeInBytes;
+        }
+        return -1; // Buffer doesn't exist
+    }
+    // --- End Test Helpers ---
+
+    /// <summary>
+    /// Re-evaluates buffer size rules for all existing topic buffers and recreates any whose
+    /// configured maximum differs from the newly computed rule-based size.
+    /// </summary>
+    private void ApplyCurrentLimitsToExistingBuffers()
+    {
+        lock (_bufferReconfigLock)
+        {
+            // Snapshot keys to avoid issues if dictionary mutated during loop
+            var topics = _topicBuffers.Keys.ToList();
+            foreach (var topic in topics)
+            {
+                if (!_topicBuffers.TryGetValue(topic, out var existingBuffer))
+                    continue;
+
+                long newMax = GetMaxBufferSizeForTopic(topic);
+                if (newMax == existingBuffer.MaxSizeInBytes)
+                {
+                    // Still update cache so subsequent batches don't recompute
+                    _topicBufferSizeCache[topic] = newMax;
+                    continue;
+                }
+
+                try
+                {
+                    var buffered = existingBuffer.GetBufferedMessages().ToList(); // Oldest -> newest
+                    var newBuffer = new TopicRingBuffer(newMax);
+
+                    // Re-add messages; overflow eviction handled by TopicRingBuffer itself
+                    foreach (var bm in buffered)
+                    {
+                        newBuffer.AddMessage(bm.Message, bm.MessageId);
+                    }
+
+                    _topicBuffers[topic] = newBuffer;
+                    _topicBufferSizeCache[topic] = newMax;
+
+                    LogMessage?.Invoke(this, $"Rebuilt buffer for topic '{topic}' with new max {newMax} bytes (was {existingBuffer.MaxSizeInBytes}).");
+                }
+                catch (Exception ex)
+                {
+                    LogMessage?.Invoke(this, $"Error rebuilding buffer for topic '{topic}': {ex.Message}");
+                }
+            }
+        }
+    }
 
     internal static int MatchTopic(string topic, string filter) // Changed to internal static
     {
@@ -450,19 +632,31 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
         long bestMatchSize = DefaultMaxTopicBufferSize;
         int bestMatchScore = -1;
 
-        if (_topicSpecificBufferLimits == null) return bestMatchSize;
+        AppLogger.Information($"GetMaxBufferSizeForTopic called for '{topic}'. Starting with default {bestMatchSize} bytes");
+        AppLogger.Information($"Available buffer limits count: {_topicSpecificBufferLimits?.Count ?? 0}");
+
+        if (_topicSpecificBufferLimits == null) 
+        {
+            AppLogger.Warning($"No topic buffer limits configured, using default {bestMatchSize} bytes for '{topic}'");
+            return bestMatchSize;
+        }
 
         foreach (var rule in _topicSpecificBufferLimits)
         {
             if (string.IsNullOrEmpty(rule.TopicFilter)) continue;
 
             int currentScore = MatchTopic(topic, rule.TopicFilter);
+            AppLogger.Information($"Topic '{topic}' vs rule '{rule.TopicFilter}' ({rule.MaxSizeBytes} bytes): score = {currentScore}");
+            
             if (currentScore > bestMatchScore)
             {
                 bestMatchScore = currentScore;
                 bestMatchSize = rule.MaxSizeBytes;
+                AppLogger.Information($"New best match for '{topic}': rule '{rule.TopicFilter}' with {rule.MaxSizeBytes} bytes (score {currentScore})");
             }
         }
+        
+        AppLogger.Information($"Final result for '{topic}': {bestMatchSize} bytes (best score: {bestMatchScore})");
         return bestMatchSize;
     }
 
@@ -619,8 +813,38 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
                 _topicBufferSizeCache[topic] = bufferSize;
             }
             
-            // Store message in buffer with the new ID
-            var buffer = _topicBuffers.GetOrAdd(topic, _ => new TopicRingBuffer(bufferSize));
+            // Store message in buffer with the new ID - ensuring correct size
+            var buffer = _topicBuffers.AddOrUpdate(topic, 
+                // Factory for new buffer - use correct calculated size
+                _ => {
+                    AppLogger.Information($"Creating NEW TopicRingBuffer for '{topic}' with size {bufferSize} bytes");
+                    return new TopicRingBuffer(bufferSize);
+                },
+                // Update factory for existing buffer - check size and recreate if needed
+                (_, existingBuffer) => {
+                    if (existingBuffer.MaxSizeInBytes != bufferSize)
+                    {
+                        AppLogger.Warning($"BUFFER SIZE MISMATCH for '{topic}': existing={existingBuffer.MaxSizeInBytes}, calculated={bufferSize}. Recreating buffer immediately.");
+                        
+                        // Get existing messages
+                        var existingMessages = existingBuffer.GetBufferedMessages().ToList();
+                        
+                        // Create new buffer with correct size
+                        var newBuffer = new TopicRingBuffer(bufferSize);
+                        
+                        // Restore existing messages
+                        foreach (var msg in existingMessages)
+                        {
+                            newBuffer.AddMessage(msg.Message, msg.MessageId);
+                        }
+                        
+                        AppLogger.Information($"Recreated buffer for '{topic}' with correct size {bufferSize} bytes");
+                        return newBuffer;
+                    }
+                    return existingBuffer;
+                });
+            
+            
             buffer.AddMessage(e.ApplicationMessage, messageId);
             
             // Prepare event args for batch firing
@@ -636,11 +860,10 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
             topicStats[topic] = count + 1;
         }
         
-        // Batch fire events
-        foreach (var args in eventArgsToFire)
-        {
-            MessageReceived?.Invoke(this, args);
-        }
+        // Fire batch event for optimized UI processing
+        MessagesBatchReceived?.Invoke(this, eventArgsToFire);
+
+        // No longer fire MessageReceived for each message to avoid duplication.
         
         // Efficient logging - log per topic instead of per message
         // if (topicStats.Count <= 10) // Only log details for reasonable number of topics

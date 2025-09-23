@@ -37,6 +37,8 @@ public enum CommandType
     ViewImage,
     /// <summary> View the payload as a video. </summary>
     ViewVideo,
+    /// <summary> View the payload as a hex dump. </summary>
+    ViewHex,
     /// <summary> Toggles the settings pane. </summary>
     Settings,
     /// <summary> Set the MQTT username. </summary>

@@ -145,7 +145,7 @@
               <!-- Moved this Grid to Column 2 -->
               <!-- Right Panel: Details, JSON Viewer, and History -->
               <!-- Changed RowDefinitions: Details(Auto), Splitter(Auto), JsonViewer(*), Splitter(Auto), History(*) -->
-              <Grid Grid.Column="2" RowDefinitions="*,Auto,*,Auto,*"> <!-- Changed first row to '*' -->
+              <Grid Grid.Column="2" RowDefinitions="*,Auto,*,Auto,*"> <!-- Row layout: Details (*), Splitter, Payload (*), Splitter, History (*) -->
 
                   <!-- Row 0: Message Details (Metadata & User Properties) -->
                   <!-- Removed ScrollViewer and Border, Grid now expands within Row 0 -->
@@ -183,10 +183,12 @@
                   </Grid>
 
                   <!-- Row 1: Horizontal Grid Splitter -->
-                  <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows"/>
+                  <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows"
+                                Focusable="True" IsTabStop="True" Cursor="SizeNorthSouth"
+                                AutomationProperties.Name="Section Splitter 1"/>
 
                   <!-- Row 2: Payload Viewers Container -->
-                  <Panel Grid.Row="2" Margin="5,0,5,0">
+                  <Panel Grid.Row="2" Margin="5,0,5,0" IsVisible="{Binding IsAnyPayloadViewerVisible}" VerticalAlignment="Stretch" MinHeight="80">
                       <!-- JSON Viewer (Conditionally Visible) -->
                       <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsJsonViewerVisible}">
                           <TreeView ItemsSource="{Binding JsonViewer.RootNodes}" MinWidth="200">
@@ -235,6 +237,14 @@
                                          Margin="5"/>
                       </Border>
 
+                      <!-- Hex Viewer (Conditionally Visible) -->
+                      <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsHexViewerVisible}">
+                          <vw:HexViewer Bytes="{Binding HexPayloadBytes, Mode=OneWay}"
+                                        Margin="5"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"/>
+                      </Border>
+
                       <!-- Display message if JSON viewer is hidden but should be visible (e.g., parse error) -->
                       <!-- This TextBlock might overlap if both viewers are hidden but error exists. Consider placing it outside the Panel or adjusting logic -->
                       <TextBlock Text="{Binding JsonViewer.JsonParseError}" Foreground="Red" Margin="10"
@@ -242,7 +252,9 @@
                   </Panel>
 
                   <!-- Row 3: Horizontal Grid Splitter (Visible if either viewer is visible) -->
-                  <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows" IsVisible="{Binding IsAnyPayloadViewerVisible}"/>
+                  <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows" IsVisible="{Binding IsAnyPayloadViewerVisible}"
+                                Focusable="True" IsTabStop="True" Cursor="SizeNorthSouth"
+                                AutomationProperties.Name="Section Splitter 2"/>
 
                   <!-- Row 4: Message History -->
                   <ListBox x:Name="MessageHistoryListBox" Grid.Row="4"
@@ -400,7 +412,7 @@
                             <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto" Margin="0,2">
                                 <TextBox Grid.Column="0" Text="{Binding TopicFilter, Mode=TwoWay}" Watermark="Topic Filter (e.g., # or /some/topic)" Margin="0,0,5,0" MinWidth="150"/>
                                 <NumericUpDown Grid.Column="1" Value="{Binding MaxSizeBytes, Mode=TwoWay, StringFormat=N0}" ParsingNumberStyle="Integer" Minimum="0" Watermark="Bytes" Margin="0,0,5,0" MinWidth="100"/>
-                                <Button Grid.Column="2" Content="Remove" Command="{Binding $parent[ItemsControl].DataContext.Settings.RemoveTopicLimitCommand}" CommandParameter="{Binding}" Padding="5,2"/>
+                                <Button Grid.Column="2" Content="Remove" Command="{Binding $parent[ItemsControl].DataContext.Settings.RemoveTopicLimitCommand}" CommandParameter="{Binding}" Padding="5,2" IsEnabled="{Binding CanBeRemoved}"/>
                             </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

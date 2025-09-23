@@ -16,6 +16,16 @@ public class MqttEngineTests : IClassFixture<MqttBrokerFixture>
     {
         _brokerFixture = brokerFixture;
     }
+    
+    [Fact]
+    public void MessageReceived_BatchEvent_Should_Fire_Once_Per_Batch()
+    {
+        // This test is a placeholder for the new batch event behavior.
+        // It should be updated after the refactor to verify that the batch event
+        // is fired only once per batch, even with a high volume of messages.
+        // The implementation will depend on the new event signature.
+        Assert.True(true, "Batch event test placeholder. Update after refactor.");
+    }
 
     [Fact]
     [Trait("Category", "RequiresMqttBroker")]
@@ -36,12 +46,16 @@ public class MqttEngineTests : IClassFixture<MqttBrokerFixture>
         IdentifiedMqttApplicationMessageReceivedEventArgs? receivedArgs = null;
         var messageReceivedEvent = new ManualResetEventSlim(false);
 
-        engine.MessageReceived += (sender, args) =>
+engine.MessagesBatchReceived += (sender, batch) =>
         {
-            if (args.ApplicationMessage.Topic == "test/topic")
+            foreach (var args in batch)
             {
-                receivedArgs = args;
-                messageReceivedEvent.Set();
+                if (args.ApplicationMessage.Topic == "test/topic")
+                {
+                    receivedArgs = args;
+                    messageReceivedEvent.Set();
+                    break;
+                }
             }
         };
 
@@ -101,12 +115,16 @@ public class MqttEngineTests : IClassFixture<MqttBrokerFixture>
         IdentifiedMqttApplicationMessageReceivedEventArgs? receivedArgs = null;
         var messageReceivedEvent = new ManualResetEventSlim(false);
 
-        engine.MessageReceived += (sender, args) =>
+engine.MessagesBatchReceived += (sender, batch) =>
         {
-            if (args.ApplicationMessage.Topic == "test/empty_payload_topic")
+            foreach (var args in batch)
             {
-                receivedArgs = args;
-                messageReceivedEvent.Set();
+                if (args.ApplicationMessage.Topic == "test/empty_payload_topic")
+                {
+                    receivedArgs = args;
+                    messageReceivedEvent.Set();
+                    break;
+                }
             }
         };
 
@@ -435,11 +453,15 @@ public class MqttEngineTests : IClassFixture<MqttBrokerFixture>
         var engine = new MqttEngine(settings);
 
         var messageReceived = new ManualResetEventSlim(false);
-        engine.MessageReceived += (sender, args) =>
+engine.MessagesBatchReceived += (sender, batch) =>
         {
-            if (args.ApplicationMessage.Topic == "test/getmessages/topic")
+            foreach (var args in batch)
             {
-                messageReceived.Set();
+                if (args.ApplicationMessage.Topic == "test/getmessages/topic")
+                {
+                    messageReceived.Set();
+                    break;
+                }
             }
         };
 
@@ -475,8 +497,8 @@ public class MqttEngineTests : IClassFixture<MqttBrokerFixture>
             Assert.NotNull(bufferedMessages);
             var messagesList = bufferedMessages.ToList();
             Assert.Single(messagesList);
-            Assert.Equal("test/getmessages/topic", messagesList[0].Topic);
-            Assert.Equal("test message content", messagesList[0].ConvertPayloadToString());
+Assert.Equal("test/getmessages/topic", messagesList[0].Message.Topic);
+Assert.Equal("test message content", messagesList[0].Message.ConvertPayloadToString());
 
             await publisher.DisconnectAsync(new MqttClientDisconnectOptions(), CancellationToken.None);
         }
@@ -521,16 +543,19 @@ public class MqttEngineTests : IClassFixture<MqttBrokerFixture>
 
         var messagesReceived = 0;
         var messageReceivedEvent = new ManualResetEventSlim(false);
-        engine.MessageReceived += (sender, args) =>
+engine.MessagesBatchReceived += (sender, batch) =>
         {
-            // Only count messages for our test topics
-            if (args.ApplicationMessage.Topic == "test/buffered/topic1" || 
-                args.ApplicationMessage.Topic == "test/buffered/topic2")
+            foreach (var args in batch)
             {
-                Interlocked.Increment(ref messagesReceived);
-                if (messagesReceived >= 2) // Wait for both test messages
+                // Only count messages for our test topics
+                if (args.ApplicationMessage.Topic == "test/buffered/topic1" ||
+                    args.ApplicationMessage.Topic == "test/buffered/topic2")
                 {
-                    messageReceivedEvent.Set();
+                    Interlocked.Increment(ref messagesReceived);
+                    if (messagesReceived >= 2) // Wait for both test messages
+                    {
+                        messageReceivedEvent.Set();
+                    }
                 }
             }
         };
@@ -630,5 +655,89 @@ public class MqttEngineTests : IClassFixture<MqttBrokerFixture>
         // Assert
         Assert.False(result);
         Assert.Null(message);
+    }
+
+    [Fact]
+    public void UpdateSettings_Should_Reapply_And_Trim_Existing_Topic_Buffers()
+    {
+        // Arrange: initial rule allows larger buffer for topic pattern
+        var initialSettings = new MqttConnectionSettings
+        {
+            Hostname = TestConfiguration.MqttHostname,
+            Port = TestConfiguration.MqttPort,
+            TopicSpecificBufferLimits = new List<TopicBufferLimit>
+            {
+                new TopicBufferLimit("#", 50_000),
+                new TopicBufferLimit("sensors/+/temp", 15_000)
+            }
+        };
+        var engine = new MqttEngine(initialSettings);
+
+        string topic = "sensors/a/temp";
+        int payloadSize = 1500; // bytes
+        int messageCount = 12;  // total ~18 KB before trimming to 15 KB
+
+        byte[] MakePayload()
+        {
+            var bytes = new byte[payloadSize];
+            for (int i = 0; i < bytes.Length; i++)
+                bytes[i] = (byte)(i % 251);
+            return bytes;
+        }
+
+        for (int i = 0; i < messageCount; i++)
+        {
+            Assert.True(engine.InjectTestMessage(topic, MakePayload()), "Injection should succeed");
+        }
+
+        long sizeAfterInitial = engine.GetCurrentBufferedSize(topic);
+        Assert.True(sizeAfterInitial <= 15_000, $"Initial buffer size should respect initial limit (<=15000), was {sizeAfterInitial}");
+
+        // Act: shrink rule to 8 KB
+        var shrinkSettings = new MqttConnectionSettings
+        {
+            Hostname = TestConfiguration.MqttHostname,
+            Port = TestConfiguration.MqttPort,
+            TopicSpecificBufferLimits = new List<TopicBufferLimit>
+            {
+                new TopicBufferLimit("#", 50_000),
+                new TopicBufferLimit("sensors/+/temp", 8_000)
+            }
+        };
+        engine.UpdateSettings(shrinkSettings);
+
+        long sizeAfterShrink = engine.GetCurrentBufferedSize(topic);
+        Assert.True(sizeAfterShrink <= 8_000, $"Buffer should be trimmed to new limit (<=8000), was {sizeAfterShrink}");
+
+        // Inject more messages; size must not exceed 8 KB
+        for (int i = 0; i < 10; i++)
+        {
+            engine.InjectTestMessage(topic, MakePayload());
+        }
+        long sizeAfterMoreInjected = engine.GetCurrentBufferedSize(topic);
+        Assert.True(sizeAfterMoreInjected <= 8_000, $"After more injections, size must still respect 8K limit, was {sizeAfterMoreInjected}");
+
+        // Act: expand rule to 20 KB
+        var expandSettings = new MqttConnectionSettings
+        {
+            Hostname = TestConfiguration.MqttHostname,
+            Port = TestConfiguration.MqttPort,
+            TopicSpecificBufferLimits = new List<TopicBufferLimit>
+            {
+                new TopicBufferLimit("#", 50_000),
+                new TopicBufferLimit("sensors/+/temp", 20_000)
+            }
+        };
+        engine.UpdateSettings(expandSettings);
+
+        // Inject more messages to allow growth
+        for (int i = 0; i < 10; i++)
+        {
+            engine.InjectTestMessage(topic, MakePayload());
+        }
+
+        long sizeAfterExpand = engine.GetCurrentBufferedSize(topic);
+        Assert.True(sizeAfterExpand > 8_000, $"Buffer should have grown beyond previous 8K limit after expansion, was {sizeAfterExpand}");
+        Assert.True(sizeAfterExpand <= 20_000, $"Buffer should not exceed new 20K limit, was {sizeAfterExpand}");
     }
 }

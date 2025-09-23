@@ -10,9 +10,9 @@ using MQTTnet.Protocol;
 public interface IMqttService : IDisposable
 {
     /// <summary>
-    /// Event raised when a new MQTT message is received, including a unique identifier.
+    /// Event raised when a batch of MQTT messages is received for optimized UI processing.
     /// </summary>
-    event EventHandler<IdentifiedMqttApplicationMessageReceivedEventArgs>? MessageReceived;
+    event EventHandler<IReadOnlyList<IdentifiedMqttApplicationMessageReceivedEventArgs>>? MessagesBatchReceived;
 
     /// <summary>
     /// Event raised when the connection state to the MQTT broker changes.
@@ -59,6 +59,20 @@ public interface IMqttService : IDisposable
     /// Clears all messages from all internal topic buffers.
     /// </summary>
     void ClearAllBuffers();
+
+    /// <summary>
+    /// Retrieves the buffered messages for a specific topic, including their IDs.
+    /// </summary>
+    /// <param name="topic">The topic to retrieve messages for.</param>
+    /// <returns>A snapshot list of buffered messages with IDs for the topic, or null if none.</returns>
+    IEnumerable<CrowsNestMqtt.Utils.BufferedMqttMessage>? GetBufferedMessagesForTopic(string topic);
+
+    /// <summary>
+    /// Retrieves the buffered messages for a specific topic, including their IDs.
+    /// </summary>
+    /// <param name="topic">The topic to retrieve messages for.</param>
+    /// <returns>A snapshot list of buffered messages with IDs for the topic, or null if none.</returns>
+    IEnumerable<CrowsNestMqtt.Utils.BufferedMqttMessage>? GetMessagesForTopic(string topic);
 
     /// <summary>
     /// Gets a list of all topics currently held in buffers.

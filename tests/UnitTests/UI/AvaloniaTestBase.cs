@@ -22,6 +22,8 @@ namespace CrowsNestMqtt.UnitTests.UI
                         UseHeadlessDrawing = true
                     })
                     .SetupWithoutStarting();
+                // Ensure SynchronizationContext is set for UI thread access in tests
+                SynchronizationContext.SetSynchronizationContext(Avalonia.Threading.AvaloniaSynchronizationContext.Current);
             }
         }
 
@@ -58,7 +60,8 @@ namespace CrowsNestMqtt.UnitTests.UI
         protected MainViewModel CreateTestMainViewModel(string? aspireHostname = null, int? aspirePort = null)
         {
             var commandParserService = new CommandParserService();
-            return new MainViewModel(commandParserService, aspireHostname, aspirePort);
+            // Pass null for the mqttService, as it's not needed for these UI-centric tests
+            return new MainViewModel(commandParserService, null, aspireHostname, aspirePort);
         }
 
         /// <summary>

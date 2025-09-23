@@ -86,11 +86,6 @@ public class SettingsViewModel : ReactiveObject
         _isLoading = true; // Set flag before loading
         LoadSettings(); // This calls From() which populates TopicSpecificLimits
 
-        // Ensure a default topic limit if the list is empty
-        if (!TopicSpecificLimits.Any())
-        {
-            TopicSpecificLimits.Add(new TopicBufferLimitViewModel { TopicFilter = "#", MaxSizeBytes = 1024 * 1024 }); // 1MB default
-        }
         _isLoading = false; // Clear flag after loading
 
         AddTopicLimitCommand = ReactiveCommand.Create(() =>
@@ -100,7 +95,11 @@ public class SettingsViewModel : ReactiveObject
 
         RemoveTopicLimitCommand = ReactiveCommand.Create<TopicBufferLimitViewModel>(limit =>
         {
-            TopicSpecificLimits.Remove(limit);
+            // Prevent removal of the default '#' limit
+            if (limit.CanBeRemoved)
+            {
+                TopicSpecificLimits.Remove(limit);
+            }
         });
 
         // Observable for simple property changes
@@ -338,12 +337,25 @@ public class SettingsViewModel : ReactiveObject
         ExportPath = settingsData.ExportPath;
         UseTls = settingsData.UseTls;
         TopicSpecificLimits.Clear();
+        
+        // Ensure we always have the default '#' limit
+        bool hasDefaultLimit = false;
         if (settingsData.TopicSpecificBufferLimits != null)
         {
             foreach (var limitModel in settingsData.TopicSpecificBufferLimits)
             {
                 TopicSpecificLimits.Add(new TopicBufferLimitViewModel(limitModel));
+                if (limitModel.TopicFilter == "#")
+                {
+                    hasDefaultLimit = true;
+                }
             }
+        }
+        
+        // Add default '#' limit if not present (1MB = 1024*1024 bytes)
+        if (!hasDefaultLimit)
+        {
+            TopicSpecificLimits.Insert(0, new TopicBufferLimitViewModel(new TopicBufferLimit("#", 1024 * 1024)));
         }
 
         // Handle AuthMode and credentials
@@ -409,6 +421,8 @@ public class SettingsViewModel : ReactiveObject
             AppLogger.Warning("Settings file not found at {FilePath}. Using defaults.", _settingsFilePath);
             // Ensure default export path is set if settings file doesn't exist
             if (string.IsNullOrEmpty(ExportPath)) ExportPath = _exportFolderPath;
+            // Add default '#' limit when no settings file exists
+            EnsureDefaultTopicLimit();
             return; // Use default values if file doesn't exist
         }
 
@@ -419,13 +433,14 @@ public class SettingsViewModel : ReactiveObject
 
             if (loadedData != null)
             {
-                From(loadedData); // This now also populates TopicSpecificLimits
+                From(loadedData); // This now also populates TopicSpecificLimits and ensures default limit
                 AppLogger.Information("Settings loaded from {FilePath}", _settingsFilePath);
             }
             else
             {
                  AppLogger.Warning("Failed to deserialize settings from {FilePath}. Using defaults.", _settingsFilePath);
                  if (string.IsNullOrEmpty(ExportPath)) ExportPath = _exportFolderPath;
+                 EnsureDefaultTopicLimit();
             }
         }
         catch (Exception ex)
@@ -433,6 +448,18 @@ public class SettingsViewModel : ReactiveObject
             AppLogger.Error(ex, "Error loading settings from {FilePath}", _settingsFilePath);
             // Keep default values if loading fails, ensure default export path
             if (string.IsNullOrEmpty(ExportPath)) ExportPath = _exportFolderPath;
+            EnsureDefaultTopicLimit();
+        }
+    }
+
+    /// <summary>
+    /// Ensures the default '#' topic limit is present in the TopicSpecificLimits collection.
+    /// </summary>
+    private void EnsureDefaultTopicLimit()
+    {
+        if (!TopicSpecificLimits.Any(limit => limit.TopicFilter == "#"))
+        {
+            TopicSpecificLimits.Insert(0, new TopicBufferLimitViewModel(new TopicBufferLimit("#", 1024 * 1024)));
         }
     }
 }
