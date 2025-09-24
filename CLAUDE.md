@@ -77,9 +77,9 @@ tests/
 - Performance tests: Message throughput, memory usage
 
 ## Recent Changes
-1. Constitution v1.0.0 - Initial project governance and architectural principles
-2. Spec-kit integration - Added .specify templates for structured development
-3. Hex viewer - Added binary payload visualization capability
+1. Delete Topic Command (Feature 001) - Added `:deletetopic` command for clearing retained messages with parallel processing and error handling
+2. Constitution v1.0.0 - Initial project governance and architectural principles
+3. Spec-kit integration - Added .specify templates for structured development
 
 <!-- MANUAL ADDITIONS START -->
 **Constitutional Compliance Notes:**
