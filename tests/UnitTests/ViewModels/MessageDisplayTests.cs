@@ -15,6 +15,26 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class MessageDisplayTests
     {
+       // Synchronous dispatcher to eliminate deferred Dispatcher.UIThread.Post delays in tests
+       static MessageDisplayTests()
+       {
+           var dispatcherType = typeof(Avalonia.Threading.Dispatcher);
+           var field = dispatcherType.GetField("_uiThread", BindingFlags.Static | BindingFlags.NonPublic);
+           if (field != null)
+           {
+               field.SetValue(null, new ImmediateDispatcher());
+           }
+       }
+
+       private class ImmediateDispatcher : Avalonia.Threading.IDispatcher
+       {
+           public bool CheckAccess() => true;
+           public void Post(Action action) => action();
+           public void Post(Action action, Avalonia.Threading.DispatcherPriority priority) => action();
+           public void VerifyAccess() { }
+           public Avalonia.Threading.DispatcherPriority Priority => Avalonia.Threading.DispatcherPriority.Normal;
+       }
+
        private readonly ICommandParserService _commandParserService;
        private readonly IMqttService _mqttServiceMock;
        private readonly IStatusBarService _statusBarServiceMock;

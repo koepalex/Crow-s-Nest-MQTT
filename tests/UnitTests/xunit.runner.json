@@ -1,0 +1,13 @@
+{
+  "parallelizeAssembly": false,
+  "parallelizeTestCollections": false,
+  "maxParallelThreads": 1,
+  "methodDisplay": "method",
+  "methodDisplayOptions": "all",
+  "preEnumerateTheories": true,
+  "diagnosticMessages": true,
+  "internalDiagnosticMessages": false,
+  "stopOnFail": false,
+  "longRunningTestSeconds": 30,
+  "appDomain": "ifAvailable"
+}

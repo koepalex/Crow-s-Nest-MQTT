@@ -64,6 +64,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly object _batchLock = new object();
     private Timer? _batchProcessingTimer;
     private readonly IScheduler _uiScheduler;
+    private readonly bool _testMode; // Added: detect test/CI mode to disable expensive background infra
     // Per-topic message storage (prevents cross-topic eviction)
     private readonly ITopicMessageStore _messageStore;
     private readonly Dictionary<Guid, MessageViewModel> _messageIndex = new();
@@ -608,6 +609,9 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         _deleteTopicService = deleteTopicService; // Store injected delete topic service (optional)
         _uiScheduler = uiScheduler 
             ?? (Application.Current == null ? Scheduler.Immediate : RxApp.MainThreadScheduler); // Use Immediate in non-Avalonia (plain unit test) context
+        _testMode = Application.Current == null
+                    || AppDomain.CurrentDomain.FriendlyName?.IndexOf("testhost", StringComparison.OrdinalIgnoreCase) >= 0
+                    || Environment.GetEnvironmentVariable("CI") == "true";
         _syncContext = SynchronizationContext.Current; // Capture sync context
         Settings = new SettingsViewModel(); // Instantiate settings
         JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
@@ -680,20 +684,27 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         // --- DynamicData Pipeline for Message History Filtering ---
 
         // --- UI Heartbeat Timer for Freeze Detection ---
-        _uiHeartbeatTimer = new Timer(_ =>
+        if (!_testMode)
         {
-            var posted = DateTime.UtcNow;
-            Dispatcher.UIThread.Post(() =>
+            _uiHeartbeatTimer = new Timer(_ =>
             {
-                var now = DateTime.UtcNow;
-                var delay = now - posted;
-                if (delay > TimeSpan.FromMilliseconds(1500))
+                var posted = DateTime.UtcNow;
+                Dispatcher.UIThread.Post(() =>
                 {
-                    Log.Warning("UI heartbeat delayed by {Delay} ms. UI thread may be blocked or frozen.", delay.TotalMilliseconds);
-                }
-                _lastHeartbeatPosted = now;
-            });
-        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+                    var now = DateTime.UtcNow;
+                    var delay = now - posted;
+                    if (delay > TimeSpan.FromMilliseconds(1500))
+                    {
+                        Log.Warning("UI heartbeat delayed by {Delay} ms. UI thread may be blocked or frozen.", delay.TotalMilliseconds);
+                    }
+                    _lastHeartbeatPosted = now;
+                });
+            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        }
+        else
+        {
+            Log.Debug("Heartbeat timer disabled in test mode.");
+        }
 
         // Define the filter predicate based on the search term
         // Define the filter predicate based on the search term AND the selected node
@@ -893,58 +904,54 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             .Subscribe(text => UpdateCommandSuggestions(text));
 
         // --- Global Hook Setup ---
-        try
+        if (!_testMode)
         {
-            _globalHook = new SimpleReactiveGlobalHook();
-            _globalHookSubscription = _globalHook.KeyPressed
-                .Do(e => { })
-                .Where(e =>
-                {
-                    // Check for either Left or Right Ctrl/Shift explicitly
-                    bool ctrl = e.RawEvent.Mask.HasFlag(ModifierMask.LeftCtrl) || e.RawEvent.Mask.HasFlag(ModifierMask.RightCtrl);
-                    bool shift = e.RawEvent.Mask.HasFlag(ModifierMask.LeftShift) || e.RawEvent.Mask.HasFlag(ModifierMask.RightShift);
-                    bool pKey = e.Data.KeyCode == KeyCode.VcP;
-
-                    // NEW: Check if the window is focused
-                    bool focused = IsWindowFocused;
-
-                    bool match = focused && ctrl && shift && pKey;
-
-                    // Log details for debugging
-                    if (match)
+            try
+            {
+                _globalHook = new SimpleReactiveGlobalHook();
+                _globalHookSubscription = _globalHook.KeyPressed
+                    .Do(e => { })
+                    .Where(e =>
                     {
-                        Log.Debug("Ctrl+Shift+P MATCHED inside Where filter (Window Focused: {IsFocused}).", focused);
-                    }
-                    else if (ctrl && shift && pKey) // Log if keys match but focus doesn't
-                    {
-                        Log.Verbose("Ctrl+Shift+P detected but window not focused. Hook suppressed.");
-                    }
-                    // else Log.Verbose("Keypress did not match Ctrl+Shift+P: Focused={Focused}, Ctrl={Ctrl}, Shift={Shift}, Key={Key}", focused, ctrl, shift, e.Data.KeyCode); // Optional: Log non-matches verbosely
+                        bool ctrl = e.RawEvent.Mask.HasFlag(ModifierMask.LeftCtrl) || e.RawEvent.Mask.HasFlag(ModifierMask.RightCtrl);
+                        bool shift = e.RawEvent.Mask.HasFlag(ModifierMask.LeftShift) || e.RawEvent.Mask.HasFlag(ModifierMask.RightShift);
+                        bool pKey = e.Data.KeyCode == KeyCode.VcP;
+                        bool focused = IsWindowFocused;
+                        bool match = focused && ctrl && shift && pKey;
+                        if (match)
+                        {
+                            Log.Debug("Ctrl+Shift+P MATCHED inside Where filter (Window Focused: {IsFocused}).", focused);
+                        }
+                        else if (ctrl && shift && pKey)
+                        {
+                            Log.Verbose("Ctrl+Shift+P detected but window not focused. Hook suppressed.");
+                        }
+                        Log.Verbose("Global Hook Filter Check: Key={Key}, Modifiers={Modifiers}, IsWindowFocused={IsFocused}, Result={Match}", e.Data.KeyCode, e.RawEvent.Mask, focused, match);
+                        return match;
+                    })
+                    .ObserveOn(_uiScheduler)
+                    .Do(_ => Log.Debug("Ctrl+Shift+P detected by SharpHook pipeline (after Where filter)."))
+                    .Select(_ => Unit.Default)
+                    .InvokeCommand(FocusCommandBarCommand);
 
-                    // Log the state being evaluated
-                    Log.Verbose("Global Hook Filter Check: Key={Key}, Modifiers={Modifiers}, IsWindowFocused={IsFocused}, Result={Match}", e.Data.KeyCode, e.RawEvent.Mask, focused, match);
-
-                    return match;
-                })
-                .ObserveOn(_uiScheduler) // Ensure command execution is on the UI thread (injected scheduler)
-                .Do(_ => Log.Debug("Ctrl+Shift+P detected by SharpHook pipeline (after Where filter).")) // Changed log message slightly
-                .Select(_ => Unit.Default) // We don't need the event args anymore
-                .InvokeCommand(FocusCommandBarCommand); // Invoke the focus command
-
-            // Start the hook asynchronously
-            _globalHook.RunAsync().Subscribe(
-                _ => { }, // OnNext (not used)
-                ex => Log.Error(ex, "Error during Global Hook execution (RunAsync OnError)"), // Log errors during hook runtime
-                () => Log.Information("Global Hook stopped.") // OnCompleted
-            );
-            Log.Information("SharpHook Global Hook RunAsync called."); // Log that startup was attempted
+                _globalHook.RunAsync().Subscribe(
+                    _ => { },
+                    ex => Log.Error(ex, "Error during Global Hook execution (RunAsync OnError)"),
+                    () => Log.Information("Global Hook stopped.")
+                );
+                Log.Information("SharpHook Global Hook RunAsync called.");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to initialize or run SharpHook global hook. Hotkey might not work.");
+                _globalHook = null;
+                _globalHookSubscription = null;
+            }
         }
-        catch (Exception ex)
+        else
         {
-            Log.Error(ex, "Failed to initialize or run SharpHook global hook. Hotkey might not work.");
-            _globalHook = null; // Ensure hook is null if initialization failed
-            _globalHookSubscription = null;
-        } 
+            Log.Debug("Global hook initialization skipped in test mode.");
+        }
     }
 
     private void OnLogMessage(object? sender, string log)
@@ -1000,8 +1007,15 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         var currentBatch = messages.Take(maxUiBatchSize).ToList();
         var remaining = messages.Skip(maxUiBatchSize).ToList();
         ProcessMessageBatchOnUIThread(currentBatch);
-        // Schedule the rest to process after yielding to the UI thread
-        Dispatcher.UIThread.Post(() => ProcessMessageBatchOnUIThread(remaining));
+        // Schedule the rest to process after yielding to the UI thread (skip queue in test mode)
+        if (_testMode)
+        {
+            ProcessMessageBatchOnUIThread(remaining);
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(() => ProcessMessageBatchOnUIThread(remaining));
+        }
         return;
     }
 
@@ -1159,7 +1173,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         }
 
         // Defer a second-phase check so DynamicData filter & sort have time to process new additions.
-        Dispatcher.UIThread.Post(() =>
+        if (_testMode)
         {
             try
             {
@@ -1217,7 +1231,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                         }
 
                         // Schedule a second deferred verification after refresh
-                        Dispatcher.UIThread.Post(() =>
+                        if (_testMode)
                         {
                             try
                             {
@@ -1244,7 +1258,38 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                             {
                                 Log.Error(ex3, "Error during second deferred verification for selected topic '{Sel}'.", sel);
                             }
-                        });
+                        }
+                        else
+                        {
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                try
+                                {
+                                    bool filteredNowHasSelected = _filteredMessageHistory.Any(m => NormalizeTopic(m.Topic) == sel);
+                                    if (!filteredNowHasSelected)
+                                    {
+                                        Log.Warning("Post-refresh verification: filtered list STILL missing messages for selected topic '{Sel}'. Will attempt manual selection again.", sel);
+                                        var secondCandidate = _messageHistorySource.Items
+                                            .Where(m => NormalizeTopic(m.Topic) == sel)
+                                            .OrderByDescending(m => m.Timestamp)
+                                            .FirstOrDefault();
+                                        if (secondCandidate != null && SelectedMessage != secondCandidate)
+                                        {
+                                            Log.Debug("Second deferred fallback selecting message {MessageId} for topic '{Topic}'.", secondCandidate.MessageId, secondCandidate.Topic);
+                                            SelectedMessage = secondCandidate;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Log.Debug("Post-refresh verification: filtered list now contains messages for '{Sel}'.", sel);
+                                    }
+                                }
+                                catch (Exception ex3)
+                                {
+                                    Log.Error(ex3, "Error during second deferred verification for selected topic '{Sel}'.", sel);
+                                }
+                            });
+                        }
                     }
                 }
             }
@@ -1252,7 +1297,97 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             {
                 Log.Error(ex2, "Error during deferred post-AddRange selection check.");
             }
-        });
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var sel = _normalizedSelectedPath;
+                    if (sel != null)
+                    {
+                        bool sourceHasSelected = _messageHistorySource.Items.Any(m => NormalizeTopic(m.Topic) == sel);
+                        bool filteredHasSelected = _filteredMessageHistory.Any(m => NormalizeTopic(m.Topic) == sel);
+
+                        if (sourceHasSelected && !filteredHasSelected)
+                        {
+                            Log.Warning("Deferred check: source has messages for selected topic '{Sel}' but filtered list still empty after UI flush.", sel);
+
+                            var selectedSourceMessages = _messageHistorySource.Items
+                                .Where(m => NormalizeTopic(m.Topic) == sel)
+                                .OrderByDescending(m => m.Timestamp)
+                                .ToList();
+
+                            Log.Debug("Diagnostics: SourceSelectedCount={Cnt} FilteredSelectedCount=0 TotalSource={SrcTot} TotalFiltered={FiltTot}",
+                                selectedSourceMessages.Count, _filteredMessageHistory.Count, _messageHistorySource.Count, _filteredMessageHistory.Count);
+
+                            int diagIndex = 0;
+                            foreach (var sm in selectedSourceMessages.Take(5))
+                            {
+                                Log.Debug("Diagnostics SelectedTopic Message[{Idx}] Id={Id} Ts={Ts} PreviewLen={Len}",
+                                    diagIndex++, sm.MessageId, sm.Timestamp.ToString("HH:mm:ss.fff"), sm.PayloadPreview?.Length ?? 0);
+                            }
+                            if (selectedSourceMessages.Count > 5)
+                            {
+                                Log.Debug("Diagnostics: {Extra} additional messages for selected topic omitted from log.", selectedSourceMessages.Count - 5);
+                            }
+
+                            var deferredCandidate = selectedSourceMessages.FirstOrDefault();
+
+                            if (deferredCandidate != null && SelectedMessage != deferredCandidate)
+                            {
+                                Log.Debug("Deferred fallback selecting message {MessageId} for topic '{Topic}'.", deferredCandidate.MessageId, deferredCandidate.Topic);
+                                SelectedMessage = deferredCandidate;
+                            }
+
+                            try
+                            {
+                                Log.Debug("Skipped forcing DynamicData refresh (no Refresh() API on SourceList) for selected topic '{Sel}'.", sel);
+                            }
+                            catch (Exception refreshEx)
+                            {
+                                Log.Error(refreshEx, "Unexpected error in refresh fallback block for selected topic '{Sel}'.", sel);
+                            }
+
+                            // Second deferred verification (non-test mode)
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                try
+                                {
+                                    bool filteredNowHasSelected = _filteredMessageHistory.Any(m => NormalizeTopic(m.Topic) == sel);
+                                    if (!filteredNowHasSelected)
+                                    {
+                                        Log.Warning("Post-refresh verification: filtered list STILL missing messages for selected topic '{Sel}'. Will attempt manual selection again.", sel);
+                                        var secondCandidate = _messageHistorySource.Items
+                                            .Where(m => NormalizeTopic(m.Topic) == sel)
+                                            .OrderByDescending(m => m.Timestamp)
+                                            .FirstOrDefault();
+                                        if (secondCandidate != null && SelectedMessage != secondCandidate)
+                                        {
+                                            Log.Debug("Second deferred fallback selecting message {MessageId} for topic '{Topic}'.", secondCandidate.MessageId, secondCandidate.Topic);
+                                            SelectedMessage = secondCandidate;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Log.Debug("Post-refresh verification: filtered list now contains messages for '{Sel}'.", sel);
+                                    }
+                                }
+                                catch (Exception ex3)
+                                {
+                                    Log.Error(ex3, "Error during second deferred verification for selected topic '{Sel}'.", sel);
+                                }
+                            });
+                        }
+                    }
+                }
+                catch (Exception ex2)
+                {
+                    Log.Error(ex2, "Error during deferred post-AddRange selection check.");
+                }
+            });
+        }
     }
     catch (Exception ex)
     {
@@ -1832,9 +1967,8 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             // If user submits empty text, clear the filter
             CurrentSearchTerm = string.Empty; // Use property setter
             Log.Information("Clearing search filter due to empty input.");
-            Dispatcher.UIThread.Post(() =>
+            ScheduleOnUi(() =>
             {
-                // No need to refresh, DynamicData handles updates
                 StatusBarText = "Filter cleared.";
             });
             CommandText = string.Empty; // Clear the input box as well
@@ -1860,10 +1994,9 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 Log.Information("Applying search filter: '{SearchTerm}'", _currentSearchTerm);
 
                 // Ensure refresh happens on UI thread
-                Dispatcher.UIThread.Post(() =>
+                ScheduleOnUi(() =>
                 {
-                    // No need to refresh, DynamicData handles updates
-                    StatusBarText = $"Filter applied: '{CurrentSearchTerm}'. {FilteredMessageHistory.Count} results."; // Show result count from filtered list
+                    StatusBarText = $"Filter applied: '{CurrentSearchTerm}'. {FilteredMessageHistory.Count} results.";
                 });
                 // Do not clear CommandText for search, allow refinement
             }
