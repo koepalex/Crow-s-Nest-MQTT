@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(else echo \"src directory not found\")",
+      "Bash(fi)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet run:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

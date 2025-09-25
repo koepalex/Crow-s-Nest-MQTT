@@ -53,6 +53,8 @@ public enum CommandType
     SetAuthData,
     /// <summary> Set the MQTT TLS usage flag. </summary>
     SetUseTls,
+    /// <summary> Delete retained messages from a topic and its subtopics. </summary>
+    DeleteTopic,
     /// <summary> Represents an unrecognized or invalid command. </summary>
     Unknown
 }

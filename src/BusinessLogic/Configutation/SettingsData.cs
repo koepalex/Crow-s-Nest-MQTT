@@ -13,7 +13,10 @@ public record SettingsData(
     AuthenticationMode? AuthMode = null,
     ExportTypes? ExportFormat = null,
     string? ExportPath = null,
-    bool UseTls = false)
+    bool UseTls = false,
+    int MaxTopicLimit = 500,
+    int ParallelismDegree = 4,
+    int TimeoutPeriodSeconds = 5)
 {
     public IList<TopicBufferLimit> TopicSpecificBufferLimits { get; init; } = new List<TopicBufferLimit>();
     /// <summary>

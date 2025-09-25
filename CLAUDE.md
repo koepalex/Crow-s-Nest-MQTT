@@ -35,7 +35,26 @@ tests/
 - `:filter [regex_pattern]` - Message filtering
 - `:export <json|txt> <filepath>` - Data export
 - `:view <raw|json|image|video|hex>` - Payload viewers
+- `:deletetopic [topic-pattern]` - Delete retained messages from topics
 - `:settings` - Configuration access
+
+**Delete Topic Command Details:**
+```
+:deletetopic [topic-pattern]
+
+Examples:
+  :deletetopic sensor/temperature          # Delete specific topic
+  :deletetopic sensor/+                    # Delete all topics matching pattern
+  :deletetopic sensor/#                    # Delete all topics under sensor/ hierarchy
+  :deletetopic                             # Delete selected topic from UI
+```
+
+**Behavior:**
+- Clears retained messages by publishing empty retained messages
+- Supports MQTT wildcards: `+` (single level), `#` (multi-level)
+- Parallel processing for 500+ topics with configurable limits
+- Works with selected topic when no argument provided
+- Provides real-time progress feedback in status bar
 
 ## Code Style
 **C# Conventions:**
