@@ -63,13 +63,22 @@
                   </Button.Styles>
               </Button>
               <Button Content="Clear" Command="{Binding ClearHistoryCommand}" />
-              <Button Content="Pause/Resume" Command="{Binding PauseResumeCommand}" />
-              <Button Command="{Binding DeleteTopicCommand}"
+              <Button x:Name="PauseResumeButton" Content="Pause/Resume" Command="{Binding PauseResumeCommand}" />
+              <Button x:Name="DeleteTopicButton"
+                      Command="{Binding DeleteTopicCommand}"
                       ToolTip.Tip="Delete selected topic's retained messages"
                       IsEnabled="{Binding IsDeleteButtonEnabled}"
-                      MinHeight="28"
-                      Padding="8,4">
-                  <PathIcon Data="{StaticResource delete_regular}" Width="14" Height="14"/>
+                      MinHeight="32"
+                      Padding="12,8"
+                      VerticalContentAlignment="Center"
+                      HorizontalContentAlignment="Center">
+                  <Button.Styles>
+                      <Style Selector="Button:disabled PathIcon">
+                          <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundDisabled}"/>
+                          <Setter Property="Opacity" Value="0.5"/>
+                      </Style>
+                  </Button.Styles>
+                  <PathIcon Data="{StaticResource delete_regular}" Width="16" Height="16"/>
               </Button>
               <TextBlock Text="Status:" VerticalAlignment="Center" Margin="10,0,0,0"/>
               <PathIcon VerticalAlignment="Center" Margin="5,0"
