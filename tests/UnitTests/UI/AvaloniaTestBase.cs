@@ -61,7 +61,7 @@ namespace CrowsNestMqtt.UnitTests.UI
         {
             var commandParserService = new CommandParserService();
             // Pass null for the mqttService, as it's not needed for these UI-centric tests
-            return new MainViewModel(commandParserService, null, aspireHostname, aspirePort);
+            return new MainViewModel(commandParserService, null, null, aspireHostname, aspirePort);
         }
 
         /// <summary>

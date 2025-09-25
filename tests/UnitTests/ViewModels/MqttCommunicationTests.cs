@@ -147,7 +147,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             const string expectedHostname = "testhost";
             const int expectedPort = 1883;
 
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, expectedHostname, expectedPort);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, expectedHostname, expectedPort);
 
             // Act
             viewModel.ConnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();

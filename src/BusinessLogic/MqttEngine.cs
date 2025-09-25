@@ -22,7 +22,6 @@ public class IdentifiedMqttApplicationMessageReceivedEventArgs : EventArgs // No
     // Include other relevant properties from MqttApplicationMessageReceivedEventArgs if needed
     public bool ProcessingFailed { get; set; } // Example property
     public string ClientId { get; } // Example property
-
     public IdentifiedMqttApplicationMessageReceivedEventArgs(Guid messageId, MqttApplicationMessage applicationMessage, string clientId)
     {
         MessageId = messageId;
@@ -30,6 +29,8 @@ public class IdentifiedMqttApplicationMessageReceivedEventArgs : EventArgs // No
         ApplicationMessage = applicationMessage ?? throw new ArgumentNullException(nameof(applicationMessage));
         ClientId = clientId;
     }
+
+    public bool IsEffectivelyRetained { get; internal set; }
 }
 
 public class MqttEngine : IMqttService // Implement the interface
@@ -45,6 +46,7 @@ private MqttClientOptions? _currentOptions;
     private IList<TopicBufferLimit> _topicSpecificBufferLimits = new List<TopicBufferLimit>();
     internal const long DefaultMaxTopicBufferSize = 1 * 1024 * 1024; // Changed to internal const
     private readonly object _bufferReconfigLock = new(); // Lock for reconfiguring existing topic buffers
+
 
     // Batch processing for high-volume message scenarios  
     private readonly ConcurrentQueue<MqttApplicationMessageReceivedEventArgs> _pendingMessages = new();
@@ -116,7 +118,8 @@ private MqttClientOptions? _currentOptions;
             var subscribeOptions = new MqttClientSubscribeOptionsBuilder()
                 .WithTopicFilter(f =>
                     f.WithTopic("#")
-                     .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce))
+                     .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                     .WithRetainAsPublished(true))
                 .Build();
 
             var result = await _client.SubscribeAsync(subscribeOptions, cancellationToken);
@@ -132,6 +135,7 @@ private MqttClientOptions? _currentOptions;
                     LogMessage?.Invoke(this, $"Successfully subscribed to topic '{subResult.TopicFilter.Topic}' with QoS {(int)subResult.ResultCode}.");
                 }
             }
+
         }
         catch (Exception ex)
         {
@@ -293,6 +297,47 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
             LogMessage?.Invoke(this, $"Error publishing to '{topic}': {ex.Message}");
             throw;
         }
+    }
+
+    public async Task PublishAsync(string topic, byte[] payload, bool retain = false, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtMostOnce, CancellationToken cancellationToken = default)
+    {
+        if (!_client.IsConnected)
+        {
+            LogMessage?.Invoke(this, "Cannot publish: Client is not connected.");
+            return;
+        }
+
+        var message = new MqttApplicationMessageBuilder()
+            .WithTopic(topic)
+            .WithPayload(payload)
+            .WithQualityOfServiceLevel(qos)
+            .WithRetainFlag(retain)
+            .Build();
+
+        try
+        {
+            var result = await _client.PublishAsync(message, cancellationToken);
+            if (result.ReasonCode != MqttClientPublishReasonCode.Success)
+            {
+                 LogMessage?.Invoke(this, $"Failed to publish to '{topic}'. Reason: {result.ReasonCode}");
+            }
+            else
+            {
+                LogMessage?.Invoke(this, $"Successfully published to '{topic}' with {payload.Length} byte payload.");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogMessage?.Invoke(this, $"Error publishing to '{topic}': {ex.Message}");
+            throw;
+        }
+    }
+
+    public async Task ClearRetainedMessageAsync(string topic, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtLeastOnce, CancellationToken cancellationToken = default)
+    {
+        // To clear a retained message, publish an empty payload with retain flag set to true
+        await PublishAsync(topic, new byte[0], retain: true, qos: qos, cancellationToken);
+        LogMessage?.Invoke(this, $"Cleared retained message for topic: {topic}");
     }
 
     public async Task<MqttClientSubscribeResult> SubscribeAsync(string topicFilter, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtLeastOnce, CancellationToken cancellationToken = default)
@@ -502,6 +547,7 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
         return -1; // Buffer doesn't exist
     }
     // --- End Test Helpers ---
+
 
     /// <summary>
     /// Re-evaluates buffer size rules for all existing topic buffers and recreates any whose
@@ -852,7 +898,11 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
                 messageId,
                 e.ApplicationMessage,
                 e.ClientId
-            );
+            )
+            {
+                IsEffectivelyRetained = e.ApplicationMessage.Retain
+            };
+
             eventArgsToFire.Add(identifiedArgs);
             
             // Track topic stats for efficient logging

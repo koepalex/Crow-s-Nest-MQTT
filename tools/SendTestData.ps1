@@ -109,6 +109,30 @@ $binaryMessage = $binaryMsgBuilder.Build()
 $null = $client.PublishAsync($binaryMessage).GetAwaiter().GetResult()
 Write-Host "Binary sent to topic 'test/viewer/hex' with content-type 'application/octet-stream'."
 
+# --- Send retained message for delete testing ---
+$retainedPayload = @{
+    message = "This is a retained message for testing delete functionality"
+    timestamp = (Get-Date).ToString("o")
+    test_data = @{
+        topic = "test/retain"
+        purpose = "Testing :deletetopic command"
+        instructions = "Use :deletetopic test/retain to delete this retained message"
+    }
+} | ConvertTo-Json -Depth 3
+
+$retainedBytes = [System.Text.Encoding]::UTF8.GetBytes($retainedPayload)
+Write-Host "Prepared retained message: $($retainedBytes.Length) bytes"
+
+$retainedMsgBuilder = [MQTTnet.MqttApplicationMessageBuilder]::new()
+$retainedMsgBuilder = $retainedMsgBuilder.WithTopic("test/retain").WithPayload($retainedBytes)
+$retainedMsgBuilder = $retainedMsgBuilder.WithContentType("application/json")
+$retainedMsgBuilder = $retainedMsgBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+$retainedMsgBuilder = $retainedMsgBuilder.WithRetainFlag($true)  # This makes it a retained message
+$retainedMessage = $retainedMsgBuilder.Build()
+
+$null = $client.PublishAsync($retainedMessage).GetAwaiter().GetResult()
+Write-Host "Retained message sent to topic 'test/retain' with content-type 'application/json'."
+
 # Disconnect
 $opts = [MQTTnet.MqttClientDisconnectOptions]::new()
 $null = $client.DisconnectAsync($opts).GetAwaiter().GetResult()

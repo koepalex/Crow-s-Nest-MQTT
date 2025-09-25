@@ -56,6 +56,27 @@ public interface IMqttService : IDisposable
     Task PublishAsync(string topic, string payload, bool retain = false, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtMostOnce, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Publishes an MQTT message to the specified topic with a byte array payload.
+    /// </summary>
+    /// <param name="topic">The topic to publish to.</param>
+    /// <param name="payload">The message payload as a byte array.</param>
+    /// <param name="retain">Whether this message should be retained by the broker.</param>
+    /// <param name="qos">The Quality of Service level for the message.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>A task that represents the asynchronous publish operation.</returns>
+    Task PublishAsync(string topic, byte[] payload, bool retain = false, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtMostOnce, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Clears a retained message from the specified topic by publishing an empty retained message.
+    /// This is the proper way to delete retained messages in MQTT.
+    /// </summary>
+    /// <param name="topic">The topic to clear the retained message from.</param>
+    /// <param name="qos">The Quality of Service level for the message.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>A task that represents the asynchronous clear operation.</returns>
+    Task ClearRetainedMessageAsync(string topic, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtLeastOnce, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Clears all messages from all internal topic buffers.
     /// </summary>
     void ClearAllBuffers();

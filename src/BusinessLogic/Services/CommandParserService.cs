@@ -317,6 +317,25 @@ public class CommandParserService : ICommandParserService
                 }
                 return CommandResult.Failure("Invalid arguments for :settings. Expected: :settings");
 
+            case "deletetopic":
+                // :deletetopic [topic-pattern] [--confirm]
+                if (arguments.Count == 0)
+                {
+                    // Use selected topic from UI
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.DeleteTopic, arguments));
+                }
+                else if (arguments.Count == 1)
+                {
+                    // Topic pattern specified
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.DeleteTopic, arguments));
+                }
+                else if (arguments.Count == 2 && arguments[1].ToLowerInvariant() == "--confirm")
+                {
+                    // Topic pattern with confirmation flag
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.DeleteTopic, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :deletetopic. Expected: :deletetopic [topic-pattern] [--confirm]");
+
             default:
                 return CommandResult.Failure($"Unknown command: '{commandKeyword}'");
         }

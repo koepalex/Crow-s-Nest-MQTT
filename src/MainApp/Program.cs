@@ -5,6 +5,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using CrowsNestMqtt.UI.ViewModels;
 using CrowsNestMqtt.UI.Views;
 using CrowsNestMqtt.BusinessLogic.Services;
+using Microsoft.Extensions.Logging;
 using System.Timers; // Added for Timer
 using System.Runtime; // Added for GCSettings
 using System.Runtime.CompilerServices;
@@ -64,9 +65,15 @@ class Program
             {
                 if (builder.Instance?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                 {
+                    // Create services for dependency injection
+                    var commandParserService = new CommandParserService();
+
+                    // DeleteTopicService will be created in MainViewModel after MqttService is available
+                    IDeleteTopicService? deleteTopicService = null;
+
                     desktop.MainWindow = new MainWindow
                     {
-                        DataContext = new MainViewModel(new CommandParserService(), null, aspireHostname, aspirePort)
+                        DataContext = new MainViewModel(commandParserService, null, deleteTopicService, aspireHostname, aspirePort)
                     };
 
                     if (!string.IsNullOrEmpty(aspireHostname) && aspirePort.HasValue)

@@ -13,6 +13,26 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class SearchFilteringTests
     {
+       // Synchronous dispatcher to eliminate deferred UI posts in tests
+       static SearchFilteringTests()
+       {
+           var dispatcherType = typeof(Avalonia.Threading.Dispatcher);
+           var field = dispatcherType.GetField("_uiThread", BindingFlags.Static | BindingFlags.NonPublic);
+           if (field != null)
+           {
+               field.SetValue(null, new ImmediateDispatcher());
+           }
+       }
+
+       private class ImmediateDispatcher : Avalonia.Threading.IDispatcher
+       {
+           public bool CheckAccess() => true;
+           public void Post(Action action) => action();
+           public void Post(Action action, Avalonia.Threading.DispatcherPriority priority) => action();
+           public void VerifyAccess() { }
+           public Avalonia.Threading.DispatcherPriority Priority => Avalonia.Threading.DispatcherPriority.Normal;
+       }
+
        private readonly ICommandParserService _commandParserService;
        private readonly IMqttService _mqttServiceMock; // Add mock for MessageViewModel
        private readonly IStatusBarService _statusBarServiceMock; // Add mock for MessageViewModel
@@ -41,8 +61,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Act
             viewModel.CurrentSearchTerm = "humidity";
             
-            // Allow time for the reactive filter to process
-            Thread.Sleep(300);
+            // Reactive pipeline synchronous (Immediate scheduler) - no delay needed
             
             // Assert
             Assert.Single(viewModel.FilteredMessageHistory);
@@ -65,8 +84,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // First apply a search term
             viewModel.CurrentSearchTerm = "25";
             
-            // Allow time for the reactive filter to process
-            Thread.Sleep(300);
+            // Reactive pipeline synchronous (Immediate scheduler) - no delay needed
             
             // Verify initial filter
             Assert.Single(viewModel.FilteredMessageHistory);
@@ -78,8 +96,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Act - Clear the search term
             viewModel.CurrentSearchTerm = string.Empty;
             
-            // Allow time for the reactive filter to process
-            Thread.Sleep(300);
+            // Reactive pipeline synchronous (Immediate scheduler) - no delay needed
             
             // Assert - Should show all messages for the selected topic
             Assert.Equal(2, viewModel.FilteredMessageHistory.Count);
@@ -89,7 +106,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void SelectedNode_WhenChanged_ShouldFilterMessagesByTopic()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            var viewModel = new MainViewModel(_commandParserService, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
             
             // Add test messages for multiple topics
             AddTestMessages(viewModel, new[]
@@ -108,8 +125,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Act - Select temperature node
             viewModel.SelectedNode = FindNode(viewModel.TopicTreeNodes, "sensor", "temperature");
             
-            // Allow time for the reactive filter to process
-            Thread.Sleep(300);
+            // Reactive pipeline synchronous (Immediate scheduler) - no delay needed
             
             // Assert
             Assert.Equal(2, viewModel.FilteredMessageHistory.Count);
@@ -139,8 +155,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // First select a specific topic to filter
             viewModel.SelectedNode = FindNode(viewModel.TopicTreeNodes, "sensor", "temperature");
             
-            // Allow time for the reactive filter to process
-            Thread.Sleep(300);
+            // Reactive pipeline synchronous (Immediate scheduler) - no delay needed
             
             // Verify initial filter
             Assert.Single(viewModel.FilteredMessageHistory);
@@ -148,8 +163,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Act - Clear selection
             viewModel.SelectedNode = null;
             
-            // Allow time for the reactive filter to process
-            Thread.Sleep(300);
+            // Reactive pipeline synchronous (Immediate scheduler) - no delay needed
             
             // Assert - Should show all messages
             Assert.Equal(3, viewModel.FilteredMessageHistory.Count);
@@ -174,8 +188,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             AddTopicNode(viewModel, "sensor/temperature");
             viewModel.SelectedNode = FindNode(viewModel.TopicTreeNodes, "sensor", "temperature");
             
-            // Wait for topic filter to apply
-            Thread.Sleep(300);
+            // Topic filter applied synchronously (Immediate scheduler) - no delay needed
             
             // Verify topic filter shows 3 temperature messages
             Assert.Equal(3, viewModel.FilteredMessageHistory.Count);
@@ -183,8 +196,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Act - Add search term
             viewModel.CurrentSearchTerm = "reading";
             
-            // Allow time for the reactive filter to process
-            Thread.Sleep(300);
+            // Reactive pipeline synchronous (Immediate scheduler) - no delay needed
             
             // Assert - Should only show temperature readings (not the error message)
             Assert.Equal(2, viewModel.FilteredMessageHistory.Count);
@@ -213,8 +225,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Act - Search with lowercase
             viewModel.CurrentSearchTerm = "temperature";
             
-            // Allow time for the reactive filter to process
-            Thread.Sleep(300);
+            // Reactive pipeline synchronous (Immediate scheduler) - no delay needed
             
             // Assert
             Assert.Equal(3, viewModel.FilteredMessageHistory.Count);
@@ -222,8 +233,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Act - Search with uppercase
             viewModel.CurrentSearchTerm = "TEMPERATURE";
             
-            // Allow time for the reactive filter to process
-            Thread.Sleep(300);
+            // Reactive pipeline synchronous (Immediate scheduler) - no delay needed
             
             // Assert - Same result regardless of case
             Assert.Equal(3, viewModel.FilteredMessageHistory.Count);
@@ -369,8 +379,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                messageSource.Add(message);
             }
             
-            // Allow time for the reactive pipeline to process
-            Thread.Sleep(100);
+            // Reactive pipeline synchronous (Immediate scheduler) - no delay needed
         }
         
         private void AddTopicNode(MainViewModel viewModel, string topic)

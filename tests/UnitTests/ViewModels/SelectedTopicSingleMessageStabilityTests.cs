@@ -20,6 +20,27 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
     /// </summary>
     public class SelectedTopicSingleMessageStabilityTests
     {
+        // Ensure Avalonia Dispatcher is a synchronous test dispatcher to avoid deferred posts never executing
+        static SelectedTopicSingleMessageStabilityTests()
+        {
+            var dispatcherType = typeof(Avalonia.Threading.Dispatcher);
+            var field = dispatcherType.GetField("_uiThread", BindingFlags.Static | BindingFlags.NonPublic);
+            if (field != null)
+            {
+                field.SetValue(null, new ImmediateDispatcher());
+            }
+        }
+
+        // Minimal immediate dispatcher (same pattern as used in other test class)
+        private class ImmediateDispatcher : Avalonia.Threading.IDispatcher
+        {
+            public bool CheckAccess() => true;
+            public void Post(Action action) => action();
+            public void Post(Action action, Avalonia.Threading.DispatcherPriority priority) => action();
+            public void VerifyAccess() { }
+            public Avalonia.Threading.DispatcherPriority Priority => Avalonia.Threading.DispatcherPriority.Normal;
+        }
+
         private readonly ICommandParserService _commandParser = Substitute.For<ICommandParserService>();
         private readonly IMqttService _mqttService = Substitute.For<IMqttService>();
 

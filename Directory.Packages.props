@@ -38,5 +38,6 @@
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="11.3.3" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="9.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="9.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.1" />
   </ItemGroup>
 </Project>

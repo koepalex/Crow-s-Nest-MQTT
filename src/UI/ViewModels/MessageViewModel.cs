@@ -19,6 +19,7 @@ public class MessageViewModel : ReactiveObject
     public DateTime Timestamp { get; } // Keep the timestamp when the VM was created
     public string PayloadPreview { get; } = string.Empty; // Store the generated preview (initialized for nullable safety)
     public int Size { get; }
+    public bool IsEffectivelyRetained { get; } // Store the corrected retain status
 
     // Display text remains the same, based on stored preview
     public string DisplayText => $"{Timestamp:HH:mm:ss.fff} ({Size,10} B): {PayloadPreview}";
@@ -33,13 +34,15 @@ public class MessageViewModel : ReactiveObject
         IMqttService mqttService,
         IStatusBarService statusBarService,
         MqttApplicationMessage? fullMessage = null,
-        bool enableFallbackFullMessage = true)
+        bool enableFallbackFullMessage = true,
+        bool isEffectivelyRetained = false)
     {
         MessageId = messageId;
         Topic = topic ?? throw new ArgumentNullException(nameof(topic));
         Timestamp = timestamp;
         PayloadPreview = payloadPreview ?? string.Empty;
         Size = size;
+        IsEffectivelyRetained = isEffectivelyRetained;
         _mqttService = mqttService ?? throw new ArgumentNullException(nameof(mqttService));
         _statusBarService = statusBarService ?? throw new ArgumentNullException(nameof(statusBarService));
         _cachedMessage = fullMessage;

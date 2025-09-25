@@ -8,12 +8,33 @@ using NSubstitute;
 using MQTTnet;
 using System.Reflection;
 using System.Text;
+using System.Reactive.Concurrency;
 using Xunit;
 
 namespace CrowsNestMqtt.UnitTests.ViewModels
 {
-    public class CommandInterfaceTests
+public class CommandInterfaceTests
     {
+       // Synchronous dispatcher to make Dispatcher.UIThread.Post immediate in unit tests
+       static CommandInterfaceTests()
+       {
+           var dispatcherType = typeof(Avalonia.Threading.Dispatcher);
+           var field = dispatcherType.GetField("_uiThread", BindingFlags.Static | BindingFlags.NonPublic);
+           if (field != null)
+           {
+               field.SetValue(null, new ImmediateDispatcher());
+           }
+       }
+
+       private class ImmediateDispatcher : Avalonia.Threading.IDispatcher
+       {
+           public bool CheckAccess() => true;
+           public void Post(Action action) => action();
+           public void Post(Action action, Avalonia.Threading.DispatcherPriority priority) => action();
+           public void VerifyAccess() { }
+           public Avalonia.Threading.DispatcherPriority Priority => Avalonia.Threading.DispatcherPriority.Normal;
+       }
+
        private readonly ICommandParserService _commandParserService;
        private readonly MqttEngine _mqttEngine; // Keep this for engine-specific tests
        private readonly IMqttService _mqttServiceMock; // Add mock for MessageViewModel
@@ -31,7 +52,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public async Task ExecuteSubmitInput_WithCommandInput_ShouldExecuteCommand()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
             const string commandText = ":connect localhost:1883";
             viewModel.CommandText = commandText;
 
@@ -59,7 +80,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void ExecuteSubmitInput_WithSearchTerm_ShouldApplyFilter()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
             const string searchTerm = "test search";
             viewModel.CommandText = searchTerm;
 
@@ -80,7 +101,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void DispatchCommand_WithHelpCommand_ShouldDisplayHelp()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
             var parsedCommand = new ParsedCommand(CommandType.Help, new List<string>().AsReadOnly());
 
             // Act - Call the DispatchCommand method via reflection
@@ -95,7 +116,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void DispatchCommand_WithSpecificHelpCommand_ShouldDisplaySpecificHelp()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
             var parsedCommand = new ParsedCommand(CommandType.Help, new List<string> { "connect" }.AsReadOnly());
 
             // Act - Call the DispatchCommand method via reflection
@@ -110,7 +131,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void DispatchCommand_WithFilterCommand_ShouldApplyTopicFilter()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
             var parsedCommand = new ParsedCommand(CommandType.Filter, new List<string> { "sensor" }.AsReadOnly());
 
             // Act - Call the DispatchCommand method via reflection
@@ -126,7 +147,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void DispatchCommand_WithClearFilterCommand_ShouldClearTopicFilter()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
             
             // First apply a filter
             var applyFilterCommand = new ParsedCommand(CommandType.Filter, new List<string> { "sensor" }.AsReadOnly());
@@ -148,7 +169,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void DispatchCommand_WithExportCommand_ShouldExportSelectedMessage()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
             
            // Create a message to export
            var messageIdExport = Guid.NewGuid();
@@ -326,7 +347,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         {
             // Arrange
             var commandParser = new CommandParserService(); // Use real parser
-            var viewModel = new MainViewModel(commandParser);
+            var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous; // Start as anonymous
 
             // Act
@@ -342,7 +363,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         {
             // Arrange
             var commandParser = new CommandParserService();
-            var viewModel = new MainViewModel(commandParser);
+            var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword; // Start as userpass
             viewModel.Settings.AuthUsername = "test"; // Ensure it's not empty for full switch effect
 
@@ -359,7 +380,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         {
             // Arrange
             var commandParser = new CommandParserService();
-            var viewModel = new MainViewModel(commandParser);
+            var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
             viewModel.Settings.AuthUsername = ""; // Ensure username is empty
 
@@ -377,7 +398,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         {
             // Arrange
             var commandParser = new CommandParserService();
-            var viewModel = new MainViewModel(commandParser);
+            var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
             viewModel.Settings.AuthUsername = "";
             viewModel.Settings.AuthPassword = "";
@@ -397,7 +418,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         {
             // Arrange
             var commandParser = new CommandParserService();
-            var viewModel = new MainViewModel(commandParser);
+            var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
             viewModel.Settings.AuthUsername = "";
             viewModel.Settings.AuthPassword = "";
@@ -417,7 +438,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         {
             // Arrange
             var commandParser = new CommandParserService();
-            var viewModel = new MainViewModel(commandParser);
+            var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword;
             viewModel.Settings.AuthUsername = "olduser";
             viewModel.Settings.AuthPassword = "oldpass";
