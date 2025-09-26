@@ -24,7 +24,10 @@ public class TextExporter : IMessageExporter
         sb.AppendLine($"Response Topic: {msg.ResponseTopic}");
         sb.AppendLine($"QoS: {msg.QualityOfServiceLevel}");
         sb.AppendLine($"Message Expiry Interval: {msg.MessageExpiryInterval}");
-        sb.AppendLine($"Correlation Data: {Convert.ToBase64String(correlationData)}");
+        if (correlationData.Length > 0)
+        {
+            sb.AppendLine($"Correlation Data: {BitConverter.ToString(correlationData).Replace("-", string.Empty)}");
+        }
         sb.AppendLine($"Payload Format: {msg.PayloadFormatIndicator}");
         sb.AppendLine($"Content Type: {msg.ContentType ?? "N/A"}");
         sb.AppendLine($"Retain: {msg.Retain}");

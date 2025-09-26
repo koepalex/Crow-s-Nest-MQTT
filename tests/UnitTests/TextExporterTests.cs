@@ -78,7 +78,10 @@ public class TextExporterTests : IDisposable
         sb.AppendLine($"QoS: {msg.QualityOfServiceLevel}");
         sb.AppendLine($"Message Expiry Interval: {msg.MessageExpiryInterval}");
         // Use Payload property getter which returns ReadOnlySequence<byte>
-        sb.AppendLine($"Correlation Data: {(msg.CorrelationData == null || msg.CorrelationData.Length == 0 ? "" : Convert.ToBase64String(msg.CorrelationData))}"); // Handle null/empty
+        if (msg.CorrelationData != null && msg.CorrelationData.Length > 0)
+        {
+            sb.AppendLine($"Correlation Data: {BitConverter.ToString(msg.CorrelationData).Replace("-", string.Empty)}");
+        }
         sb.AppendLine($"Payload Format: {msg.PayloadFormatIndicator}");
         sb.AppendLine($"Content Type: {msg.ContentType ?? "N/A"}");
         sb.AppendLine($"Retain: {msg.Retain}");
@@ -216,8 +219,8 @@ public class TextExporterTests : IDisposable
         Assert.Equal(expectedFilename, Path.GetFileName(filePath));
         var actualContent = await File.ReadAllTextAsync(filePath, CancellationToken.None); // Await file read
         Assert.Equal(expectedContent.TrimEnd().Replace("\r\n", "\n"), actualContent.TrimEnd().Replace("\r\n", "\n"));
-        // Check the line specifically, accounting for potential line ending differences
-        Assert.Contains($"Correlation Data: \n", actualContent.Replace("\r\n", "\n"));
+        // Verify that correlation data is NOT present when empty (matches metadata table behavior)
+        Assert.DoesNotContain("Correlation Data:", actualContent);
     }
 
     [Fact]
