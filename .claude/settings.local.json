@@ -7,7 +7,8 @@
       "Bash(dotnet build:*)",
       "Bash(dotnet run:*)",
       "Bash(dir:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
