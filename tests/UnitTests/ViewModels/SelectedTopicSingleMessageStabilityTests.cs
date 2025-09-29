@@ -72,7 +72,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             return new IdentifiedMqttApplicationMessageReceivedEventArgs(Guid.NewGuid(), msg, "test-client");
         }
 
-        [Fact]
+        [Fact(Timeout = 30000)]
         public void TopicSelected_BeforeSingleImageMessageArrival_MessageVisible()
         {
             using var vm = CreateVm();
@@ -90,7 +90,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.Equal(topic, vm.SelectedMessage.Topic);
         }
 
-        [Fact]
+        [Fact(Timeout = 30000)]
         public void TopicSelected_BeforeSingleOctetStreamMessageArrival_MessageVisible()
         {
             using var vm = CreateVm();
@@ -108,7 +108,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.Equal(topic, vm.SelectedMessage.Topic);
         }
 
-        [Fact]
+        [Fact(Timeout = 30000)]
         public void TopicSelectedWithTrailingSlash_SingleMessageArrival_MessageVisible()
         {
             using var vm = CreateVm();
@@ -128,7 +128,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.Equal(topic, vm.SelectedMessage.Topic);
         }
 
-        [Fact]
+        [Fact(Timeout = 30000)]
         public void MessageRemainsVisible_AfterFilterReevaluation()
         {
             using var vm = CreateVm();

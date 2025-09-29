@@ -1413,7 +1413,8 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         // Ensure we are on Avalonia UI thread due to TextDocument & Bitmap access
         // In non-Avalonia unit test context (Application.Current == null) or when the TextDocument
         // was created on this thread, proceed without marshaling.
-        if (Application.Current != null && !Dispatcher.UIThread.CheckAccess())
+        // Also skip marshaling in test mode to avoid potential deadlocks
+        if (Application.Current != null && !Dispatcher.UIThread.CheckAccess() && !_testMode)
         {
             Dispatcher.UIThread.Post(() => UpdateMessageDetails(messageVm));
             return;
