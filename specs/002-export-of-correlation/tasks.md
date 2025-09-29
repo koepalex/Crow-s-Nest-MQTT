@@ -53,7 +53,7 @@
 ## Phase 3.3: Core Implementation (ONLY after tests are failing)
 
 - [x] T009 **CorrelationData model updates**: Update or create correlation data model in `src/BusinessLogic/Models/CorrelationData.cs` with DisplayFormat, SourceEncoding, and IsReadable properties (N/A - using MQTTnet types directly)
-- [x] T010 **Fix export formatting logic**: Locate and fix base64 encoding in export functionality within `src/BusinessLogic/Services/` to use same format as metadata table display
+- [x] T010 **Fix export formatting logic**: Locate and fix base64 encoding in export functionality within `src/BusinessLogic/Services/` to use same format as metadata table display (UPDATED: Fixed both TextExporter AND JsonExporter)
 - [x] T011 **Fix copy formatting logic**: Locate and fix base64 encoding in copy functionality within `src/BusinessLogic/Services/` to use same format as metadata table display
 - [x] T012 **Format consistency validator**: Create `src/BusinessLogic/Validators/FormatConsistencyValidator.cs` to ensure export/copy format matches display format (N/A - consistency achieved through shared TextExporter logic)
 - [x] T013 **Cross-platform file service**: Update file I/O service in `src/BusinessLogic/Services/FileService.cs` to handle UTF-8 encoding with proper BOM for Windows compatibility (N/A - File.WriteAllText already handles UTF-8 properly)

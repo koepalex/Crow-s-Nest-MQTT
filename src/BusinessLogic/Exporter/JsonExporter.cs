@@ -34,7 +34,7 @@ public class JsonExporter : IMessageExporter
         public MQTTnet.Protocol.MqttQualityOfServiceLevel QualityOfServiceLevel { get; init; }
         public bool Retain { get; init; }
         public uint MessageExpiryInterval { get; init; }
-        public byte[]? CorrelationData { get; init; } // Keep as byte[]? Or Base64 string? Let's try byte[] first.
+        public string? CorrelationData { get; init; } // Hexadecimal string to match metadata table display
         public MQTTnet.Protocol.MqttPayloadFormatIndicator PayloadFormatIndicator { get; init; }
         public string? ContentType { get; init; }
         public List<MqttUserPropertyDto>? UserProperties { get; init; }
@@ -80,7 +80,9 @@ public class JsonExporter : IMessageExporter
                 QualityOfServiceLevel = msg.QualityOfServiceLevel,
                 Retain = msg.Retain,
                 MessageExpiryInterval = msg.MessageExpiryInterval,
-                CorrelationData = msg.CorrelationData?.ToArray(), // Convert ReadOnlySequence<byte> to byte[]
+                CorrelationData = msg.CorrelationData != null && msg.CorrelationData.Length > 0
+                    ? BitConverter.ToString(msg.CorrelationData.ToArray()).Replace("-", string.Empty)
+                    : null, // Convert to hexadecimal string to match metadata table display
                 PayloadFormatIndicator = msg.PayloadFormatIndicator,
                 ContentType = msg.ContentType,
                 UserProperties = msg.UserProperties?.Select(up => new MqttUserPropertyDto(up.Name, up.Value)).ToList(),
