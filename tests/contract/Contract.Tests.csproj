@@ -31,4 +31,7 @@
     <ProjectReference Include="..\..\src\Utils\Utils.csproj" />
     <ProjectReference Include="..\..\src\UI\UI.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\TestData\MqttTestDataGenerator.cs" Link="TestData\MqttTestDataGenerator.cs" />
+  </ItemGroup>
 </Project>

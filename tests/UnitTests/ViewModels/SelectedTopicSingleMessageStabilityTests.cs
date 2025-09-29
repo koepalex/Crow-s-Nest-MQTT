@@ -72,8 +72,8 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             return new IdentifiedMqttApplicationMessageReceivedEventArgs(Guid.NewGuid(), msg, "test-client");
         }
 
-        [Fact]
-        public void TopicSelected_BeforeSingleImageMessageArrival_MessageVisible()
+        [Fact(Timeout = 30000)]
+        public Task TopicSelected_BeforeSingleImageMessageArrival_MessageVisible()
         {
             using var vm = CreateVm();
             var topic = "test/imageTopic";
@@ -88,10 +88,11 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.Single(vm.FilteredMessageHistory);
             Assert.NotNull(vm.SelectedMessage);
             Assert.Equal(topic, vm.SelectedMessage.Topic);
+            return Task.CompletedTask;
         }
 
-        [Fact]
-        public void TopicSelected_BeforeSingleOctetStreamMessageArrival_MessageVisible()
+        [Fact(Timeout = 30000)]
+        public Task TopicSelected_BeforeSingleOctetStreamMessageArrival_MessageVisible()
         {
             using var vm = CreateVm();
             var topic = "test/binaryTopic";
@@ -106,10 +107,11 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.Single(vm.FilteredMessageHistory);
             Assert.NotNull(vm.SelectedMessage);
             Assert.Equal(topic, vm.SelectedMessage.Topic);
+            return Task.CompletedTask;
         }
 
-        [Fact]
-        public void TopicSelectedWithTrailingSlash_SingleMessageArrival_MessageVisible()
+        [Fact(Timeout = 30000)]
+        public Task TopicSelectedWithTrailingSlash_SingleMessageArrival_MessageVisible()
         {
             using var vm = CreateVm();
             var topic = "devices/sensor1";
@@ -126,10 +128,11 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.Single(vm.FilteredMessageHistory);
             Assert.NotNull(vm.SelectedMessage);
             Assert.Equal(topic, vm.SelectedMessage.Topic);
+            return Task.CompletedTask;
         }
 
-        [Fact]
-        public void MessageRemainsVisible_AfterFilterReevaluation()
+        [Fact(Timeout = 30000)]
+        public Task MessageRemainsVisible_AfterFilterReevaluation()
         {
             using var vm = CreateVm();
             var topic = "status/one";
@@ -146,6 +149,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
 
             Assert.Single(vm.FilteredMessageHistory);
             Assert.NotNull(vm.SelectedMessage);
+            return Task.CompletedTask;
         }
     }
 }

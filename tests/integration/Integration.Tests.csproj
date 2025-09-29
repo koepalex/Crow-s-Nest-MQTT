@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <RootNamespace>CrowsNestMqtt.UnitTests</RootNamespace>
-    <AssemblyName>CrowsNestMqtt.UnitTests</AssemblyName>
+    <RootNamespace>CrowsNestMqtt.Integration.Tests</RootNamespace>
+    <AssemblyName>CrowsNestMqtt.Integration.Tests</AssemblyName>
     <TargetFramework>$(TestsTargetFramework)</TargetFramework>
     <IsPackable>false</IsPackable>
     <DebugType>portable</DebugType>
@@ -20,9 +20,6 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="ReportGenerator" />
-    <PackageReference Include="Avalonia.Headless" />
-    <PackageReference Include="Avalonia.Headless.XUnit" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="MQTTnet" />
@@ -31,7 +28,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\BusinessLogic\BusinessLogic.csproj" />
-    <ProjectReference Include="..\..\src\MainApp\CrowsNestMqtt.App.csproj" />
     <ProjectReference Include="..\..\src\Utils\Utils.csproj" />
     <ProjectReference Include="..\..\src\UI\UI.csproj" />
   </ItemGroup>
@@ -40,10 +36,7 @@
     <Compile Include="..\TestData\MqttTestUtilities.cs" Link="TestData\MqttTestUtilities.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="appsettings.test.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="xunit.runner.json">
+    <None Include="appsettings.integration.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

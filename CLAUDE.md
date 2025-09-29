@@ -9,6 +9,8 @@ Auto-generated from constitution v1.0.0. Last updated: 2025-09-23
 - **Testing**: xUnit or NUnit for unit/integration testing
 - **Logging**: Serilog for structured logging
 - **Build**: .NET CLI, MSBuild
+- C# (.NET - latest stable version) + WPF/Avalonia UI framework, MQTTnet library, Serilog logging (002-export-of-correlation)
+- In-memory message buffers with configurable limits, file export capabilities (002-export-of-correlation)
 
 ## Project Structure
 ```
@@ -96,6 +98,7 @@ Examples:
 - Performance tests: Message throughput, memory usage
 
 ## Recent Changes
+- 002-export-of-correlation: Added C# (.NET - latest stable version) + WPF/Avalonia UI framework, MQTTnet library, Serilog logging
 1. Delete Topic Command (Feature 001) - Added `:deletetopic` command for clearing retained messages with parallel processing and error handling
 2. Constitution v1.0.0 - Initial project governance and architectural principles
 3. Spec-kit integration - Added .specify templates for structured development
@@ -104,6 +107,4 @@ Examples:
 **Constitutional Compliance Notes:**
 - All features must pass constitutional checks before implementation
 - Document any principle violations in complexity tracking
-- Prefer simplicity; justify any architectural complexity
-- Maintain command-driven interface as primary interaction method
 <!-- MANUAL ADDITIONS END -->
