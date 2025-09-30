@@ -5,6 +5,9 @@ using Avalonia.Controls.ApplicationLifetimes;
 using CrowsNestMqtt.UI.ViewModels;
 using CrowsNestMqtt.UI.Views;
 using CrowsNestMqtt.BusinessLogic.Services;
+using CrowsNestMqtt.BusinessLogic.Contracts; // Added for IMessageCorrelationService
+using CrowsNestMqtt.UI.Services; // Added for ResponseIconService
+using CrowsNestMqtt.UI.Contracts; // Added for IResponseIconService
 using Microsoft.Extensions.Logging;
 using System.Timers; // Added for Timer
 using System.Runtime; // Added for GCSettings
@@ -68,12 +71,18 @@ class Program
                     // Create services for dependency injection
                     var commandParserService = new CommandParserService();
 
-                    // DeleteTopicService will be created in MainViewModel after MqttService is available
+                    // Services will be created in MainViewModel after MqttService is available
                     IDeleteTopicService? deleteTopicService = null;
+                    IMessageCorrelationService? correlationService = new MessageCorrelationService();
+
+                    // Navigation service requires additional dependencies that aren't available at startup
+                    // The icon service can work without navigation for now (icon display and status tracking)
+                    IResponseNavigationService? navigationService = null;
+                    IResponseIconService? iconService = new ResponseIconService(correlationService, navigationService!);
 
                     desktop.MainWindow = new MainWindow
                     {
-                        DataContext = new MainViewModel(commandParserService, null, deleteTopicService, aspireHostname, aspirePort)
+                        DataContext = new MainViewModel(commandParserService, null, deleteTopicService, correlationService, iconService, aspireHostname, aspirePort)
                     };
 
                     if (!string.IsNullOrEmpty(aspireHostname) && aspirePort.HasValue)

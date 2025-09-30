@@ -19,9 +19,11 @@ using CrowsNestMqtt.BusinessLogic; // Required for MqttEngine, MqttConnectionSta
 using CrowsNestMqtt.BusinessLogic.Commands; // Added for command parsing
 using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.BusinessLogic.Models;
+using CrowsNestMqtt.BusinessLogic.Contracts; // Added for IMessageCorrelationService
 using Microsoft.Extensions.Logging.Abstractions; // Added for command parsing
 using CrowsNestMqtt.UI.Commands; // Added for ICommandProcessor and extensions
 using CrowsNestMqtt.UI.Services; // Added for IStatusBarService
+using CrowsNestMqtt.UI.Contracts; // Added for IResponseIconService
 using CrowsNestMqtt.Utils; // Added for AppLogger
 using DynamicData; // Added for SourceList and reactive filtering
 using DynamicData.Binding; // Added for Bind()
@@ -42,6 +44,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly IMqttService _mqttService; // Changed to interface
     private readonly ICommandParserService _commandParserService; // Added command parser service
     private readonly IDeleteTopicService? _deleteTopicService; // Added delete topic service
+    private readonly IMessageCorrelationService? _correlationService; // Added correlation service for request-response tracking
+    private readonly IResponseIconService? _iconService; // Added icon service for UI status updates
     private Timer? _updateTimer;
     private Timer? _uiHeartbeatTimer;
     private DateTime _lastHeartbeatPosted = DateTime.MinValue;
@@ -632,6 +636,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     public ReactiveCommand<Unit, Unit> FocusCommandBarCommand { get; } // Added command to trigger focus
     public ReactiveCommand<object?, Unit> CopyPayloadCommand { get; } // Added command to copy payload
     public ReactiveCommand<Unit, Unit> DeleteTopicCommand { get; } // Added command to delete selected topic's retained messages
+    public ReactiveCommand<string?, Unit> NavigateToResponseCommand { get; } // Added command to navigate to response messages
 
     // Interaction for requesting clipboard copy from the View
     public Interaction<string, Unit> CopyTextToClipboardInteraction { get; }
@@ -653,10 +658,12 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     /// Sets up placeholder data and starts the UI update timer.
     /// </summary>
     // Constructor now requires ICommandParserService
-    public MainViewModel(ICommandParserService commandParserService, IMqttService? mqttService = null, IDeleteTopicService? deleteTopicService = null, string? aspireHostname = null, int? aspirePort = null, IScheduler? uiScheduler = null)
+    public MainViewModel(ICommandParserService commandParserService, IMqttService? mqttService = null, IDeleteTopicService? deleteTopicService = null, IMessageCorrelationService? correlationService = null, IResponseIconService? iconService = null, string? aspireHostname = null, int? aspirePort = null, IScheduler? uiScheduler = null)
     {
         _commandParserService = commandParserService ?? throw new ArgumentNullException(nameof(commandParserService)); // Store injected service
         _deleteTopicService = deleteTopicService; // Store injected delete topic service (optional)
+        _correlationService = correlationService; // Store injected correlation service (optional)
+        _iconService = iconService; // Store injected icon service (optional)
         _uiScheduler = uiScheduler 
             ?? (Application.Current == null ? Scheduler.Immediate : RxApp.MainThreadScheduler); // Use Immediate in non-Avalonia (plain unit test) context
         _testMode = Application.Current == null
@@ -928,6 +935,12 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         _mqttService.MessagesBatchReceived += OnMessagesBatchReceived;
         _mqttService.LogMessage += OnLogMessage;
 
+        // Subscribe to correlation status changes for icon updates
+        if (_correlationService != null)
+        {
+            _correlationService.CorrelationStatusChanged += OnCorrelationStatusChanged;
+        }
+
         // Create DeleteTopicService if not provided, now that we have MqttService
         _deleteTopicService = deleteTopicService ?? new DeleteTopicService(_mqttService, Microsoft.Extensions.Logging.Abstractions.NullLogger<DeleteTopicService>.Instance);
 
@@ -949,6 +962,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         FocusCommandBarCommand = ReactiveCommand.Create(() => { Log.Debug("FocusCommandBarCommand executed by global hook."); /* Actual focus happens in View code-behind */ });
         CopyPayloadCommand = ReactiveCommand.CreateFromTask<object?>(CopyPayloadToClipboardAsync); // Initialize copy payload command
         DeleteTopicCommand = ReactiveCommand.CreateFromTask(ExecuteDeleteTopicAsync); // Initialize delete topic command
+        NavigateToResponseCommand = ReactiveCommand.Create<string?>(NavigateToResponse); // Initialize navigate to response command
 
         // --- Property Change Reactions ---
 
@@ -1038,6 +1052,37 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     {
         // TODO: Implement proper logging (e.g., to a log panel or file)
         Log.Debug("[MQTT Engine]: {LogMessage}", log);
+    }
+
+    private void OnCorrelationStatusChanged(object? sender, CorrelationStatusChangedEventArgs e)
+    {
+        // Update icon status when correlation status changes
+        if (_iconService != null && e != null)
+        {
+            _ = _iconService.UpdateIconStatusAsync(e.RequestMessageId, e.NewStatus);
+
+            Log.Information("Correlation status changed for request {RequestMessageId}: {PreviousStatus} -> {NewStatus}",
+                e.RequestMessageId, e.PreviousStatus, e.NewStatus);
+
+            // If currently viewing the request message, update the icon in the metadata view
+            if (SelectedMessage != null && SelectedMessage.MessageId.ToString() == e.RequestMessageId)
+            {
+                ScheduleOnUi(() =>
+                {
+                    // Find the Response Topic metadata item and update its icon
+                    var responseTopicItem = MessageMetadata.FirstOrDefault(m => m.Key == "Response Topic");
+                    if (responseTopicItem?.IconViewModel != null)
+                    {
+                        responseTopicItem.IconViewModel.Status = e.NewStatus;
+                        responseTopicItem.IconViewModel.ToolTip = e.NewStatus == ResponseStatus.Received
+                            ? "Click to navigate to response message"
+                            : "Click to navigate to response topic (awaiting response)";
+                        Log.Information("Updated icon status in UI for request {RequestMessageId} to {NewStatus}",
+                            e.RequestMessageId, e.NewStatus);
+                    }
+                });
+            }
+        }
     }
 
     // --- MQTT Event Handlers ---
@@ -1141,6 +1186,44 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             e.IsEffectivelyRetained);
 
         messageViewModels.Add(messageVm);
+
+        // Track request-response correlation for MQTT V5
+        if (_correlationService != null && e?.ApplicationMessage != null)
+        {
+            var msg = e.ApplicationMessage;
+
+            // Register request messages with response-topic
+            if (!string.IsNullOrEmpty(msg?.ResponseTopic) && msg?.CorrelationData != null && msg.CorrelationData.Length > 0)
+            {
+                var correlationHex = BitConverter.ToString(msg.CorrelationData).Replace("-", "");
+                Log.Information("Registering REQUEST message {MessageId} on topic {Topic} with response-topic {ResponseTopic} and correlation-data {CorrelationData}",
+                    messageId, topic, msg.ResponseTopic, correlationHex);
+
+                var registered = _correlationService.RegisterRequestAsync(
+                    messageId.ToString(),
+                    msg.CorrelationData,
+                    msg.ResponseTopic,
+                    ttlMinutes: 30).GetAwaiter().GetResult();
+
+                Log.Information("Request registration {Result} for message {MessageId}",
+                    registered ? "SUCCEEDED" : "FAILED", messageId);
+            }
+            // Link response messages with correlation-data
+            else if (msg?.CorrelationData != null && msg.CorrelationData.Length > 0)
+            {
+                var correlationHex = BitConverter.ToString(msg.CorrelationData).Replace("-", "");
+                Log.Information("Linking RESPONSE message {MessageId} on topic {Topic} with correlation-data {CorrelationData}",
+                    messageId, topic, correlationHex);
+
+                var linked = _correlationService.LinkResponseAsync(
+                    messageId.ToString(),
+                    msg.CorrelationData,
+                    topic).GetAwaiter().GetResult();
+
+                Log.Information("Response linking {Result} for message {MessageId}",
+                    linked ? "SUCCEEDED" : "FAILED", messageId);
+            }
+        }
     }
 
     // Removed direct AddRange; additions now handled after store AddBatch to avoid duplicates.
@@ -1557,7 +1640,55 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         MessageMetadata.Add(new MetadataItem("Payload Format", msg.PayloadFormatIndicator.ToString()));
         MessageMetadata.Add(new MetadataItem("Expiry (s)", msg.MessageExpiryInterval.ToString()));
         MessageMetadata.Add(new MetadataItem("ContentType", msg.ContentType));
-        MessageMetadata.Add(new MetadataItem("Response Topic", msg.ResponseTopic));
+
+        // Add Response Topic with icon if present
+        ResponseIconViewModel? iconVm = null;
+        if (!string.IsNullOrEmpty(msg.ResponseTopic) && messageVm != null)
+        {
+            var requestMessageId = messageVm.MessageId.ToString();
+
+            // Try to get existing icon view model from icon service first
+            if (_iconService != null)
+            {
+                iconVm = _iconService.GetIconViewModelAsync(requestMessageId).GetAwaiter().GetResult();
+            }
+
+            // If no existing icon, create a new one with current status from correlation service
+            if (iconVm == null)
+            {
+                var currentStatus = ResponseStatus.Pending;
+                if (_correlationService != null)
+                {
+                    currentStatus = _correlationService.GetResponseStatusAsync(requestMessageId).GetAwaiter().GetResult();
+                }
+
+                Log.Information("Creating new icon view model for request {RequestMessageId} with current status {Status}",
+                    requestMessageId, currentStatus);
+
+                iconVm = new ResponseIconViewModel
+                {
+                    RequestMessageId = requestMessageId,
+                    Status = currentStatus,
+                    ToolTip = currentStatus == ResponseStatus.Received
+                        ? "Click to navigate to response message"
+                        : "Click to navigate to response topic (awaiting response)",
+                    IsClickable = true,
+                    IsVisible = true
+                };
+
+                // Note: We don't store in icon service here because:
+                // 1. The correlation service already updated the status
+                // 2. We've queried the latest status above
+                // 3. This iconVm instance will be used directly in the UI
+                // 4. Future calls will query correlation service for latest status
+            }
+            else
+            {
+                Log.Information("Using existing icon view model for request {RequestMessageId} with status {Status}",
+                    requestMessageId, iconVm.Status);
+            }
+        }
+        MessageMetadata.Add(new MetadataItem("Response Topic", msg.ResponseTopic ?? string.Empty, iconVm));
 
         if (msg.CorrelationData != null && msg.CorrelationData.Length > 0)
         {
@@ -2048,6 +2179,27 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             Log.Error(ex, "Delete topic command failed");
             ShowStatus(errorMessage, TimeSpan.FromSeconds(5));
         }
+    }
+
+    private void NavigateToResponse(string? requestMessageId)
+    {
+        if (string.IsNullOrEmpty(requestMessageId))
+        {
+            ShowStatus("Invalid request message ID for navigation");
+            return;
+        }
+
+        Log.Information("Navigate to response command executed for request: {RequestMessageId}", requestMessageId);
+
+        // TODO: Implement full navigation using IResponseNavigationService
+        // For now, provide visual feedback that the feature is working
+        ShowStatus($"Navigation to response for request {requestMessageId[..Math.Min(8, requestMessageId.Length)]}...", TimeSpan.FromSeconds(3));
+
+        // Future implementation will:
+        // 1. Look up correlation data for the request message
+        // 2. Find response messages with matching correlation data
+        // 3. Navigate to the response topic
+        // 4. Select the correlated response message
     }
 
     private void TogglePause()

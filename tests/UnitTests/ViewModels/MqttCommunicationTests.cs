@@ -52,7 +52,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void ConnectAsync_ShouldUpdateSettingsAndConnect()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null);
 
             // Act
             viewModel.ConnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();
@@ -66,7 +66,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void DisconnectAsync_ShouldDisconnect()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null);
 
             // Act
             viewModel.DisconnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();
@@ -79,7 +79,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void ConnectionStateChanged_ShouldUpdateConnectionState()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null);
 
             // Act
             var connectionStateEventArgs = new MqttConnectionStateChangedEventArgs(true, null, ConnectionStatusState.Connected, "Connected");
@@ -94,7 +94,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void MessageReceived_ShouldHandleMessageAndUpdateTopicTree()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null);
             var payload = System.Text.Encoding.UTF8.GetBytes("test message");
             var message = new MqttApplicationMessageBuilder().WithTopic("test/topic").WithPayload(payload).Build();
             var identifiedArgs = new IdentifiedMqttApplicationMessageReceivedEventArgs(Guid.NewGuid(), message, "client1");
@@ -113,7 +113,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void MessageReceived_WhenPaused_ShouldNotUpdateUI()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null);
             viewModel.IsPaused = true; // Set paused state directly
 
             var payload = System.Text.Encoding.UTF8.GetBytes("test message");
@@ -131,7 +131,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void Dispose_ShouldCleanUpResources()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null);
 
             // Act
             viewModel.Dispose();
@@ -147,7 +147,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             const string expectedHostname = "testhost";
             const int expectedPort = 1883;
 
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, expectedHostname, expectedPort);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, expectedHostname, expectedPort);
 
             // Act
             viewModel.ConnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();
