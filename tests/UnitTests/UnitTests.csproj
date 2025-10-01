@@ -20,8 +20,8 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Avalonia.Headless" Version="11.2.2" />
-    <PackageReference Include="Avalonia.Headless.XUnit" Version="11.2.2" />
+    <PackageReference Include="Avalonia.Headless" Version="11.3.6" />
+    <PackageReference Include="Avalonia.Headless.XUnit" Version="11.3.6" />
     <PackageReference Include="ReportGenerator" Version="5.4.12" />
   </ItemGroup>
   <ItemGroup>
