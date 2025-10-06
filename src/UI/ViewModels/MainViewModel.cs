@@ -340,7 +340,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 var result = isConnected && hasSelectedTopic;
 
                 // Debug logging to help troubleshoot
-                Log.Debug("IsDeleteButtonEnabled: Connected={IsConnected}, HasTopic={HasTopic}, Result={Result}",
+                Log.Verbose("IsDeleteButtonEnabled: Connected={IsConnected}, HasTopic={HasTopic}, Result={Result}",
                     isConnected, hasSelectedTopic, result);
 
                 return result;
@@ -782,11 +782,11 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
                 if (normalizedSelected == null && string.IsNullOrEmpty(term))
                 {
-                    Log.Debug("Filter criteria updated. SelectedPath='[None]' Term='[Empty]' (pass-through all).");
+                    Log.Verbose("Filter criteria updated. SelectedPath='[None]' Term='[Empty]' (pass-through all).");
                     return (Func<MessageViewModel, bool>)(_ => true);
                 }
 
-                Log.Debug("Filter criteria updated. SelectedPath='{Sel}' Term='{Term}'",
+                Log.Verbose("Filter criteria updated. SelectedPath='{Sel}' Term='{Term}'",
                     normalizedSelected ?? "[None]", string.IsNullOrEmpty(term) ? "[Empty]" : term);
 
                 return new Func<MessageViewModel, bool>(m =>
@@ -807,7 +807,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                         if (underSampleLimit && normalizedSelected != null && topic == normalizedSelected)
                         {
                             // Extreme corner (should not happen because branch above catches)
-                            Log.Debug("FilterEval (ANOMALY) sel='{Sel}' topic='{Topic}' topicMatch=false", normalizedSelected, topic);
+                            Log.Verbose("FilterEval (ANOMALY) sel='{Sel}' topic='{Topic}' topicMatch=false", normalizedSelected, topic);
                         }
                         return false;
                     }
@@ -819,7 +819,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                             Interlocked.Increment(ref _filterDiagnosticsMatches);
                             if (normalizedSelected != null && topic == normalizedSelected && _filterDiagnosticsMatches <= 5)
                             {
-                                Log.Debug("FilterEval PASS sel='{Sel}' topic='{Topic}' term='[Empty]'", normalizedSelected, topic);
+                                Log.Verbose("FilterEval PASS sel='{Sel}' topic='{Topic}' term='[Empty]'", normalizedSelected, topic);
                             }
                         }
                         return true;
@@ -834,7 +834,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                             if (_filterDiagnosticsMatches < 10)
                             {
                                 var previewText = m.PayloadPreview ?? string.Empty;
-                                Log.Debug("FilterEval PASS sel='{Sel}' topic='{Topic}' term='{Term}' previewSample='{Preview}'",
+                                Log.Verbose("FilterEval PASS sel='{Sel}' topic='{Topic}' term='{Term}' previewSample='{Preview}'",
                                     normalizedSelected, topic, term, previewText.Length > 40 ? previewText.Substring(0, 40) : previewText);
                             }
                         }
@@ -844,12 +844,12 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                             if (misses <= 15)
                             {
                                 var previewTextMiss = m.PayloadPreview ?? string.Empty;
-                                Log.Debug("FilterEval MISS(sel-topic) sel='{Sel}' topic='{Topic}' term='{Term}' previewSample='{Preview}'",
+                                Log.Verbose("FilterEval MISS(sel-topic) sel='{Sel}' topic='{Topic}' term='{Term}' previewSample='{Preview}'",
                                     normalizedSelected, topic, term, previewTextMiss.Length > 40 ? previewTextMiss.Substring(0, 40) : previewTextMiss);
                             }
                             else if (misses == 16)
                             {
-                                Log.Debug("FilterEval further misses suppressed for selected topic '{Sel}'", normalizedSelected);
+                                Log.Verbose("FilterEval further misses suppressed for selected topic '{Sel}'", normalizedSelected);
                             }
                         }
                     }
@@ -1059,14 +1059,15 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         // Update icon status when correlation status changes
         if (_iconService != null && e != null)
         {
-            _ = _iconService.UpdateIconStatusAsync(e.RequestMessageId, e.NewStatus);
+            var updateResult = _iconService.UpdateIconStatusAsync(e.RequestMessageId, e.NewStatus).GetAwaiter().GetResult();
 
-            Log.Information("Correlation status changed for request {RequestMessageId}: {PreviousStatus} -> {NewStatus}",
-                e.RequestMessageId, e.PreviousStatus, e.NewStatus);
+            Log.Verbose("Correlation status changed for request {RequestMessageId}: {PreviousStatus} -> {NewStatus}, Icon service update: {UpdateResult}",
+                e.RequestMessageId, e.PreviousStatus, e.NewStatus, updateResult);
 
             // If currently viewing the request message, update the icon in the metadata view
             if (SelectedMessage != null && SelectedMessage.MessageId.ToString() == e.RequestMessageId)
             {
+                Log.Verbose("Currently viewing request {RequestMessageId}, updating UI icon directly", e.RequestMessageId);
                 ScheduleOnUi(() =>
                 {
                     // Find the Response Topic metadata item and update its icon
@@ -1074,15 +1075,39 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                     if (responseTopicItem?.IconViewModel != null)
                     {
                         responseTopicItem.IconViewModel.Status = e.NewStatus;
-                        responseTopicItem.IconViewModel.ToolTip = e.NewStatus == ResponseStatus.Received
-                            ? "Click to navigate to response message"
-                            : "Click to navigate to response topic (awaiting response)";
-                        Log.Information("Updated icon status in UI for request {RequestMessageId} to {NewStatus}",
-                            e.RequestMessageId, e.NewStatus);
+                        responseTopicItem.IconViewModel.IconPath = GetIconPathForStatus(e.NewStatus);
+                        responseTopicItem.IconViewModel.IsClickable = e.NewStatus.IsClickable();
+                        responseTopicItem.IconViewModel.ToolTip = e.NewStatus.GetTooltipText();
+                        Log.Debug("Updated icon status in UI for request {RequestMessageId} to {NewStatus}, IconPath: {IconPath}, IsClickable: {IsClickable}, IsResponseReceived: {IsResponseReceived}",
+                            e.RequestMessageId, e.NewStatus, responseTopicItem.IconViewModel.IconPath, responseTopicItem.IconViewModel.IsClickable, responseTopicItem.IconViewModel.IsResponseReceived);
+                    }
+                    else
+                    {
+                        Log.Debug("Could not find Response Topic metadata item or icon for request {RequestMessageId}", e.RequestMessageId);
                     }
                 });
             }
+            else
+            {
+                Log.Verbose("Not currently viewing request {RequestMessageId} (viewing: {CurrentMessage}), icon will be updated when message is selected",
+                    e.RequestMessageId, SelectedMessage?.MessageId.ToString() ?? "none");
+            }
         }
+    }
+
+    /// <summary>
+    /// Gets the icon path for a given response status.
+    /// </summary>
+    private string GetIconPathForStatus(ResponseStatus status)
+    {
+        return status switch
+        {
+            ResponseStatus.Pending => "avares://CrowsNestMqtt/Assets/Icons/clock.svg",
+            ResponseStatus.Received => "avares://CrowsNestMqtt/Assets/Icons/arrow.svg",
+            ResponseStatus.NavigationDisabled => "avares://CrowsNestMqtt/Assets/Icons/clock_disabled.svg",
+            ResponseStatus.Hidden => string.Empty,
+            _ => string.Empty
+        };
     }
 
     // --- MQTT Event Handlers ---
@@ -1368,19 +1393,19 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                             .OrderByDescending(m => m.Timestamp)
                             .ToList();
 
-                        Log.Debug("Diagnostics: SourceSelectedCount={Cnt} FilteredSelectedCount=0 TotalSource={SrcTot} TotalFiltered={FiltTot}",
+                        Log.Verbose("Diagnostics: SourceSelectedCount={Cnt} FilteredSelectedCount=0 TotalSource={SrcTot} TotalFiltered={FiltTot}",
                             selectedSourceMessages.Count, _filteredMessageHistory.Count, _messageHistorySource.Count, _filteredMessageHistory.Count);
 
                         // Log up to first 5 message IDs & timestamps for the selected topic
                         int diagIndex = 0;
                         foreach (var sm in selectedSourceMessages.Take(5))
                         {
-                            Log.Debug("Diagnostics SelectedTopic Message[{Idx}] Id={Id} Ts={Ts} PreviewLen={Len}",
+                            Log.Verbose("Diagnostics SelectedTopic Message[{Idx}] Id={Id} Ts={Ts} PreviewLen={Len}",
                                 diagIndex++, sm.MessageId, sm.Timestamp.ToString("HH:mm:ss.fff"), sm.PayloadPreview?.Length ?? 0);
                         }
                         if (selectedSourceMessages.Count > 5)
                         {
-                            Log.Debug("Diagnostics: {Extra} additional messages for selected topic omitted from log.", selectedSourceMessages.Count - 5);
+                            Log.Verbose("Diagnostics: {Extra} additional messages for selected topic omitted from log.", selectedSourceMessages.Count - 5);
                         }
 
                         // Attempt stronger fallback selection from source
@@ -1388,7 +1413,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
                         if (deferredCandidate != null && SelectedMessage != deferredCandidate)
                         {
-                            Log.Debug("Deferred fallback selecting message {MessageId} for topic '{Topic}'.", deferredCandidate.MessageId, deferredCandidate.Topic);
+                            Log.Verbose("Deferred fallback selecting message {MessageId} for topic '{Topic}'.", deferredCandidate.MessageId, deferredCandidate.Topic);
                             SelectedMessage = deferredCandidate;
                         }
 
@@ -1398,7 +1423,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                             // Removed _messageHistorySource.Refresh() (method not available on SourceList).
                             // If predicate re-evaluation still required, a future change can toggle a lightweight
                             // transient flag or reassign SelectedNode to itself. For now rely on next batch or UI action.
-                            Log.Debug("Skipped forcing DynamicData refresh (no Refresh() API on SourceList) for selected topic '{Sel}'.", sel);
+                            Log.Verbose("Skipped forcing DynamicData refresh (no Refresh() API on SourceList) for selected topic '{Sel}'.", sel);
                         }
                         catch (Exception refreshEx)
                         {
@@ -1420,13 +1445,13 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                                         .FirstOrDefault();
                                     if (secondCandidate != null && SelectedMessage != secondCandidate)
                                     {
-                                        Log.Debug("Second deferred fallback selecting message {MessageId} for topic '{Topic}'.", secondCandidate.MessageId, secondCandidate.Topic);
+                                        Log.Verbose("Second deferred fallback selecting message {MessageId} for topic '{Topic}'.", secondCandidate.MessageId, secondCandidate.Topic);
                                         SelectedMessage = secondCandidate;
                                     }
                                 }
                                 else
                                 {
-                                    Log.Debug("Post-refresh verification: filtered list now contains messages for '{Sel}'.", sel);
+                                    Log.Verbose("Post-refresh verification: filtered list now contains messages for '{Sel}'.", sel);
                                 }
                             }
                             catch (Exception ex3)
@@ -1450,13 +1475,13 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                                             .FirstOrDefault();
                                         if (secondCandidate != null && SelectedMessage != secondCandidate)
                                         {
-                                            Log.Debug("Second deferred fallback selecting message {MessageId} for topic '{Topic}'.", secondCandidate.MessageId, secondCandidate.Topic);
+                                            Log.Verbose("Second deferred fallback selecting message {MessageId} for topic '{Topic}'.", secondCandidate.MessageId, secondCandidate.Topic);
                                             SelectedMessage = secondCandidate;
                                         }
                                     }
                                     else
                                     {
-                                        Log.Debug("Post-refresh verification: filtered list now contains messages for '{Sel}'.", sel);
+                                        Log.Verbose("Post-refresh verification: filtered list now contains messages for '{Sel}'.", sel);
                                     }
                                 }
                                 catch (Exception ex3)
@@ -1494,31 +1519,31 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                                 .OrderByDescending(m => m.Timestamp)
                                 .ToList();
 
-                            Log.Debug("Diagnostics: SourceSelectedCount={Cnt} FilteredSelectedCount=0 TotalSource={SrcTot} TotalFiltered={FiltTot}",
+                            Log.Verbose("Diagnostics: SourceSelectedCount={Cnt} FilteredSelectedCount=0 TotalSource={SrcTot} TotalFiltered={FiltTot}",
                                 selectedSourceMessages.Count, _filteredMessageHistory.Count, _messageHistorySource.Count, _filteredMessageHistory.Count);
 
                             int diagIndex = 0;
                             foreach (var sm in selectedSourceMessages.Take(5))
                             {
-                                Log.Debug("Diagnostics SelectedTopic Message[{Idx}] Id={Id} Ts={Ts} PreviewLen={Len}",
+                                Log.Verbose("Diagnostics SelectedTopic Message[{Idx}] Id={Id} Ts={Ts} PreviewLen={Len}",
                                     diagIndex++, sm.MessageId, sm.Timestamp.ToString("HH:mm:ss.fff"), sm.PayloadPreview?.Length ?? 0);
                             }
                             if (selectedSourceMessages.Count > 5)
                             {
-                                Log.Debug("Diagnostics: {Extra} additional messages for selected topic omitted from log.", selectedSourceMessages.Count - 5);
+                                Log.Verbose("Diagnostics: {Extra} additional messages for selected topic omitted from log.", selectedSourceMessages.Count - 5);
                             }
 
                             var deferredCandidate = selectedSourceMessages.FirstOrDefault();
 
                             if (deferredCandidate != null && SelectedMessage != deferredCandidate)
                             {
-                                Log.Debug("Deferred fallback selecting message {MessageId} for topic '{Topic}'.", deferredCandidate.MessageId, deferredCandidate.Topic);
+                                Log.Verbose("Deferred fallback selecting message {MessageId} for topic '{Topic}'.", deferredCandidate.MessageId, deferredCandidate.Topic);
                                 SelectedMessage = deferredCandidate;
                             }
 
                             try
                             {
-                                Log.Debug("Skipped forcing DynamicData refresh (no Refresh() API on SourceList) for selected topic '{Sel}'.", sel);
+                                Log.Verbose("Skipped forcing DynamicData refresh (no Refresh() API on SourceList) for selected topic '{Sel}'.", sel);
                             }
                             catch (Exception refreshEx)
                             {
@@ -1540,13 +1565,13 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                                             .FirstOrDefault();
                                         if (secondCandidate != null && SelectedMessage != secondCandidate)
                                         {
-                                            Log.Debug("Second deferred fallback selecting message {MessageId} for topic '{Topic}'.", secondCandidate.MessageId, secondCandidate.Topic);
+                                            Log.Verbose("Second deferred fallback selecting message {MessageId} for topic '{Topic}'.", secondCandidate.MessageId, secondCandidate.Topic);
                                             SelectedMessage = secondCandidate;
                                         }
                                     }
                                     else
                                     {
-                                        Log.Debug("Post-refresh verification: filtered list now contains messages for '{Sel}'.", sel);
+                                        Log.Verbose("Post-refresh verification: filtered list now contains messages for '{Sel}'.", sel);
                                     }
                                 }
                                 catch (Exception ex3)
@@ -1662,29 +1687,61 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                     currentStatus = _correlationService.GetResponseStatusAsync(requestMessageId).GetAwaiter().GetResult();
                 }
 
-                Log.Information("Creating new icon view model for request {RequestMessageId} with current status {Status}",
+                Log.Verbose("Creating new icon view model for request {RequestMessageId} with current status {Status}",
                     requestMessageId, currentStatus);
 
-                iconVm = new ResponseIconViewModel
+                // Create icon using icon service so it gets registered and can be updated later
+                if (_iconService != null)
                 {
-                    RequestMessageId = requestMessageId,
-                    Status = currentStatus,
-                    ToolTip = currentStatus == ResponseStatus.Received
-                        ? "Click to navigate to response message"
-                        : "Click to navigate to response topic (awaiting response)",
-                    IsClickable = true,
-                    IsVisible = true
-                };
+                    // Assume response topic is subscribed (we received the message, so we must be subscribed to this topic)
+                    iconVm = _iconService.CreateIconViewModelAsync(requestMessageId, true, true).GetAwaiter().GetResult();
 
-                // Note: We don't store in icon service here because:
-                // 1. The correlation service already updated the status
-                // 2. We've queried the latest status above
-                // 3. This iconVm instance will be used directly in the UI
-                // 4. Future calls will query correlation service for latest status
+                    if (iconVm != null)
+                    {
+                        Log.Verbose("Icon service created icon for {RequestMessageId} with status {Status}",
+                            requestMessageId, iconVm.Status);
+
+                        // Update the icon to the current status (CreateIconViewModelAsync always creates with Pending)
+                        if (currentStatus != ResponseStatus.Pending)
+                        {
+                            var updated = _iconService.UpdateIconStatusAsync(requestMessageId, currentStatus).GetAwaiter().GetResult();
+                            iconVm.Status = currentStatus;
+                            iconVm.IconPath = GetIconPathForStatus(currentStatus);
+                            iconVm.IsClickable = currentStatus.IsClickable();
+                            iconVm.ToolTip = currentStatus.GetTooltipText();
+                            Log.Verbose("Updated newly created icon to {Status}, update result: {Updated}, IconPath: {IconPath}, IsClickable: {IsClickable}, IsResponseReceived: {IsResponseReceived}",
+                                currentStatus, updated, iconVm.IconPath, iconVm.IsClickable, iconVm.IsResponseReceived);
+                        }
+                        else
+                        {
+                            Log.Verbose("Icon created with Pending status, no update needed");
+                        }
+                    }
+                    else
+                    {
+                        Log.Verbose("Icon service failed to create icon for {RequestMessageId}", requestMessageId);
+                    }
+                }
+                else
+                {
+                    // Fallback: create icon directly if service not available
+                    var iconPath = GetIconPathForStatus(currentStatus);
+                    iconVm = new ResponseIconViewModel
+                    {
+                        RequestMessageId = requestMessageId,
+                        Status = currentStatus,
+                        IconPath = iconPath,
+                        ToolTip = currentStatus == ResponseStatus.Received
+                            ? "Click to navigate to response message"
+                            : "Click to navigate to response topic (awaiting response)",
+                        IsClickable = true,
+                        IsVisible = true
+                    };
+                }
             }
             else
             {
-                Log.Information("Using existing icon view model for request {RequestMessageId} with status {Status}",
+                Log.Debug("Using existing icon view model for request {RequestMessageId} with status {Status}",
                     requestMessageId, iconVm.Status);
             }
         }
@@ -2191,15 +2248,98 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
         Log.Information("Navigate to response command executed for request: {RequestMessageId}", requestMessageId);
 
-        // TODO: Implement full navigation using IResponseNavigationService
-        // For now, provide visual feedback that the feature is working
-        ShowStatus($"Navigation to response for request {requestMessageId[..Math.Min(8, requestMessageId.Length)]}...", TimeSpan.FromSeconds(3));
+        if (_correlationService == null)
+        {
+            ShowStatus("Correlation service not available", TimeSpan.FromSeconds(3));
+            return;
+        }
 
-        // Future implementation will:
-        // 1. Look up correlation data for the request message
-        // 2. Find response messages with matching correlation data
-        // 3. Navigate to the response topic
-        // 4. Select the correlated response message
+        // Get response status
+        var status = _correlationService.GetResponseStatusAsync(requestMessageId).GetAwaiter().GetResult();
+        if (status != ResponseStatus.Received)
+        {
+            ShowStatus("No response received yet for this request", TimeSpan.FromSeconds(3));
+            return;
+        }
+
+        // Get response topic and message IDs
+        var responseTopic = _correlationService.GetResponseTopicAsync(requestMessageId).GetAwaiter().GetResult();
+        var responseMessageIds = _correlationService.GetResponseMessageIdsAsync(requestMessageId).GetAwaiter().GetResult();
+
+        if (string.IsNullOrEmpty(responseTopic) || responseMessageIds.Count == 0)
+        {
+            ShowStatus("No response found for this request", TimeSpan.FromSeconds(3));
+            return;
+        }
+
+        Log.Information("Navigating to response topic {ResponseTopic} with {Count} response(s)",
+            responseTopic, responseMessageIds.Count);
+
+        // Navigate to the response topic by finding and selecting the topic node
+        var topicNode = FindTopicNode(responseTopic);
+        if (topicNode != null)
+        {
+            SelectedNode = topicNode;
+            Log.Information("Selected topic node: {Topic}", responseTopic);
+
+            // Find and select the latest response message
+            var latestResponseId = responseMessageIds[responseMessageIds.Count - 1];
+            var responseMessage = FilteredMessageHistory.FirstOrDefault(m => m.MessageId.ToString() == latestResponseId);
+
+            if (responseMessage != null)
+            {
+                SelectedMessage = responseMessage;
+                ShowStatus($"Navigated to response message on topic {responseTopic}", TimeSpan.FromSeconds(3));
+                Log.Information("Selected response message: {MessageId}", latestResponseId);
+            }
+            else
+            {
+                ShowStatus($"Navigated to topic {responseTopic} but response message not found", TimeSpan.FromSeconds(3));
+                Log.Warning("Response message {MessageId} not found in AllMessages", latestResponseId);
+            }
+        }
+        else
+        {
+            ShowStatus($"Response topic {responseTopic} not found in topic tree", TimeSpan.FromSeconds(3));
+            Log.Warning("Topic node not found: {Topic}", responseTopic);
+        }
+    }
+
+    /// <summary>
+    /// Finds a topic node in the topic tree by topic path.
+    /// </summary>
+    private NodeViewModel? FindTopicNode(string topicPath)
+    {
+        if (string.IsNullOrEmpty(topicPath))
+            return null;
+
+        // Search recursively through the topic tree
+        foreach (var rootNode in TopicTreeNodes)
+        {
+            var found = FindTopicNodeRecursive(rootNode, topicPath);
+            if (found != null)
+                return found;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Recursively searches for a topic node by path.
+    /// </summary>
+    private NodeViewModel? FindTopicNodeRecursive(NodeViewModel node, string topicPath)
+    {
+        if (node.FullPath == topicPath)
+            return node;
+
+        foreach (var child in node.Children)
+        {
+            var found = FindTopicNodeRecursive(child, topicPath);
+            if (found != null)
+                return found;
+        }
+
+        return null;
     }
 
     private void TogglePause()
@@ -3368,7 +3508,6 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 Log.Debug("Disposing MainViewModel resources...");
                 if (!_cts.IsCancellationRequested)
                 {
-                    Log.Debug("Requesting cancellation via CancellationTokenSource.");
                     _cts.Cancel(); // Signal cancellation first
                 }
                 StopTimer();

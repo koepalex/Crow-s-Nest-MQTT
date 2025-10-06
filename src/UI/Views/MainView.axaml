@@ -194,16 +194,15 @@
                                                   Padding="4"
                                                   ToolTip.Tip="{Binding IconViewModel.ToolTip}"
                                                   Cursor="Hand"
-                                                  Classes.ResponseReceived="{Binding IconViewModel.Status, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=2}">
-                                              <PathIcon Width="16" Height="16"
-                                                        Foreground="#666666"
-                                                        Data="{StaticResource clock_icon}">
+                                                  Classes.ResponseReceived="{Binding IconViewModel.IsResponseReceived}">
+                                              <PathIcon Width="16" Height="16">
                                                   <PathIcon.Styles>
-                                                      <!-- Default: clock icon for pending (Status = 1 = Pending) -->
+                                                      <!-- Default: clock icon for pending -->
                                                       <Style Selector="PathIcon">
                                                           <Setter Property="Data" Value="{StaticResource clock_icon}"/>
+                                                          <Setter Property="Foreground" Value="#666666"/>
                                                       </Style>
-                                                      <!-- Arrow icon when response received (Status = 2 = Received) -->
+                                                      <!-- Arrow icon when response received -->
                                                       <Style Selector="Button.ResponseReceived PathIcon">
                                                           <Setter Property="Data" Value="{StaticResource arrow_icon}"/>
                                                           <Setter Property="Foreground" Value="Green"/>

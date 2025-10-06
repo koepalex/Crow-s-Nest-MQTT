@@ -79,15 +79,16 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void ConnectionStateChanged_ShouldUpdateConnectionState()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null);
+            _mqttServiceMock.GetBufferedTopics().Returns(Array.Empty<string>());
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
 
             // Act
-            var connectionStateEventArgs = new MqttConnectionStateChangedEventArgs(true, null, ConnectionStatusState.Connected, "Connected");
+            var connectionStateEventArgs = new MqttConnectionStateChangedEventArgs(true, null, ConnectionStatusState.Disconnected, "Disconnected");
             _mqttServiceMock.ConnectionStateChanged += Raise.EventWith(_mqttServiceMock, connectionStateEventArgs);
 
             // Assert
-            Assert.Equal(ConnectionStatusState.Connected, viewModel.ConnectionStatus);
-            Assert.True(viewModel.IsConnected);
+            Assert.Equal(ConnectionStatusState.Disconnected, viewModel.ConnectionStatus);
+            Assert.False(viewModel.IsConnected);
         }
 
         [Fact]

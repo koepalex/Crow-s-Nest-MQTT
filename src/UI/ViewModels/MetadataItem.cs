@@ -31,6 +31,25 @@ public class MetadataItem : ReactiveObject
         Value = value;
         IconViewModel = iconViewModel;
     }
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is MetadataItem other)
+        {
+            return Key == other.Key && Value == other.Value;
+        }
+        return false;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Key, Value);
+    }
+
+    public override string ToString()
+    {
+        return $"MetadataItem {{ Key = {Key}, Value = {Value} }}";
+    }
 }
 
 /// <summary>
@@ -49,8 +68,17 @@ public class ResponseIconViewModel : ReactiveObject
     public ResponseStatus Status
     {
         get => _status;
-        set => this.RaiseAndSetIfChanged(ref _status, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _status, value);
+            this.RaisePropertyChanged(nameof(IsResponseReceived));
+        }
     }
+
+    /// <summary>
+    /// Computed property for XAML binding to determine if response has been received
+    /// </summary>
+    public bool IsResponseReceived => Status == ResponseStatus.Received;
 
     public string IconPath
     {
