@@ -95,7 +95,6 @@ if the special viewer can't be applied the default content viewer is used
 ![](./doc/images/raw-viewer.png)
 
 If the content-type indicates binary data (but not image/video), Crow's NestMQTT will automatically show the payload in a read-only hex viewer:
-
 ![](./doc/images/hex-viewer.png)
 
 You can switch between viewers for the currently selected MQTT message using the `:view` command.
@@ -106,6 +105,11 @@ Crow's NestMQTT has some advanced features to make the life of the pirate that s
 Delete Topics allow remove retain messages from selected topics
 ![](./doc/images/delete-topic.png)
 
+Crow's NestMQTT understand MQTT V5 request/response, each request message shows a small clock icon while waiting for the related response message.
+![](./doc/images/waiting-for-response.png)
+
+Once the response message is received (first message send to given response topic that has the same correlation data), and clickable arrow icon allows jumping direct to the response.
+![](./doc/images/go-to-response.png)
 
 ## Command Interface
 
