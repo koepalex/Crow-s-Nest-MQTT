@@ -53,7 +53,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void JsonViewer_WithValidJson_ShouldParseCorrectly()
         {
             // Arrange
-        var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+        using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
            string jsonPayload = "{\"name\":\"test\",\"value\":123}";
            var messageId = Guid.NewGuid();
            var timestamp = DateTime.Now;
@@ -85,7 +85,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void JsonViewer_WithInvalidJson_ShouldShowError()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
            string invalidJsonPayload = "{\"name\":\"test\",\"value\":123"; // Missing closing brace
            var messageId = Guid.NewGuid();
            var timestamp = DateTime.Now;
@@ -116,7 +116,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void JsonViewer_WithComplexNestedJson_ShouldCreateTreeStructure()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
             string complexJsonPayload = @"{
                 ""person"": {
                     ""name"": ""John"",
@@ -169,7 +169,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void JsonViewer_WithJsonArray_ShouldHandleArraysCorrectly()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
             string arrayJsonPayload = @"[
                 {""id"": 1, ""name"": ""Item 1""},
                 {""id"": 2, ""name"": ""Item 2""},
@@ -230,7 +230,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public Task VideoViewer_WithVideoPayload_ShouldDisplayCorrectly()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
             byte[] videoPayload = new byte[] { 0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70 }; // MP4 header fragment
             var messageId = Guid.NewGuid();
             var timestamp = DateTime.Now;
@@ -274,7 +274,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public Task RawTextViewer_WithTextPayload_ShouldDisplayCorrectly()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
             string textPayload = "This is a simple text payload that is not JSON.";
             var messageId = Guid.NewGuid();
             var timestamp = DateTime.Now;
@@ -307,7 +307,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public Task ViewToggle_ShouldSwitchBetweenRawAndJsonViews()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
            string jsonPayload = "{\"name\":\"test\",\"value\":123}";
            var messageId = Guid.NewGuid();
            var timestamp = DateTime.Now;
@@ -361,7 +361,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void GuessSyntaxHighlighting_ShouldDetectFormatFromContentType()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
             var guessSyntaxMethod = typeof(MainViewModel).GetMethod("GuessSyntaxHighlighting",
                 BindingFlags.NonPublic | BindingFlags.Instance);
             
@@ -382,7 +382,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void GuessSyntaxHighlighting_ShouldDetectFormatFromContent()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
             var guessSyntaxMethod = typeof(MainViewModel).GetMethod("GuessSyntaxHighlighting",
                 BindingFlags.NonPublic | BindingFlags.Instance);
             
@@ -401,7 +401,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void CopyPayloadToClipboard_ShouldInteractWithClipboard()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
            string textPayload = "Test payload for clipboard copy";
            var messageId = Guid.NewGuid();
            var timestamp = DateTime.Now;
@@ -441,7 +441,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void HexViewer_AutoAndManualSwitch_ShouldDisplayHexForBinaryPayload()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
             byte[] binaryPayload = Enumerable.Range(0, 32).Select(i => (byte)i).ToArray();
             var messageId = Guid.NewGuid();
             var timestamp = DateTime.Now;

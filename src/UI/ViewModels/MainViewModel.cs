@@ -143,7 +143,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 {
                     SelectedMessage = FilteredMessageHistory.FirstOrDefault();
                     // Force immediate details update (synchronous in tests with ImmediateDispatcher)
-                    if (SelectedMessage != null && Dispatcher.UIThread.CheckAccess())
+                    if (SelectedMessage != null && CheckUiThreadAccess())
                     {
                         UpdateMessageDetails(SelectedMessage);
                     }
@@ -166,7 +166,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                     if (FilteredMessageHistory.Any())
                     {
                         SelectedMessage = FilteredMessageHistory.FirstOrDefault();
-                        if (SelectedMessage != null && Dispatcher.UIThread.CheckAccess())
+                        if (SelectedMessage != null && CheckUiThreadAccess())
                         {
                             UpdateMessageDetails(SelectedMessage);
                         }
@@ -184,7 +184,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                             if (candidate != null)
                             {
                                 SelectedMessage = candidate;
-                                if (Dispatcher.UIThread.CheckAccess())
+                                if (CheckUiThreadAccess())
                                 {
                                     UpdateMessageDetails(SelectedMessage);
                                 }
@@ -678,7 +678,12 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         CopyImageToClipboardInteraction = new Interaction<Bitmap, Unit>(); // Initialize the image interaction
 
         // Initialize the RawPayloadDocument on the Avalonia UI thread (TextDocument has thread affinity)
-        if (Application.Current != null && !Dispatcher.UIThread.CheckAccess())
+        // In test mode, create directly to avoid touching Dispatcher
+        if (_testMode || Application.Current == null)
+        {
+            _rawPayloadDocument = new TextDocument();
+        }
+        else if (!Dispatcher.UIThread.CheckAccess())
         {
             var tcsDoc = new TaskCompletionSource<TextDocument>();
             Dispatcher.UIThread.Post(() =>
@@ -748,7 +753,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             _uiHeartbeatTimer = new Timer(_ =>
             {
                 var posted = DateTime.UtcNow;
-                Dispatcher.UIThread.Post(() =>
+                ScheduleOnUi(() =>
                 {
                     var now = DateTime.UtcNow;
                     var delay = now - posted;
@@ -765,103 +770,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             Log.Debug("Heartbeat timer disabled in test mode.");
         }
 
-        // Define the filter predicate based on the search term
-        // Define the filter predicate based on the search term AND the selected node
-        var filterPredicate = this.WhenAnyValue(x => x.CurrentSearchTerm, x => x.SelectedNode)
-            .ObserveOn(_uiScheduler)
-            .Select(tuple =>
-            {
-                var (termRaw, node) = tuple;
-                var term = termRaw?.Trim() ?? string.Empty;
-                var normalizedSelected = NormalizeTopic(node?.FullPath);
-
-                // Reset diagnostics counters when criteria change
-                _filterDiagnosticsEvaluations = 0;
-                _filterDiagnosticsMatches = 0;
-                _filterDiagnosticsSelectedTopicMisses = 0;
-
-                if (normalizedSelected == null && string.IsNullOrEmpty(term))
-                {
-                    Log.Verbose("Filter criteria updated. SelectedPath='[None]' Term='[Empty]' (pass-through all).");
-                    return (Func<MessageViewModel, bool>)(_ => true);
-                }
-
-                Log.Verbose("Filter criteria updated. SelectedPath='{Sel}' Term='{Term}'",
-                    normalizedSelected ?? "[None]", string.IsNullOrEmpty(term) ? "[Empty]" : term);
-
-                return new Func<MessageViewModel, bool>(m =>
-                {
-                    // Stop logging after limit to avoid log flooding
-                    bool underSampleLimit = _filterDiagnosticsEvaluations < FilterDiagnosticsSampleLimit;
-
-                    Interlocked.Increment(ref _filterDiagnosticsEvaluations);
-
-                    var topic = NormalizeTopic(m.Topic);
-                    bool topicMatch = normalizedSelected == null
-                        ? true
-                        : (topic == normalizedSelected ||
-                           (topic != null && topic.StartsWith(normalizedSelected + "/", StringComparison.OrdinalIgnoreCase)));
-
-                    if (!topicMatch)
-                    {
-                        if (underSampleLimit && normalizedSelected != null && topic == normalizedSelected)
-                        {
-                            // Extreme corner (should not happen because branch above catches)
-                            Log.Verbose("FilterEval (ANOMALY) sel='{Sel}' topic='{Topic}' topicMatch=false", normalizedSelected, topic);
-                        }
-                        return false;
-                    }
-
-                    if (string.IsNullOrEmpty(term))
-                    {
-                        if (underSampleLimit)
-                        {
-                            Interlocked.Increment(ref _filterDiagnosticsMatches);
-                            if (normalizedSelected != null && topic == normalizedSelected && _filterDiagnosticsMatches <= 5)
-                            {
-                                Log.Verbose("FilterEval PASS sel='{Sel}' topic='{Topic}' term='[Empty]'", normalizedSelected, topic);
-                            }
-                        }
-                        return true;
-                    }
-
-                    bool searchMatch = (m.PayloadPreview?.IndexOf(term, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0;
-
-                    if (underSampleLimit && normalizedSelected != null && topic == normalizedSelected)
-                    {
-                        if (searchMatch)
-                        {
-                            if (_filterDiagnosticsMatches < 10)
-                            {
-                                var previewText = m.PayloadPreview ?? string.Empty;
-                                Log.Verbose("FilterEval PASS sel='{Sel}' topic='{Topic}' term='{Term}' previewSample='{Preview}'",
-                                    normalizedSelected, topic, term, previewText.Length > 40 ? previewText.Substring(0, 40) : previewText);
-                            }
-                        }
-                        else
-                        {
-                            int misses = Interlocked.Increment(ref _filterDiagnosticsSelectedTopicMisses);
-                            if (misses <= 15)
-                            {
-                                var previewTextMiss = m.PayloadPreview ?? string.Empty;
-                                Log.Verbose("FilterEval MISS(sel-topic) sel='{Sel}' topic='{Topic}' term='{Term}' previewSample='{Preview}'",
-                                    normalizedSelected, topic, term, previewTextMiss.Length > 40 ? previewTextMiss.Substring(0, 40) : previewTextMiss);
-                            }
-                            else if (misses == 16)
-                            {
-                                Log.Verbose("FilterEval further misses suppressed for selected topic '{Sel}'", normalizedSelected);
-                            }
-                        }
-                    }
-
-                    if (searchMatch)
-                    {
-                        Interlocked.Increment(ref _filterDiagnosticsMatches);
-                    }
-                    return searchMatch;
-                });
-            });
-
         if (_testMode)
         {
             // In test mode, use a simple non-reactive approach to prevent hanging
@@ -873,7 +781,103 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         }
         else
         {
-            // Production mode - use full reactive pipeline
+            // Production mode - create filter predicate and reactive pipeline
+            // Define the filter predicate based on the search term AND the selected node
+            var filterPredicate = this.WhenAnyValue(x => x.CurrentSearchTerm, x => x.SelectedNode)
+                .ObserveOn(_uiScheduler)
+                .Select(tuple =>
+                {
+                    var (termRaw, node) = tuple;
+                    var term = termRaw?.Trim() ?? string.Empty;
+                    var normalizedSelected = NormalizeTopic(node?.FullPath);
+
+                    // Reset diagnostics counters when criteria change
+                    _filterDiagnosticsEvaluations = 0;
+                    _filterDiagnosticsMatches = 0;
+                    _filterDiagnosticsSelectedTopicMisses = 0;
+
+                    if (normalizedSelected == null && string.IsNullOrEmpty(term))
+                    {
+                        Log.Verbose("Filter criteria updated. SelectedPath='[None]' Term='[Empty]' (pass-through all).");
+                        return (Func<MessageViewModel, bool>)(_ => true);
+                    }
+
+                    Log.Verbose("Filter criteria updated. SelectedPath='{Sel}' Term='{Term}'",
+                        normalizedSelected ?? "[None]", string.IsNullOrEmpty(term) ? "[Empty]" : term);
+
+                    return new Func<MessageViewModel, bool>(m =>
+                    {
+                        // Stop logging after limit to avoid log flooding
+                        bool underSampleLimit = _filterDiagnosticsEvaluations < FilterDiagnosticsSampleLimit;
+
+                        Interlocked.Increment(ref _filterDiagnosticsEvaluations);
+
+                        var topic = NormalizeTopic(m.Topic);
+                        bool topicMatch = normalizedSelected == null
+                            ? true
+                            : (topic == normalizedSelected ||
+                               (topic != null && topic.StartsWith(normalizedSelected + "/", StringComparison.OrdinalIgnoreCase)));
+
+                        if (!topicMatch)
+                        {
+                            if (underSampleLimit && normalizedSelected != null && topic == normalizedSelected)
+                            {
+                                // Extreme corner (should not happen because branch above catches)
+                                Log.Verbose("FilterEval (ANOMALY) sel='{Sel}' topic='{Topic}' topicMatch=false", normalizedSelected, topic);
+                            }
+                            return false;
+                        }
+
+                        if (string.IsNullOrEmpty(term))
+                        {
+                            if (underSampleLimit)
+                            {
+                                Interlocked.Increment(ref _filterDiagnosticsMatches);
+                                if (normalizedSelected != null && topic == normalizedSelected && _filterDiagnosticsMatches <= 5)
+                                {
+                                    Log.Verbose("FilterEval PASS sel='{Sel}' topic='{Topic}' term='[Empty]'", normalizedSelected, topic);
+                                }
+                            }
+                            return true;
+                        }
+
+                        bool searchMatch = (m.PayloadPreview?.IndexOf(term, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0;
+
+                        if (underSampleLimit && normalizedSelected != null && topic == normalizedSelected)
+                        {
+                            if (searchMatch)
+                            {
+                                if (_filterDiagnosticsMatches < 10)
+                                {
+                                    var previewText = m.PayloadPreview ?? string.Empty;
+                                    Log.Verbose("FilterEval PASS sel='{Sel}' topic='{Topic}' term='{Term}' previewSample='{Preview}'",
+                                        normalizedSelected, topic, term, previewText.Length > 40 ? previewText.Substring(0, 40) : previewText);
+                                }
+                            }
+                            else
+                            {
+                                int misses = Interlocked.Increment(ref _filterDiagnosticsSelectedTopicMisses);
+                                if (misses <= 15)
+                                {
+                                    var previewTextMiss = m.PayloadPreview ?? string.Empty;
+                                    Log.Verbose("FilterEval MISS(sel-topic) sel='{Sel}' topic='{Topic}' term='{Term}' previewSample='{Preview}'",
+                                        normalizedSelected, topic, term, previewTextMiss.Length > 40 ? previewTextMiss.Substring(0, 40) : previewTextMiss);
+                                }
+                                else if (misses == 16)
+                                {
+                                    Log.Verbose("FilterEval further misses suppressed for selected topic '{Sel}'", normalizedSelected);
+                                }
+                            }
+                        }
+
+                        if (searchMatch)
+                        {
+                            Interlocked.Increment(ref _filterDiagnosticsMatches);
+                        }
+                        return searchMatch;
+                    });
+                });
+
             _messageHistorySubscription = _messageHistorySource.Connect() // Connect to the source
                 .Filter(filterPredicate) // Apply the dynamic filter
                 .Sort(SortExpressionComparer<MessageViewModel>.Descending(m => m.Timestamp)) // Keep newest messages on top
@@ -1050,12 +1054,20 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     private void OnLogMessage(object? sender, string log)
     {
+        // Guard against calls during disposal
+        if (_disposedValue)
+            return;
+
         // TODO: Implement proper logging (e.g., to a log panel or file)
         Log.Debug("[MQTT Engine]: {LogMessage}", log);
     }
 
     private void OnCorrelationStatusChanged(object? sender, CorrelationStatusChangedEventArgs e)
     {
+        // Guard against calls during disposal
+        if (_disposedValue)
+            return;
+
         // Update icon status when correlation status changes
         if (_iconService != null && e != null)
         {
@@ -1114,6 +1126,10 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     private void OnConnectionStateChanged(object? sender, MqttConnectionStateChangedEventArgs e)
     {
+        // Guard against calls during disposal
+        if (_disposedValue)
+            return;
+
         void Apply()
         {
             ConnectionStatus = e.ConnectionStatus;
@@ -1142,6 +1158,10 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     private void OnMessagesBatchReceived(object? sender, IReadOnlyList<IdentifiedMqttApplicationMessageReceivedEventArgs> batch)
     {
+        // Guard against calls during disposal
+        if (_disposedValue)
+            return;
+
         if (IsPaused || batch == null || batch.Count == 0) return;
         ScheduleOnUi(() => ProcessMessageBatchOnUIThread(batch.ToList()));
     }
@@ -1151,21 +1171,18 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     /// </summary>
 private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessageReceivedEventArgs> messages)
 {
+    // Guard against calls during disposal
+    if (_disposedValue)
+        return;
+
     const int maxUiBatchSize = 50;
     if (messages.Count > maxUiBatchSize)
     {
         var currentBatch = messages.Take(maxUiBatchSize).ToList();
         var remaining = messages.Skip(maxUiBatchSize).ToList();
         ProcessMessageBatchOnUIThread(currentBatch);
-        // Schedule the rest to process after yielding to the UI thread (skip queue in test mode)
-        if (_testMode)
-        {
-            ProcessMessageBatchOnUIThread(remaining);
-        }
-        else
-        {
-            Dispatcher.UIThread.Post(() => ProcessMessageBatchOnUIThread(remaining));
-        }
+        // Schedule the rest to process after yielding to the UI thread
+        ScheduleOnUi(() => ProcessMessageBatchOnUIThread(remaining));
         return;
     }
 
@@ -1461,7 +1478,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                         }
                         else
                         {
-                            Dispatcher.UIThread.Post(() =>
+                            ScheduleOnUi(() =>
                             {
                                 try
                                 {
@@ -1500,7 +1517,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         }
         else
         {
-            Dispatcher.UIThread.Post(() =>
+            ScheduleOnUi(() =>
             {
                 try
                 {
@@ -1550,8 +1567,8 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                                 Log.Error(refreshEx, "Unexpected error in refresh fallback block for selected topic '{Sel}'.", sel);
                             }
 
-                            // Second deferred verification (non-test mode)
-                            Dispatcher.UIThread.Post(() =>
+                            // Second deferred verification
+                            ScheduleOnUi(() =>
                             {
                                 try
                                 {
@@ -1610,6 +1627,10 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     // The DynamicData pipeline handles filtering based on SelectedNode.
     private void UpdateMessageDetails(MessageViewModel? messageVm)
     {
+        // Guard against calls during disposal
+        if (_disposedValue)
+            return;
+
         // Prevent re-entrancy during UpdateMessageDetails execution
         if (_isUpdatingMessageDetails)
             return;
@@ -1622,9 +1643,10 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             // In non-Avalonia unit test context (Application.Current == null) or when the TextDocument
             // was created on this thread, proceed without marshaling.
             // Also skip marshaling in test mode to avoid potential deadlocks
-            if (Application.Current != null && !Dispatcher.UIThread.CheckAccess() && !_testMode)
+            // Use ScheduleOnUi which automatically handles test mode
+            if (Application.Current != null && !CheckUiThreadAccess())
             {
-                Dispatcher.UIThread.Post(() => UpdateMessageDetails(messageVm));
+                ScheduleOnUi(() => UpdateMessageDetails(messageVm));
                 return;
             }
 
@@ -2565,6 +2587,18 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 case CommandType.DeleteTopic:
                     _ = ExecuteDeleteTopicCommand(command);
                     break;
+                case CommandType.GotoResponse:
+                    // :gotoresponse
+                    if (SelectedMessage != null)
+                    {
+                        NavigateToResponse(SelectedMessage.MessageId.ToString());
+                    }
+                    else
+                    {
+                        StatusBarText = "No message selected. Please select a request message first.";
+                        Log.Warning("GotoResponse command executed without a selected message.");
+                    }
+                    break;
                 case CommandType.SetAuthMethod:
                     if (command.Arguments.Count == 1)
                     {
@@ -2649,6 +2683,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         { "setauthdata", (":setauthdata <data>", "Sets the authentication data for enhanced authentication (method-specific data).") },
         { "setusetls", (":setusetls <true|false>", "Sets whether to use TLS for MQTT connections. true = enable TLS, false = disable TLS.") },
         { "deletetopic", (":deletetopic [topic-pattern] [--confirm]", "Deletes retained messages from a topic and its subtopics by publishing empty retained messages. Uses selected topic if no pattern specified.") },
+        { "gotoresponse", (":gotoresponse", "Navigates to the response message for the currently selected MQTT v5 request message.") },
         { "settings", (":settings", "Toggles the visibility of the settings pane.") }
     };
 
@@ -3140,11 +3175,11 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     {
         Log.Information("Expand all nodes command executed.");
         // Ensure the recursive update happens on the UI thread
-        Dispatcher.UIThread.Post(() =>
+        ScheduleOnUi(() =>
         {
             SetNodeExpandedRecursive(TopicTreeNodes, true);
             StatusBarText = "All topic nodes expanded.";
-            Log.Debug("Finished setting IsExpanded=true on nodes via Dispatcher.");
+            Log.Debug("Finished setting IsExpanded=true on nodes.");
         });
     }
 
@@ -3155,11 +3190,11 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     {
         Log.Information("Collapse all nodes command executed.");
         // Ensure the recursive update happens on the UI thread
-        Dispatcher.UIThread.Post(() =>
+        ScheduleOnUi(() =>
         {
             SetNodeExpandedRecursive(TopicTreeNodes, false);
             StatusBarText = "All topic nodes collapsed.";
-            Log.Debug("Finished setting IsExpanded=false on nodes via Dispatcher.");
+            Log.Debug("Finished setting IsExpanded=false on nodes.");
         });
     }
 
@@ -3423,6 +3458,18 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
     private void ScheduleOnUi(Action action)
     {
+        // Guard against calls during disposal
+        if (_disposedValue)
+            return;
+
+        // For deterministic unit tests using Immediate/CurrentThread schedulers just execute
+        // Check this FIRST to avoid touching Dispatcher.UIThread in test mode
+        if (_uiScheduler == Scheduler.Immediate || _uiScheduler == CurrentThreadScheduler.Instance)
+        {
+            action();
+            return;
+        }
+
         // Run immediately if already on Avalonia UI thread
         if (Dispatcher.UIThread.CheckAccess())
         {
@@ -3430,15 +3477,21 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             return;
         }
 
-        // For deterministic unit tests using Immediate/CurrentThread schedulers just execute
-        if (_uiScheduler == Scheduler.Immediate || _uiScheduler == CurrentThreadScheduler.Instance)
-        {
-            action();
-            return;
-        }
-
         // Fallback: marshal to Avalonia UI thread explicitly
         Dispatcher.UIThread.Post(action);
+    }
+
+    /// <summary>
+    /// Checks if we're on the UI thread. In test mode, always returns true to avoid touching Dispatcher.
+    /// </summary>
+    private bool CheckUiThreadAccess()
+    {
+        // In test mode with immediate scheduler, we're always "on the UI thread" conceptually
+        if (_uiScheduler == Scheduler.Immediate || _uiScheduler == CurrentThreadScheduler.Instance)
+            return true;
+
+        // In production, check actual Avalonia dispatcher
+        return Dispatcher.UIThread.CheckAccess();
     }
 
     /// <summary>
@@ -3502,6 +3555,9 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         {
             if (disposing)
             {
+                // Set disposed flag FIRST to prevent re-entrancy from event handlers
+                _disposedValue = true;
+
                 _uiHeartbeatTimer?.Dispose();
                 _uiHeartbeatTimer = null;
                 // Dispose managed state (managed objects).
@@ -3511,7 +3567,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                     _cts.Cancel(); // Signal cancellation first
                 }
                 StopTimer();
-                
+
                 // Dispose batch processing timer and clear pending messages
                 lock (_batchLock)
                 {
@@ -3519,7 +3575,22 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                     _batchProcessingTimer = null;
                     _pendingMessages.Clear();
                 }
-                
+
+                // CRITICAL: Unsubscribe from event handlers FIRST before disposing reactive subscriptions
+                // This prevents event handlers from being triggered during subscription disposal
+                if (_mqttService != null)
+                {
+                    _mqttService.ConnectionStateChanged -= OnConnectionStateChanged;
+                    _mqttService.MessagesBatchReceived -= OnMessagesBatchReceived;
+                    _mqttService.LogMessage -= OnLogMessage;
+                }
+
+                if (_correlationService != null)
+                {
+                    _correlationService.CorrelationStatusChanged -= OnCorrelationStatusChanged;
+                }
+
+                // NOW dispose reactive subscriptions - they won't trigger event handlers anymore
                 _messageHistorySubscription?.Dispose();
                 _selectedMessageSubscription?.Dispose(); // Dispose the selected message subscription
                 _commandTextSubscription?.Dispose(); // Dispose the command text subscription
@@ -3530,8 +3601,27 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 }
                 catch
                 {
-                    
+
                 }
+
+                // Dispose LibVLC and MediaPlayer
+                try
+                {
+                    if (_vlcMediaPlayer != null)
+                    {
+                        _vlcMediaPlayer.Stop();
+                        _vlcMediaPlayer.Media?.Dispose();
+                        _vlcMediaPlayer.Dispose();
+                        _vlcMediaPlayer = null;
+                    }
+
+                    _libVLC?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Error disposing LibVLC resources");
+                }
+
                 // MqttEngine's Dispose method now handles the final disconnect attempt.
                 // We rely on _cts.Cancel() being called first, then _mqttEngine.Dispose() below.
                 // Removed explicit synchronous DisconnectAsync call here.
@@ -3549,6 +3639,8 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 SubmitInputCommand?.Dispose();
                 FocusCommandBarCommand?.Dispose();
                 CopyPayloadCommand?.Dispose(); // Dispose the new command
+                DeleteTopicCommand?.Dispose(); // Dispose delete topic command
+                NavigateToResponseCommand?.Dispose(); // Dispose navigate to response command
                                                // Interactions don't typically need explicit disposal unless they hold heavy resources
                 _cts.Dispose(); // Dispose the CancellationTokenSource itself
                 }
@@ -3579,7 +3671,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     public void ShowStatus(string message, TimeSpan? duration = null)
     {
         // Ensure execution on the UI thread
-        Dispatcher.UIThread.Post(() =>
+        ScheduleOnUi(() =>
         {
             StatusBarText = message;
             Log.Debug("Status Bar Updated: {StatusMessage}", message);
@@ -3599,7 +3691,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                     // Check if cancellation was requested or if the current text is still the one we set
                     if (!t.IsCanceled && StatusBarText == message)
                     {
-                        Dispatcher.UIThread.Post(() => StatusBarText = "Ready"); // Reset to default
+                        ScheduleOnUi(() => StatusBarText = "Ready"); // Reset to default
                     }
                 }, TaskScheduler.Default); // Continue on a background thread is fine, the action posts back to UI thread
             }

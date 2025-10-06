@@ -336,6 +336,15 @@ public class CommandParserService : ICommandParserService
                 }
                 return CommandResult.Failure("Invalid arguments for :deletetopic. Expected: :deletetopic [topic-pattern] [--confirm]");
 
+            case "gotoresponse":
+                // :gotoresponse
+                if (arguments.Count == 0)
+                {
+                    // Use selected message from UI
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.GotoResponse, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :gotoresponse. Expected: :gotoresponse");
+
             default:
                 return CommandResult.Failure($"Unknown command: '{commandKeyword}'");
         }
