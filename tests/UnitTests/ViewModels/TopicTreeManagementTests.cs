@@ -20,7 +20,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void UpdateOrCreateNode_ShouldCreateNewNodes()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             string topic = "sensors/temperature/living-room";
 
             // Act - Use reflection to call the private method
@@ -41,7 +41,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void UpdateOrCreateNode_ShouldUpdateExistingNodes()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             string firstTopic = "sensors/temperature/living-room";
             string secondTopic = "sensors/temperature/living-room";
 
@@ -68,7 +68,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void UpdateOrCreateNode_WithoutIncrementCount_ShouldNotUpdateCount()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             string firstTopic = "sensors/humidity/bathroom";
 
             // Act
@@ -91,7 +91,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void UpdateOrCreateNode_WithMultipleNodes_ShouldMaintainAlphabeticalOrder()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             string[] topics = new[] 
             {
                 "devices/zwave/switch1",
@@ -136,7 +136,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void ExpandAllNodes_ShouldExpandAllNodes()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             string[] topics = new[] 
             {
                 "home/livingroom/temperature",
@@ -179,7 +179,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void CollapseAllNodes_ShouldCollapseAllNodes()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             string[] topics = new[] 
             {
                 "office/desk1/humidity",
@@ -222,7 +222,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void ApplyTopicFilter_ShouldFilterTopicTree()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             string[] topics = new[] 
             {
                 "sensors/temperature/kitchen",
@@ -293,7 +293,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void ApplyTopicFilter_WithEmptyFilter_ShouldClearFilter()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             string[] topics = new[] 
             {
                 "sensors/temperature/outside",

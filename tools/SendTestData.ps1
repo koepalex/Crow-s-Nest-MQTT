@@ -40,9 +40,7 @@ $port = $settings.Port
 $useTls = $settings.UseTls
 $clientId = "pwsh-mqtt-$(Get-Random)"
 
-# Read image as bytes
-$imageBytes = [System.IO.File]::ReadAllBytes($ImagePath)
-Write-Host "Loaded image file: $ImagePath ($($imageBytes.Length) bytes)"
+
 
 # Build MQTT client options (MQTTnet 5.x API)
 $optionsBuilder = [MQTTnet.MqttClientOptionsBuilder]::new()
@@ -55,7 +53,12 @@ $factory = [MQTTnet.MqttClientFactory]::new()
 $client = $factory.CreateMqttClient()
 
 # Connect
+Write-Host "Connecting to $mqttHost : $port with client id $clientId"
 $null = $client.ConnectAsync($options).GetAwaiter().GetResult()
+
+# Read image as bytes
+$imageBytes = [System.IO.File]::ReadAllBytes($ImagePath)
+Write-Host "Loaded image file: $ImagePath ($($imageBytes.Length) bytes)"
 
 # Prepare message with content-type and QoS 1
 $msgBuilder = [MQTTnet.MqttApplicationMessageBuilder]::new()
@@ -132,6 +135,184 @@ $retainedMessage = $retainedMsgBuilder.Build()
 
 $null = $client.PublishAsync($retainedMessage).GetAwaiter().GetResult()
 Write-Host "Retained message sent to topic 'test/retain' with content-type 'application/json'."
+
+# --- MQTT 5 Request-Response Pattern with Pirate Content ---
+
+# Subscribe to response topics first so we can receive responses
+$responseTopic1 = "test/pirate/ship/response/treasure-map"
+$responseTopic2 = "test/pirate/ship/response/crew-status"
+
+Write-Host "Subscribing to response topics..."
+
+$subscribeOptions1 = [MQTTnet.MqttClientSubscribeOptionsBuilder]::new()
+$subscribeOptions1 = $subscribeOptions1.WithTopicFilter($responseTopic1, [MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+$subscribeResult1 = $subscribeOptions1.Build()
+$null = $client.SubscribeAsync($subscribeResult1).GetAwaiter().GetResult()
+
+$subscribeOptions2 = [MQTTnet.MqttClientSubscribeOptionsBuilder]::new()
+$subscribeOptions2 = $subscribeOptions2.WithTopicFilter($responseTopic2, [MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+$subscribeResult2 = $subscribeOptions2.Build()
+$null = $client.SubscribeAsync($subscribeResult2).GetAwaiter().GetResult()
+
+Write-Host "Subscribed to response topics."
+
+# Generate correlation data for requests
+$correlationData1 = [System.Guid]::NewGuid().ToByteArray()
+$correlationData2 = [System.Guid]::NewGuid().ToByteArray()
+
+# --- Request Message 1: Treasure Map Request ---
+$treasureRequestPayload = @{
+    messageType = "treasure_map_request"
+    shipName = "The Crow's Nest"
+    captainName = "Captain Blackbeard McFeathers"
+    requestId = [System.Guid]::NewGuid().ToString()
+    timestamp = (Get-Date).ToString("o")
+    requestDetails = @{
+        treasureType = "buried_gold"
+        searchArea = "Caribbean Sea"
+        lastKnownLocation = @{
+            latitude = "18.2208°N"
+            longitude = "66.5901°W"
+            island = "Dead Man's Cove"
+        }
+        urgency = "high"
+        reason = "Mutinous crew needs convincing with shiny doubloons"
+    }
+    crew = @{
+        totalMembers = 42
+        experiencedTreasureHunters = 12
+        parrots = 3
+    }
+} | ConvertTo-Json -Depth 4
+
+$treasureRequestBytes = [System.Text.Encoding]::UTF8.GetBytes($treasureRequestPayload)
+Write-Host "Prepared treasure map request: $($treasureRequestBytes.Length) bytes"
+
+$treasureRequestBuilder = [MQTTnet.MqttApplicationMessageBuilder]::new()
+$treasureRequestBuilder = $treasureRequestBuilder.WithTopic("test/pirate/ship/request/treasure-map").WithPayload($treasureRequestBytes)
+$treasureRequestBuilder = $treasureRequestBuilder.WithContentType("application/json")
+$treasureRequestBuilder = $treasureRequestBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+$treasureRequestBuilder = $treasureRequestBuilder.WithResponseTopic($responseTopic1)
+$treasureRequestBuilder = $treasureRequestBuilder.WithCorrelationData($correlationData1)
+$treasureRequestMessage = $treasureRequestBuilder.Build()
+
+$null = $client.PublishAsync($treasureRequestMessage).GetAwaiter().GetResult()
+Write-Host "Treasure map request sent to topic 'test/pirate/ship/request/treasure-map' with response topic '$responseTopic1'."
+
+# --- Request Message 2: Crew Status Request ---
+$crewStatusRequestPayload = @{
+    messageType = "crew_status_request"
+    shipName = "The Crow's Nest"
+    captainName = "Captain Blackbeard McFeathers"
+    requestId = [System.Guid]::NewGuid().ToString()
+    timestamp = (Get-Date).ToString("o")
+    statusInquiry = @{
+        requestedInfo = @(
+            "health_status",
+            "morale_level",
+            "rum_supplies",
+            "cannon_readiness",
+            "parrot_wellbeing"
+        )
+        urgency = "medium"
+        reason = "Approaching enemy waters, need full crew assessment"
+    }
+    additionalNotes = "Suspicious activity spotted on the horizon - three ships flying the Jolly Roger"
+} | ConvertTo-Json -Depth 3
+
+$crewStatusRequestBytes = [System.Text.Encoding]::UTF8.GetBytes($crewStatusRequestPayload)
+Write-Host "Prepared crew status request: $($crewStatusRequestBytes.Length) bytes"
+
+$crewStatusRequestBuilder = [MQTTnet.MqttApplicationMessageBuilder]::new()
+$crewStatusRequestBuilder = $crewStatusRequestBuilder.WithTopic("test/pirate/ship/request/crew-status").WithPayload($crewStatusRequestBytes)
+$crewStatusRequestBuilder = $crewStatusRequestBuilder.WithContentType("application/json")
+$crewStatusRequestBuilder = $crewStatusRequestBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+$crewStatusRequestBuilder = $crewStatusRequestBuilder.WithResponseTopic($responseTopic2)
+$crewStatusRequestBuilder = $crewStatusRequestBuilder.WithCorrelationData($correlationData2)
+$crewStatusRequestMessage = $crewStatusRequestBuilder.Build()
+
+$null = $client.PublishAsync($crewStatusRequestMessage).GetAwaiter().GetResult()
+Write-Host "Crew status request sent to topic 'test/pirate/ship/request/crew-status' with response topic '$responseTopic2'."
+
+# --- Response Message for Treasure Map Request ---
+# Simulate a response from the treasure map service
+Start-Sleep -Milliseconds 500  # Small delay to simulate processing time
+
+$treasureResponsePayload = @{
+    messageType = "treasure_map_response"
+    requestId = ($treasureRequestPayload | ConvertFrom-Json).requestId
+    responseId = [System.Guid]::NewGuid().ToString()
+    timestamp = (Get-Date).ToString("o")
+    status = "success"
+    treasureMap = @{
+        mapId = "MAP-CARIBBEAN-001"
+        authenticityVerified = $true
+        treasureDetails = @{
+            estimatedValue = "50,000 pieces of eight"
+            treasureType = "Spanish gold doubloons and emeralds"
+            containerType = "Iron-bound oak chest with skull motif"
+            lastBuriedBy = "Captain Redbeard Rodriguez"
+            buriedDate = "1692-03-15"
+        }
+        location = @{
+            island = "Dead Man's Cove"
+            coordinates = @{
+                latitude = "18.2208°N"
+                longitude = "66.5901°W"
+            }
+            landmarks = @(
+                "Large coconut palm with carved 'X'",
+                "Three rocks arranged in triangle",
+                "20 paces north from old shipwreck"
+            )
+            depth = "6 feet below high tide mark"
+        }
+        warnings = @(
+            "Beware of rival pirate crews in the area",
+            "Local legends speak of cursed treasure",
+            "Bring extra shovels - soil is rocky"
+        )
+        mapImageEncoded = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/59..." # Truncated for example
+    }
+    responseMetadata = @{
+        serviceProvider = "Blackbeard's Treasure Maps & Navigation Co."
+        serviceVersion = "v2.1.0"
+        processingTimeMs = 487
+        confidenceLevel = "high"
+    }
+} | ConvertTo-Json -Depth 5
+
+$treasureResponseBytes = [System.Text.Encoding]::UTF8.GetBytes($treasureResponsePayload)
+Write-Host "Prepared treasure map response: $($treasureResponseBytes.Length) bytes"
+
+$treasureResponseBuilder = [MQTTnet.MqttApplicationMessageBuilder]::new()
+$treasureResponseBuilder = $treasureResponseBuilder.WithTopic($responseTopic1).WithPayload($treasureResponseBytes)
+$treasureResponseBuilder = $treasureResponseBuilder.WithContentType("application/json")
+$treasureResponseBuilder = $treasureResponseBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+$treasureResponseBuilder = $treasureResponseBuilder.WithCorrelationData($correlationData1)  # Same correlation data as request
+$treasureResponseMessage = $treasureResponseBuilder.Build()
+
+$null = $client.PublishAsync($treasureResponseMessage).GetAwaiter().GetResult()
+Write-Host "Treasure map response sent to topic '$responseTopic1' with matching correlation data."
+
+# Display correlation information for verification
+$correlationHex1 = [BitConverter]::ToString($correlationData1).Replace("-", "")
+$correlationHex2 = [BitConverter]::ToString($correlationData2).Replace("-", "")
+
+Write-Host ""
+Write-Host "=== MQTT 5 Request-Response Summary ==="
+Write-Host "Request 1 (Treasure Map):"
+Write-Host "  Topic: test/pirate/ship/request/treasure-map"
+Write-Host "  Response Topic: $responseTopic1"
+Write-Host "  Correlation Data: $correlationHex1"
+Write-Host "  Response Sent: YES"
+Write-Host ""
+Write-Host "Request 2 (Crew Status):"
+Write-Host "  Topic: test/pirate/ship/request/crew-status"
+Write-Host "  Response Topic: $responseTopic2"
+Write-Host "  Correlation Data: $correlationHex2"
+Write-Host "  Response Sent: NO (demonstrating request without response)"
+Write-Host ""
 
 # Disconnect
 $opts = [MQTTnet.MqttClientDisconnectOptions]::new()

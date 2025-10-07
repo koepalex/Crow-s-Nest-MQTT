@@ -8,7 +8,10 @@
       "Bash(dotnet run:*)",
       "Bash(dir:*)",
       "Bash(cat:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(dotnet clean:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

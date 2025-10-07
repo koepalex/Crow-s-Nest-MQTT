@@ -48,7 +48,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void CurrentSearchTerm_WhenChanged_ShouldUpdateFilteredMessageHistory()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
             // Add test messages
             AddTestMessages(viewModel, new[]
@@ -72,7 +72,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void CurrentSearchTerm_WhenCleared_ShouldShowAllMessagesForSelectedTopic()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
             // Add test messages
             AddTestMessages(viewModel, new[]
@@ -106,7 +106,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void SelectedNode_WhenChanged_ShouldFilterMessagesByTopic()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
             
             // Add test messages for multiple topics
             AddTestMessages(viewModel, new[]
@@ -137,7 +137,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void SelectedNode_WhenSetToNull_ShouldShowAllTopics()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
             // Add test messages for multiple topics
             AddTestMessages(viewModel, new[]
@@ -173,7 +173,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void CombinedFiltering_ShouldApplyBothTopicAndSearchFilters()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
             // Add test messages
             AddTestMessages(viewModel, new[]
@@ -211,7 +211,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void Search_ShouldBeCaseInsensitive()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
             // Add test messages with mixed case
             AddTestMessages(viewModel, new[]
@@ -243,7 +243,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void ApplyTopicFilter_WithFuzzyMatching_ShouldShowPartialMatches()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
             // Create a variety of topics
             string[] topics = new[] 
@@ -320,7 +320,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void DispatchCommand_Search_ShouldSetSearchTerm()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             var searchCommand = new ParsedCommand(CommandType.Search, new List<string> { "testTerm" });
             
             // Use reflection to get the DispatchCommand method
@@ -339,7 +339,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void DispatchCommand_SearchWithNoArguments_ShouldClearSearchTerm()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             viewModel.CurrentSearchTerm = "previousTerm";
             
             var clearSearchCommand = new ParsedCommand(CommandType.Search, new List<string>()); // Empty arguments list
