@@ -740,6 +740,25 @@ namespace CrowsNestMqtt.UnitTests.Services
             Assert.Equal("Invalid arguments for :settings. Expected: :settings", result.ErrorMessage);
         }
 
+        // GotoResponse command tests
+        [Fact]
+        public void ParseCommand_GotoResponse_NoArgs_ShouldSucceed()
+        {
+            var result = _parser.ParseCommand(":gotoresponse", _defaultSettings);
+            Assert.True(result.IsSuccess);
+            Assert.NotNull(result.ParsedCommand);
+            Assert.Equal(CommandType.GotoResponse, result.ParsedCommand.Type);
+            Assert.Empty(result.ParsedCommand.Arguments);
+        }
+
+        [Fact]
+        public void ParseCommand_GotoResponse_WithArgs_ShouldFail()
+        {
+            var result = _parser.ParseCommand(":gotoresponse message-id-123", _defaultSettings);
+            Assert.False(result.IsSuccess);
+            Assert.Equal("Invalid arguments for :gotoresponse. Expected: :gotoresponse", result.ErrorMessage);
+        }
+
         // Tests for argument parsing with quotes
         [Fact]
         public void ParseCommand_WithQuotedArguments_ShouldParseCorrectly()

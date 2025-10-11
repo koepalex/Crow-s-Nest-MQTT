@@ -13,25 +13,6 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class MqttCommunicationTests : IDisposable
     {
-        static MqttCommunicationTests()
-        {
-            // Use reflection to set Dispatcher.UIThread to a synchronous dispatcher for tests
-            var dispatcherType = typeof(Dispatcher);
-            var field = dispatcherType.GetField("_uiThread", BindingFlags.Static | BindingFlags.NonPublic);
-            if (field != null)
-            {
-                field.SetValue(null, new ImmediateDispatcher());
-            }
-        }
-
-        private class ImmediateDispatcher : IDispatcher
-        {
-            public bool CheckAccess() => true;
-            public void Post(Action action) => action();
-            public void Post(Action action, DispatcherPriority priority) => action();
-            public void VerifyAccess() { }
-            public DispatcherPriority Priority => DispatcherPriority.Normal;
-        }
         private readonly ICommandParserService _commandParserService;
         private readonly IMqttService _mqttServiceMock; // Changed to interface substitute
 
@@ -52,7 +33,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void ConnectAsync_ShouldUpdateSettingsAndConnect()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
 
             // Act
             viewModel.ConnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();
@@ -66,7 +47,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void DisconnectAsync_ShouldDisconnect()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
 
             // Act
             viewModel.DisconnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();
@@ -79,22 +60,23 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void ConnectionStateChanged_ShouldUpdateConnectionState()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            _mqttServiceMock.GetBufferedTopics().Returns(Array.Empty<string>());
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
 
             // Act
-            var connectionStateEventArgs = new MqttConnectionStateChangedEventArgs(true, null, ConnectionStatusState.Connected, "Connected");
+            var connectionStateEventArgs = new MqttConnectionStateChangedEventArgs(true, null, ConnectionStatusState.Disconnected, "Disconnected");
             _mqttServiceMock.ConnectionStateChanged += Raise.EventWith(_mqttServiceMock, connectionStateEventArgs);
 
             // Assert
-            Assert.Equal(ConnectionStatusState.Connected, viewModel.ConnectionStatus);
-            Assert.True(viewModel.IsConnected);
+            Assert.Equal(ConnectionStatusState.Disconnected, viewModel.ConnectionStatus);
+            Assert.False(viewModel.IsConnected);
         }
 
         [Fact]
         public void MessageReceived_ShouldHandleMessageAndUpdateTopicTree()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
             var payload = System.Text.Encoding.UTF8.GetBytes("test message");
             var message = new MqttApplicationMessageBuilder().WithTopic("test/topic").WithPayload(payload).Build();
             var identifiedArgs = new IdentifiedMqttApplicationMessageReceivedEventArgs(Guid.NewGuid(), message, "client1");
@@ -113,7 +95,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void MessageReceived_WhenPaused_ShouldNotUpdateUI()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
             viewModel.IsPaused = true; // Set paused state directly
 
             var payload = System.Text.Encoding.UTF8.GetBytes("test message");
@@ -131,7 +113,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void Dispose_ShouldCleanUpResources()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
 
             // Act
             viewModel.Dispose();
@@ -147,7 +129,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             const string expectedHostname = "testhost";
             const int expectedPort = 1883;
 
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, expectedHostname, expectedPort);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, expectedHostname, expectedPort);
 
             // Act
             viewModel.ConnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();

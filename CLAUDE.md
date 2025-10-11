@@ -100,8 +100,7 @@ Examples:
 - Performance tests: Message throughput, memory usage
 
 ## Recent Changes
-- 003-json-viewer-should: Added C# (.NET - latest stable version per CLAUDE.md) + WPF/Avalonia (UI framework), MQTTnet (MQTT client), Serilog (logging)
-- 002-export-of-correlation: Added C# (.NET - latest stable version) + WPF/Avalonia UI framework, MQTTnet library, Serilog logging
+
 1. Delete Topic Command (Feature 001) - Added `:deletetopic` command for clearing retained messages with parallel processing and error handling
 2. Constitution v1.0.0 - Initial project governance and architectural principles
 3. Spec-kit integration - Added .specify templates for structured development

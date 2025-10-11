@@ -95,7 +95,6 @@ if the special viewer can't be applied the default content viewer is used
 ![](./doc/images/raw-viewer.png)
 
 If the content-type indicates binary data (but not image/video), Crow's NestMQTT will automatically show the payload in a read-only hex viewer:
-
 ![](./doc/images/hex-viewer.png)
 
 You can switch between viewers for the currently selected MQTT message using the `:view` command.
@@ -106,6 +105,11 @@ Crow's NestMQTT has some advanced features to make the life of the pirate that s
 Delete Topics allow remove retain messages from selected topics
 ![](./doc/images/delete-topic.png)
 
+Crow's NestMQTT understand MQTT V5 request/response, each request message shows a small clock icon while waiting for the related response message.
+![](./doc/images/waiting-for-response.png)
+
+Once the response message is received (first message send to given response topic that has the same correlation data), and clickable arrow icon allows jumping direct to the response.
+![](./doc/images/go-to-response.png)
 
 ## Command Interface
 
@@ -123,6 +127,7 @@ Crow's Nest MQTT provides a command interface (likely accessible via a dedicated
 *   `:expand` - Expand all nodes in the topic tree.
 *   `:collapse` - Collapse all nodes in the topic tree.
 *   `:deletetopic [<topic>]` - Removes all retain messages to a given topic (and subtopics)
+*   `:gotoresponse` - Navigate to the response message for the currently selected MQTT v5 request message (if a response has been received)
 *   `:view <raw|json|image|video|hex>` - Set the payload view to raw text, formatted JSON tree, image, video, or hex viewer. The hex viewer displays binary payloads in a classic hex+ASCII table.
 *   `:settings` - Toggle the visibility of the settings panel.
 *   `:setuser <username>` - Set the username for MQTT authentication.

@@ -50,7 +50,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void SelectedMessage_WhenChanged_ShouldUpdateMessageDetails()
         {
             // Arrange
-           var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+           using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
            var messageId = Guid.NewGuid();
            var timestamp = DateTime.Now;
            var topic = "test/message";
@@ -81,7 +81,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void UpdateMessageDetails_WithJsonPayload_ShouldShowJsonViewer()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
            var jsonPayload = "{\"test\":\"value\"}";
            var messageId = Guid.NewGuid();
            var timestamp = DateTime.Now;
@@ -112,7 +112,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void UpdateMessageDetails_WithXmlPayload_ShouldShowRawViewer()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
            var xmlPayload = "<root><test>value</test></root>";
            var messageId = Guid.NewGuid();
            var timestamp = DateTime.Now;
@@ -145,7 +145,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void UpdateMessageDetails_WithUserProperties_ShouldDisplayUserProperties()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
 
            // Create a message with user properties
            var messageId = Guid.NewGuid();
@@ -191,7 +191,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void MessageHistory_ShouldFilterOnSearchTerm()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             
             // Get private field for message history source
             var messageSourceField = typeof(MainViewModel).GetField("_messageHistorySource", 
@@ -232,7 +232,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void OnMessageReceived_WhenPaused_ShouldNotAddToHistory()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.IsPaused = true;
             
             // Initialize event handler in MqttEngine to test
@@ -290,7 +290,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // var expectedPreviewLength = 100; // Removed as assertions using it are commented out
             
             // Get the OnMessageReceived method via reflection
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             var mqttEngine = Substitute.For<MqttEngine>(new MqttConnectionSettings()); // Create substitute engine
             var messageReceivedMethod = typeof(MainViewModel).GetMethod("OnMessageReceived",
                 BindingFlags.NonPublic | BindingFlags.Instance);
@@ -329,7 +329,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void UpdateOrCreateNode_ShouldBuildTopicTree()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             var updateMethod = typeof(MainViewModel).GetMethod("UpdateOrCreateNode", 
                 BindingFlags.NonPublic | BindingFlags.Instance);
             

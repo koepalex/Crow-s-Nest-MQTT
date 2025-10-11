@@ -55,6 +55,8 @@ public enum CommandType
     SetUseTls,
     /// <summary> Delete retained messages from a topic and its subtopics. </summary>
     DeleteTopic,
+    /// <summary> Navigate to the response message for the currently selected request message. </summary>
+    GotoResponse,
     /// <summary> Represents an unrecognized or invalid command. </summary>
     Unknown
 }

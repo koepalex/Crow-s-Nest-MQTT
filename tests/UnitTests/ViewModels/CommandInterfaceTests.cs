@@ -52,7 +52,7 @@ public class CommandInterfaceTests
         public async Task ExecuteSubmitInput_WithCommandInput_ShouldExecuteCommand()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
             const string commandText = ":connect localhost:1883";
             viewModel.CommandText = commandText;
 
@@ -80,7 +80,7 @@ public class CommandInterfaceTests
         public void ExecuteSubmitInput_WithSearchTerm_ShouldApplyFilter()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
             const string searchTerm = "test search";
             viewModel.CommandText = searchTerm;
 
@@ -101,7 +101,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithHelpCommand_ShouldDisplayHelp()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
             var parsedCommand = new ParsedCommand(CommandType.Help, new List<string>().AsReadOnly());
 
             // Act - Call the DispatchCommand method via reflection
@@ -116,7 +116,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithSpecificHelpCommand_ShouldDisplaySpecificHelp()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
             var parsedCommand = new ParsedCommand(CommandType.Help, new List<string> { "connect" }.AsReadOnly());
 
             // Act - Call the DispatchCommand method via reflection
@@ -131,7 +131,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithFilterCommand_ShouldApplyTopicFilter()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
             var parsedCommand = new ParsedCommand(CommandType.Filter, new List<string> { "sensor" }.AsReadOnly());
 
             // Act - Call the DispatchCommand method via reflection
@@ -147,7 +147,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithClearFilterCommand_ShouldClearTopicFilter()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
             
             // First apply a filter
             var applyFilterCommand = new ParsedCommand(CommandType.Filter, new List<string> { "sensor" }.AsReadOnly());
@@ -169,7 +169,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithExportCommand_ShouldExportSelectedMessage()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
             
            // Create a message to export
            var messageIdExport = Guid.NewGuid();
@@ -206,7 +206,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithViewRawCommand_ShouldSwitchToRawView()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
            // Create a message with JSON payload
            var messageIdViewRaw = Guid.NewGuid();
@@ -247,7 +247,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithViewJsonCommand_ShouldSwitchToJsonView()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
            // Create a message with JSON payload (same as above for simplicity, could reuse)
            var messageIdViewJson = Guid.NewGuid();
@@ -301,7 +301,7 @@ public class CommandInterfaceTests
         public void UpdateCommandSuggestions_ShouldFilterSuggestionsByCommandText()
         {
             // Arrange
-            var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService);
             
             // Get the private method via reflection
             var updateSuggestionsMethod = typeof(MainViewModel).GetMethod("UpdateCommandSuggestions", 
@@ -347,7 +347,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService(); // Use real parser
-            var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous; // Start as anonymous
 
             // Act
@@ -363,7 +363,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword; // Start as userpass
             viewModel.Settings.AuthUsername = "test"; // Ensure it's not empty for full switch effect
 
@@ -380,7 +380,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
             viewModel.Settings.AuthUsername = ""; // Ensure username is empty
 
@@ -398,7 +398,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
             viewModel.Settings.AuthUsername = "";
             viewModel.Settings.AuthPassword = "";
@@ -418,7 +418,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
             viewModel.Settings.AuthUsername = "";
             viewModel.Settings.AuthPassword = "";
@@ -438,7 +438,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword;
             viewModel.Settings.AuthUsername = "olduser";
             viewModel.Settings.AuthPassword = "oldpass";
@@ -459,7 +459,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            var viewModel = new MainViewModel(commandParser);
+            using var viewModel = new MainViewModel(commandParser);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword;
             viewModel.Settings.AuthUsername = "olduser";
             viewModel.Settings.AuthPassword = "oldpass";
