@@ -19,6 +19,17 @@ public class JsonNodeViewModel : ReactiveObject
     // For TreeView binding
     public ObservableCollection<JsonNodeViewModel> Children { get; } = new();
 
+    // Expansion state for automatic expansion feature
+    private bool _isExpanded = true; // Default to expanded
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set => this.RaiseAndSetIfChanged(ref _isExpanded, value);
+    }
+
+    // Depth tracking for automatic expansion (1-based: root children = 1)
+    public int Depth { get; set; }
+
     // For Syntax Highlighting
     public IBrush ValueBrush { get; }
 

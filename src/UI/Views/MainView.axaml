@@ -252,6 +252,8 @@
                               <TreeView.Styles>
                                   <Style Selector="TreeViewItem">
                                       <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                      <!-- Bind IsExpanded to enable automatic expansion (FR-008) -->
+                                      <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
                                   </Style>
                               </TreeView.Styles>
                               <TreeView.ItemTemplate>
