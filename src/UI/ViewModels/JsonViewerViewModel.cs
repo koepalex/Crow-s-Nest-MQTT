@@ -62,15 +62,17 @@ public JsonNodeViewModel? SelectedNode
             if (jsonDoc.RootElement.ValueKind == JsonValueKind.Array)
             {
                 // Create a single root node for the array itself
-                var arrayRootNode = new JsonNodeViewModel("$", jsonDoc.RootElement, "$");
+                var arrayRootNode = new JsonNodeViewModel("$", jsonDoc.RootElement, "$") { Depth = 0 };
+                // Set expansion based on depth (depth 0, so always expanded)
+                arrayRootNode.IsExpanded = true;
                 RootNodes.Add(arrayRootNode);
-                // Populate the children of this array node
-                PopulateNodes(jsonDoc.RootElement, arrayRootNode.Children, arrayRootNode.JsonPath);
+                // Populate the children of this array node (depth 1)
+                PopulateNodes(jsonDoc.RootElement, arrayRootNode.Children, arrayRootNode.JsonPath, 1);
             }
             else
             {
-                // Original behavior for root objects or other types
-                PopulateNodes(jsonDoc.RootElement, RootNodes, "$"); // Start path at root '$'
+                // Original behavior for root objects or other types (start at depth 1)
+                PopulateNodes(jsonDoc.RootElement, RootNodes, "$", 1); // Start path at root '$'
             }
         }
         catch (JsonException ex)
@@ -87,7 +89,7 @@ public JsonNodeViewModel? SelectedNode
         }
     }
 
-    private void PopulateNodes(JsonElement element, ObservableCollection<JsonNodeViewModel> children, string currentPath)
+    private void PopulateNodes(JsonElement element, ObservableCollection<JsonNodeViewModel> children, string currentPath, int depth)
     {
         switch (element.ValueKind)
         {
@@ -97,12 +99,16 @@ public JsonNodeViewModel? SelectedNode
                     // Use property name escaping if needed for complex keys
                     string safeName = property.Name; // Basic for now
                     string childPath = $"{currentPath}.{safeName}"; // Basic path construction
-                    var node = new JsonNodeViewModel(property.Name, property.Value, childPath);
+                    var node = new JsonNodeViewModel(property.Name, property.Value, childPath) { Depth = depth };
+
+                    // FR-008: Auto-expand up to depth 5
+                    node.IsExpanded = depth <= 5 && (property.Value.ValueKind == JsonValueKind.Object || property.Value.ValueKind == JsonValueKind.Array);
+
                     children.Add(node);
                     // Recursively populate children if it's an object or array
                     if (property.Value.ValueKind == JsonValueKind.Object || property.Value.ValueKind == JsonValueKind.Array)
                     {
-                        PopulateNodes(property.Value, node.Children, node.JsonPath);
+                        PopulateNodes(property.Value, node.Children, node.JsonPath, depth + 1);
                     }
                 }
                 break;
@@ -112,12 +118,16 @@ public JsonNodeViewModel? SelectedNode
                 foreach (var item in element.EnumerateArray())
                 {
                     string childPath = $"{currentPath}[{index}]";
-                    var node = new JsonNodeViewModel($"[{index}]", item, childPath);
+                    var node = new JsonNodeViewModel($"[{index}]", item, childPath) { Depth = depth };
+
+                    // FR-008: Auto-expand up to depth 5
+                    node.IsExpanded = depth <= 5 && (item.ValueKind == JsonValueKind.Object || item.ValueKind == JsonValueKind.Array);
+
                     children.Add(node);
                     // Recursively populate children if it's an object or array
                     if (item.ValueKind == JsonValueKind.Object || item.ValueKind == JsonValueKind.Array)
                     {
-                        PopulateNodes(item, node.Children, node.JsonPath);
+                        PopulateNodes(item, node.Children, node.JsonPath, depth + 1);
                     }
                     index++;
                 }

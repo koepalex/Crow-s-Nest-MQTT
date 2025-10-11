@@ -11,6 +11,8 @@ Auto-generated from constitution v1.0.0. Last updated: 2025-09-23
 - **Build**: .NET CLI, MSBuild
 - C# (.NET - latest stable version) + WPF/Avalonia UI framework, MQTTnet library, Serilog logging (002-export-of-correlation)
 - In-memory message buffers with configurable limits, file export capabilities (002-export-of-correlation)
+- C# (.NET - latest stable version per CLAUDE.md) + WPF/Avalonia (UI framework), MQTTnet (MQTT client), Serilog (logging) (003-json-viewer-should)
+- In-memory message buffers with configurable limits (per CLAUDE.md) (003-json-viewer-should)
 
 ## Project Structure
 ```
@@ -98,6 +100,7 @@ Examples:
 - Performance tests: Message throughput, memory usage
 
 ## Recent Changes
+- 003-json-viewer-should: Added C# (.NET - latest stable version per CLAUDE.md) + WPF/Avalonia (UI framework), MQTTnet (MQTT client), Serilog (logging)
 - 002-export-of-correlation: Added C# (.NET - latest stable version) + WPF/Avalonia UI framework, MQTTnet library, Serilog logging
 1. Delete Topic Command (Feature 001) - Added `:deletetopic` command for clearing retained messages with parallel processing and error handling
 2. Constitution v1.0.0 - Initial project governance and architectural principles
@@ -106,5 +109,4 @@ Examples:
 <!-- MANUAL ADDITIONS START -->
 **Constitutional Compliance Notes:**
 - All features must pass constitutional checks before implementation
-- Document any principle violations in complexity tracking
 <!-- MANUAL ADDITIONS END -->
