@@ -5,9 +5,11 @@ using Avalonia;
 using System;
 using System.ComponentModel;
 using System.Text;
+using System.Diagnostics.CodeAnalysis;
 
 namespace CrowsNestMqtt.UI.Views
 {
+    [ExcludeFromCodeCoverage] // UI control with Avalonia-specific initialization
     public partial class HexViewer : UserControl, INotifyPropertyChanged
     {
         public static readonly StyledProperty<byte[]?> BytesProperty =

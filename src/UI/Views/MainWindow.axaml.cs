@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using System.Diagnostics.CodeAnalysis;
 
 namespace CrowsNestMqtt.UI.Views;
 
@@ -6,6 +7,7 @@ namespace CrowsNestMqtt.UI.Views;
 /// The main window of the application.
 /// Hosts the MainView user control.
 /// </summary>
+[ExcludeFromCodeCoverage] // UI initialization code is not unit testable
 public partial class MainWindow : Window
 {
     /// <summary>

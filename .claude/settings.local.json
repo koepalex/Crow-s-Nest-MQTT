@@ -11,7 +11,8 @@
       "Bash(grep:*)",
       "Bash(find:*)",
       "Bash(dotnet clean:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(reportgenerator:*)"
     ],
     "deny": [],
     "ask": []

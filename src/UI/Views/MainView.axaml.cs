@@ -11,6 +11,7 @@ using System.Collections.Specialized; // Added for INotifyCollectionChanged
 using System.Reactive.Linq; // Added for INotifyPropertyChanged (optional but good practice)
 using System.Reactive; // Added for Unit
 using AvaloniaEdit.Editing; // Added for Selection
+using System.Diagnostics.CodeAnalysis;
 
 // Dynamically load System.Windows.Forms for clipboard access on Windows
 namespace CrowsNestMqtt.UI.Views;
@@ -18,6 +19,7 @@ namespace CrowsNestMqtt.UI.Views;
 /// <summary>
 /// Code-behind for the MainView.axaml user control.
 /// </summary>
+[ExcludeFromCodeCoverage] // UI event wiring and Avalonia-specific code is not unit testable
 public partial class MainView : UserControl
 {
     private INotifyCollectionChanged? _observableHistory;
