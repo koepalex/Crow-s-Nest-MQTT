@@ -53,12 +53,12 @@ jobs:
       run: dotnet build CrowsNestMQTT.slnx --no-restore --configuration Release
 
     - name: Test with coverage
-      run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage;Format=json,cobertura" --filter "Category!=LocalOnly" --diag:logs/log.txt
+      run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" --settings coverlet.runsettings --filter "Category!=LocalOnly" --results-directory ./TestResults --diag:logs/log.txt
     
     - name: Generate coverage report
       run: |
         dotnet tool install -g dotnet-reportgenerator-globaltool
-        reportgenerator -reports:"./tests/**/coverage.cobertura.xml" -targetdir:"./TestResults/CoverageReport" -reporttypes:"Html;Cobertura;JsonSummary"
+        reportgenerator -reports:"./TestResults/**/coverage.cobertura.xml" -targetdir:"./TestResults/CoverageReport" -reporttypes:"Html;Cobertura;JsonSummary"
 
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
