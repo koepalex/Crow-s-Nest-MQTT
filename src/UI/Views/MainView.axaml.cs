@@ -161,9 +161,7 @@ public partial class MainView : UserControl
                       var clipboard = TopLevel.GetTopLevel(this)?.Clipboard; // Use 'this' directly
                       if (clipboard != null)
                       {
-                          var dataObject = new DataObject();
-                          dataObject.Set(DataFormats.Text, clipboardText);
-                          await clipboard.SetDataObjectAsync(dataObject);
+                          await clipboard.SetTextAsync(clipboardText);
                       }
                   }
               }); // Note: Consider adding DisposeWith for this subscription if view model can change
