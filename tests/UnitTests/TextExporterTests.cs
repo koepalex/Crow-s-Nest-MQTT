@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 
 using CrowsNestMqtt.BusinessLogic.Exporter;
 using CrowsNestMqtt.Utils;
@@ -104,17 +105,44 @@ public class TextExporterTests : IDisposable
             {
                 // Use the overload accepting ReadOnlySequence<byte>
                 payloadAsString = Encoding.UTF8.GetString(msg.Payload);
+                
+                // Check if content type is application/json and attempt to pretty-print (same logic as TextExporter)
+                if (string.Equals(msg.ContentType, "application/json", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        // Parse and pretty-print JSON
+                        using var document = JsonDocument.Parse(payloadAsString);
+                        var prettyJson = JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions 
+                        { 
+                            WriteIndented = true,
+                            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                        });
+                        sb.AppendLine(prettyJson);
+                    }
+                    catch (JsonException)
+                    {
+                        // If JSON parsing fails, fall back to raw payload
+                        sb.AppendLine(payloadAsString);
+                    }
+                }
+                else
+                {
+                    // Not JSON content type, use raw payload
+                    sb.AppendLine(payloadAsString);
+                }
             }
             catch (Exception ex)
             {
                 payloadAsString = $"[Could not decode payload as UTF-8: {ex.Message}]";
+                sb.AppendLine(payloadAsString);
             }
         }
         else
         {
             payloadAsString = "[No Payload]";
+            sb.AppendLine(payloadAsString); // Append payload string or placeholder
         }
-        sb.AppendLine(payloadAsString); // Append payload string or placeholder
 
         return sb.ToString(); // Ensure return is inside the method
     } // End of BuildExpectedContent method
