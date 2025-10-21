@@ -32,6 +32,8 @@ using SharpHook.Native; // Added SharpHook Native for KeyCode and ModifierMask
 using SharpHook.Reactive; // Added SharpHook Reactive
 using System.Reactive.Concurrency;
 using System.Linq;
+using CrowsNestMQTT.BusinessLogic.Navigation; // Added for keyboard navigation
+using Avalonia.Input; // Added for KeyModifiers
 
 namespace CrowsNestMqtt.UI.ViewModels;
 
@@ -81,6 +83,12 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     // Per-topic message storage (prevents cross-topic eviction)
     private readonly ITopicMessageStore _messageStore;
     private readonly Dictionary<Guid, MessageViewModel> _messageIndex = new();
+
+    // Keyboard navigation services (Feature 004)
+    private readonly ITopicSearchService _topicSearchService;
+    private readonly IKeyboardNavigationService? _keyboardNavigationService;
+    private readonly SearchStatusViewModel _searchStatusViewModel;
+    private readonly MessageNavigationState _messageNavigationState;
 
     // Topic normalization helper (single place)
     private static string? NormalizeTopic(string? t) => string.IsNullOrWhiteSpace(t) ? null : t.Trim().TrimEnd('/');
@@ -390,6 +398,21 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     // --- JSON Viewer ---
     public JsonViewerViewModel JsonViewer { get; } // Added for JSON display
+
+    /// <summary>
+    /// Gets the keyboard navigation service for n/N/j/k shortcuts (Feature 004).
+    /// </summary>
+    public IKeyboardNavigationService? KeyboardNavigationService => _keyboardNavigationService;
+
+    /// <summary>
+    /// Gets the search status view model for displaying search feedback (Feature 004).
+    /// </summary>
+    public SearchStatusViewModel SearchStatusViewModel => _searchStatusViewModel;
+
+    /// <summary>
+    /// Gets the message navigation state for j/k message history navigation (Feature 004).
+    /// </summary>
+    public MessageNavigationState MessageNavigationState => _messageNavigationState;
 
     private bool _isJsonViewerVisible = false; // Added backing field for visibility
     public bool IsJsonViewerVisible // Added property for visibility binding
@@ -745,6 +768,16 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                                   .OrderBy(cmd => cmd) // Sort alphabetically
                                   .ToList();
 
+        // Initialize keyboard navigation services (Feature 004)
+        _topicSearchService = new TopicSearchService(GetAllTopicReferences);
+        _searchStatusViewModel = new SearchStatusViewModel();
+        _messageNavigationState = new MessageNavigationState();
+        _keyboardNavigationService = new KeyboardNavigationService(
+            _topicSearchService,
+            _messageNavigationState,
+            () => false // TODO: Implement focus detection
+        );
+
         // --- DynamicData Pipeline for Message History Filtering ---
 
         // --- UI Heartbeat Timer for Freeze Detection ---
@@ -900,6 +933,14 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                         {
                             SelectedMessage = _filteredMessageHistory.FirstOrDefault();
                         }
+
+                        // Update MessageNavigationState for j/k navigation (Feature 004)
+                        var mqttMessages = _filteredMessageHistory
+                            .Select(vm => vm.GetFullMessage())
+                            .Where(msg => msg != null)
+                            .Cast<MqttApplicationMessage>()
+                            .ToList();
+                        _messageNavigationState.UpdateMessages(mqttMessages);
                     }
                     finally
                     {
@@ -2330,6 +2371,35 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     /// <summary>
     /// Finds a topic node in the topic tree by topic path.
     /// </summary>
+    /// <summary>
+    /// Navigates to a topic by path (used by keyboard navigation - Feature 004).
+    /// Automatically expands all parent nodes to make the target node visible.
+    /// </summary>
+    public void NavigateToTopic(string topicPath)
+    {
+        var node = FindTopicNode(topicPath);
+        if (node != null)
+        {
+            // Expand all parent nodes to make the selected node visible
+            ExpandParentNodes(node);
+            SelectedNode = node;
+        }
+    }
+
+    /// <summary>
+    /// Expands all parent nodes in the tree hierarchy to make the specified node visible.
+    /// </summary>
+    /// <param name="node">The target node whose parents should be expanded.</param>
+    private void ExpandParentNodes(NodeViewModel node)
+    {
+        var current = node.Parent;
+        while (current != null)
+        {
+            current.IsExpanded = true;
+            current = current.Parent;
+        }
+    }
+
     private NodeViewModel? FindTopicNode(string topicPath)
     {
         if (string.IsNullOrEmpty(topicPath))
@@ -2475,6 +2545,40 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                     CurrentSearchTerm = searchTerm;
                     StatusBarText = string.IsNullOrWhiteSpace(searchTerm) ? "Search cleared." : $"Search filter applied: '{searchTerm}'.";
                     Log.Information("Search command executed. Term: '{SearchTerm}'", searchTerm);
+                    break;
+                case CommandType.TopicSearch:
+                    // FR-001: Topic search triggered by /[term] command
+                    string topicSearchTerm = command.Arguments.FirstOrDefault() ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(topicSearchTerm))
+                    {
+                        // Execute search using TopicSearchService
+                        var searchContext = _topicSearchService.ExecuteSearch(topicSearchTerm);
+
+                        // Update search status view model for display
+                        _searchStatusViewModel.UpdateFromContext(searchContext);
+
+                        // Navigate to first match if any exist
+                        if (searchContext.HasMatches)
+                        {
+                            var firstMatch = searchContext.GetCurrentMatch();
+                            if (firstMatch != null)
+                            {
+                                // Navigate to the first match (this will auto-expand the tree)
+                                NavigateToTopic(firstMatch.TopicPath);
+                            }
+                            Log.Information("Topic search found {Count} matches for '{Term}'. Use 'n' and 'N' to navigate.",
+                                searchContext.TotalMatches, topicSearchTerm);
+                        }
+                        else
+                        {
+                            Log.Information("Topic search found no matches for '{Term}'", topicSearchTerm);
+                        }
+                    }
+                    else
+                    {
+                        StatusBarText = "Topic search requires a search term. Usage: /[term]";
+                        Log.Warning("Topic search command executed with empty term");
+                    }
                     break;
                 case CommandType.Expand:
                     ExpandAllNodes();
@@ -2993,6 +3097,42 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     /// <summary>
     /// Applies a filter to the topic tree, showing only nodes where at least one path segment fuzzy matches the filter.
     /// </summary>
+    /// <summary>
+    /// Gets all topic references for search functionality (Feature 004).
+    /// </summary>
+    private IEnumerable<TopicReference> GetAllTopicReferences()
+    {
+        var topics = new List<TopicReference>();
+        CollectTopicReferencesRecursive(TopicTreeNodes, topics);
+        return topics;
+    }
+
+    /// <summary>
+    /// Recursively collects topic references from the topic tree.
+    /// Only includes topics that have messages (MessageCount > 0).
+    /// </summary>
+    private void CollectTopicReferencesRecursive(IEnumerable<NodeViewModel> nodes, List<TopicReference> topics)
+    {
+        foreach (var node in nodes)
+        {
+            // Only add nodes that have actual messages
+            if (!string.IsNullOrEmpty(node.FullPath) && node.MessageCount > 0)
+            {
+                topics.Add(new TopicReference(
+                    node.FullPath,
+                    node.Name,
+                    Guid.NewGuid() // Use a generated GUID since NodeViewModel doesn't have an ID
+                ));
+            }
+
+            // Continue searching children
+            if (node.Children.Count > 0)
+            {
+                CollectTopicReferencesRecursive(node.Children, topics);
+            }
+        }
+    }
+
     /// <param name="filter">The filter string. If null or empty, clears the filter.</param>
     private void ApplyTopicFilter(string? filter)
     {
@@ -3540,6 +3680,14 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             {
                 SelectedMessage = _simpleFilteredHistory.FirstOrDefault();
             }
+
+            // Update MessageNavigationState for j/k navigation (Feature 004)
+            var mqttMessages = _simpleFilteredHistory
+                .Select(vm => vm.GetFullMessage())
+                .Where(msg => msg != null)
+                .Cast<MqttApplicationMessage>()
+                .ToList();
+            _messageNavigationState.UpdateMessages(mqttMessages);
         }
         catch (Exception ex)
         {

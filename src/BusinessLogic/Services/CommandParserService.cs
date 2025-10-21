@@ -11,6 +11,7 @@ using CrowsNestMqtt.BusinessLogic.Exporter;
 public class CommandParserService : ICommandParserService
 {
     private const char CommandPrefix = ':';
+    private const char TopicSearchPrefix = '/';
 
     /// <inheritdoc />
     public CommandResult ParseInput(string input, SettingsData settingsData)
@@ -26,6 +27,19 @@ public class CommandParserService : ICommandParserService
         if (input.StartsWith(CommandPrefix))
         {
             return ParseCommand(input, settingsData);
+        }
+        else if (input.StartsWith(TopicSearchPrefix))
+        {
+            // FR-001: Topic search triggered by /[term] syntax
+            var searchTerm = input.Substring(1).Trim();
+
+            if (string.IsNullOrWhiteSpace(searchTerm))
+            {
+                return CommandResult.Failure("Topic search term cannot be empty. Usage: /[term]");
+            }
+
+            return CommandResult.SuccessCommand(
+                new ParsedCommand(CommandType.TopicSearch, new List<string> { searchTerm }));
         }
         else
         {
