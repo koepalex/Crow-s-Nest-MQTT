@@ -8,6 +8,8 @@ Whether you're a seasoned developer or a newcomer to IoT, Crow’s NestMQTT prov
 
 * Focused on developer 💻
 * Controllable via keyboard shortcuts ⌨️
+  * Fast topic search with `/[term]` and navigate with `n`/`N`
+  * Navigate message history with `j`/`k` (vim-style)
 * MQTT V5 feature rich 📨
   * Shows more than only MQTT message payload
     * metadata like `response-topic`, `correlation-data`, `content-type`  etc.
@@ -119,6 +121,7 @@ Crow's Nest MQTT provides a command interface (likely accessible via a dedicated
 *   `:disconnect` - Disconnect from the current MQTT broker.
 *   `:export <json|txt> <filepath>` - Export messages to a file in JSON or plain text format. If arguments are omitted, the path and format are loaded from settings.
 *   `:filter [regex_pattern]` - Filter messages based on a regex pattern. Clears the filter if no pattern is provided.
+*   `/[search_term]` - Search for topics containing the search term (case-insensitive). Use `n` to navigate to the next match and `N` (Shift+n) to navigate to the previous match. The topic tree automatically expands to show the selected topic.
 *   `:clear` - Clear all messages from the display.
 *   `:help [command]` - Show information about available commands.
 *   `:copy` - Copy the selected messages to the clipboard.
@@ -137,6 +140,26 @@ Crow's Nest MQTT provides a command interface (likely accessible via a dedicated
 *   `:setauthdata <data>` - Set the authentication data for enhanced authentication (method-specific data).
 *   `:setusetls <true|false>` - Set whether to use TLS for the MQTT connection. When set to `true`, the client will connect using TLS, allow untrusted certificates, and ignore certificate errors.
 *   `[search_term]` - Any text entered without a `:` prefix is treated as a search term to filter messages.
+
+## Keyboard Navigation Shortcuts
+
+Crow's NestMQTT provides vim-inspired keyboard shortcuts for efficient navigation without leaving the keyboard:
+
+### Topic Search Navigation
+*   **`/[search_term]`** - Search for topics containing the term (case-insensitive). Automatically selects the first match and expands the topic tree to show it.
+*   **`n`** - Navigate to the next search result. Wraps around to the first match when reaching the end.
+*   **`N`** (Shift+n) - Navigate to the previous search result. Wraps around to the last match when at the beginning.
+
+The search status is displayed in the status bar showing the current match position (e.g., "Search: 'sensor' (match 2 of 5)").
+
+### Message History Navigation
+*   **`j`** - Move down to the next message in the history view. Wraps to the first message when at the end.
+*   **`k`** - Move up to the previous message in the history view. Wraps to the last message when at the beginning.
+
+### Other Shortcuts
+*   **`Ctrl + Shift + P`** - Open the command palette to quickly access any command.
+
+**Note:** Keyboard shortcuts are automatically disabled when typing in the command palette to prevent interference with normal text input.
 
 ## Enhanced Authentication
 
