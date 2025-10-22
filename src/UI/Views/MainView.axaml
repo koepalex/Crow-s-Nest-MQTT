@@ -139,11 +139,13 @@
               <!-- Removed right border -->
               <Panel Grid.Column="0" ClipToBounds="True">
                   <Border BorderBrush="Gray" BorderThickness="0" MinWidth="200">
-                      <TreeView ItemsSource="{Binding TopicTreeNodes}"
+                      <TreeView x:Name="TopicTreeView"
+                                ItemsSource="{Binding TopicTreeNodes}"
                                 SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
                                 HorizontalAlignment="Stretch"
+                                Focusable="True"
                                 Margin="5">
                           <TreeView.ItemTemplate>
                               <TreeDataTemplate  DataType="{x:Type vm:NodeViewModel}" ItemsSource="{Binding Children}">
