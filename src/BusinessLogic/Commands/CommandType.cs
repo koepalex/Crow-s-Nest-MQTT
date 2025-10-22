@@ -7,6 +7,8 @@ public enum CommandType
 {
     /// <summary> Represents a search term, not a command. </summary>
     Search,
+    /// <summary> Search for and navigate to topics by name (triggered by / prefix). </summary>
+    TopicSearch,
     /// <summary> Connect to an MQTT broker. </summary>
     Connect,
     /// <summary> Disconnect from the current MQTT broker. </summary>

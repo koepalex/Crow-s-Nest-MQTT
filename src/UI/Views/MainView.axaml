@@ -108,6 +108,13 @@
               <TextBlock Text="(Filtered)" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Orange" FontStyle="Italic" IsVisible="{Binding IsTopicFilterActive}"/>
               <!-- Status Bar Text -->
               <TextBlock Text="{Binding StatusBarText}" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Gray" FontStyle="Italic"/>
+              <!-- Search Status Indicator (FR-022, FR-023, FR-024) -->
+              <TextBlock Text="{Binding SearchStatusViewModel.StatusText}"
+                         VerticalAlignment="Center"
+                         Margin="10,0,0,0"
+                         Foreground="DodgerBlue"
+                         FontStyle="Italic"
+                         IsVisible="{Binding SearchStatusViewModel.IsVisible}" />
               <!-- Connection Status Message (for Connecting/Disconnected) -->
               <TextBlock Text="{Binding ConnectionStatusMessage}" 
                          VerticalAlignment="Center" 

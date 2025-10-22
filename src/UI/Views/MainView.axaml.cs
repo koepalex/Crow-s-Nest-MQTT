@@ -28,6 +28,7 @@ public partial class MainView : UserControl
    private IDisposable? _lostFocusSubscription; // Added for window focus tracking
    private IDisposable? _clipboardInteractionSubscription; // Added for clipboard interaction
    private IDisposable? _rawPayloadDocumentSubscription; // Added for tracking document changes
+   private IDisposable? _keyDownSubscription; // Added for keyboard navigation shortcuts
    private Window? _parentWindow; // Added reference to the parent window
    private readonly AvaloniaEdit.TextEditor? _rawPayloadEditor; // Reference to the editor (now readonly)
 
@@ -109,6 +110,13 @@ public partial class MainView : UserControl
                         CrowsNestMqtt.Utils.AppLogger.Trace("MainView LostFocus event fired. Setting IsWindowFocused = false.");
                         viewModel.IsWindowFocused = false;
                     });
+#pragma warning restore IL2026
+
+                // FR-008, FR-009, FR-013, FR-014: Wire keyboard event routing for navigation shortcuts
+#pragma warning disable IL2026 // Suppress trim warning for FromEventPattern
+                _keyDownSubscription = Observable.FromEventPattern<KeyEventArgs>(_parentWindow, nameof(Window.KeyDown))
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(e => OnWindowKeyDown(e.EventArgs));
 #pragma warning restore IL2026
             }
             else
@@ -259,6 +267,60 @@ public partial class MainView : UserControl
        }
     }
 
+    /// <summary>
+    /// Handles keyboard events for navigation shortcuts (n/N/j/k).
+    /// FR-008, FR-009, FR-013, FR-014, FR-020, FR-021
+    /// </summary>
+    private void OnWindowKeyDown(KeyEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm || vm.KeyboardNavigationService == null)
+        {
+            return;
+        }
+
+        // Check if shortcuts should be suppressed (e.g., command palette has focus)
+        if (vm.KeyboardNavigationService.ShouldSuppressShortcuts())
+        {
+            return;
+        }
+
+        // Handle navigation shortcuts
+        bool handled = vm.KeyboardNavigationService.HandleKeyPress(e.Key, e.KeyModifiers);
+        if (handled)
+        {
+            e.Handled = true;
+
+            // Update search status display and navigate after n/N navigation keys
+            if (vm.KeyboardNavigationService.ActiveSearchContext != null)
+            {
+                vm.SearchStatusViewModel.UpdateFromContext(vm.KeyboardNavigationService.ActiveSearchContext);
+
+                // Navigate to the current match
+                var currentMatch = vm.KeyboardNavigationService.ActiveSearchContext.GetCurrentMatch();
+                if (currentMatch != null)
+                {
+                    // Navigate to the matching topic (this updates SelectedNode and message history)
+                    vm.NavigateToTopic(currentMatch.TopicPath);
+                }
+            }
+
+            // Update message selection after j/k navigation keys
+            var messageNav = vm.MessageNavigationState;
+            if (messageNav.HasMessages && messageNav.SelectedIndex >= 0)
+            {
+                // Find the MessageViewModel that corresponds to the selected index
+                if (messageNav.SelectedIndex < vm.FilteredMessageHistory.Count)
+                {
+                    var selectedMessageVm = vm.FilteredMessageHistory[messageNav.SelectedIndex];
+                    if (selectedMessageVm != null)
+                    {
+                        vm.SelectedMessage = selectedMessageVm;
+                    }
+                }
+            }
+        }
+    }
+
     // Renamed and expanded to handle all ViewModel subscriptions
     private void UnsubscribeFromViewModel()
     {
@@ -277,6 +339,8 @@ _gotFocusSubscription?.Dispose();
 _gotFocusSubscription = null;
 _lostFocusSubscription?.Dispose();
 _lostFocusSubscription = null;
+_keyDownSubscription?.Dispose(); // Dispose keyboard navigation subscription
+_keyDownSubscription = null;
 _clipboardInteractionSubscription?.Dispose(); // Dispose clipboard interaction subscription
 _clipboardInteractionSubscription = null;
 _rawPayloadDocumentSubscription?.Dispose(); // Dispose document subscription
