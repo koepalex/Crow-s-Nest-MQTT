@@ -37,7 +37,10 @@ tests/
 - GUI elements support but never replace command interface
 
 **Key Commands to Support:**
-- `:connect [server:port] [username] [password]` - MQTT broker connection
+- `:connect [server:port]` - MQTT broker connection (uses settings if no parameters provided)
+- `:setuser <username>` - Set MQTT username
+- `:setpass <password>` - Set MQTT password
+- `:setauthmode <anonymous|userpass|enhanced>` - Set authentication mode
 - `:filter [regex_pattern]` - Message filtering
 - `:export <json|txt> <filepath>` - Data export
 - `:view <raw|json|image|video|hex>` - Payload viewers

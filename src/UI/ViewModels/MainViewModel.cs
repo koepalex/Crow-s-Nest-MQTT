@@ -2879,34 +2879,58 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
     private void ConnectToMqttBroker(ParsedCommand command)
     {
-        if (command.Arguments.Count != 1)
-        {
-            StatusBarText = "Error: :connect requires exactly one argument: <server_address:port>";
-            Log.Warning("Invalid arguments for :connect command.");
-            return;
-        }
-        // Parse server:port
-        var parts = command.Arguments[0].Split(':');
-        if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || !int.TryParse(parts[1], out int port) || port < 1 || port > 65535)
-        {
-            StatusBarText = $"Error: Invalid format for :connect argument '{command.Arguments[0]}'. Expected: <server_address:port>";
-            Log.Warning("Invalid format for :connect argument: {Argument}", command.Arguments[0]);
-            return;
-        }
-        string host = parts[0];
+        // Handle different argument counts:
+        // 0 args: use settings (hostname, port, and authentication from saved settings)
+        // 1 arg: server:port (override hostname and port, authentication from settings)
+        // Use :setuser, :setpass, :setauthmode commands for authentication configuration
 
-        // Update settings before connecting
-        Settings.Hostname = host;
-        Settings.Port = port;
-        StatusBarText = $"Attempting to connect to {host}:{port}...";
-        ConnectCommand.Execute().Subscribe(
-            _ => StatusBarText = $"Successfully initiated connection to {host}:{port}.", // Success here means command executed, not necessarily connected yet
-            ex =>
+        if (command.Arguments.Count == 0)
+        {
+            // :connect (use all from settings)
+            StatusBarText = $"Attempting to connect to {Settings.Hostname}:{Settings.Port}...";
+            ConnectCommand.Execute().Subscribe(
+                _ => StatusBarText = $"Successfully initiated connection to {Settings.Hostname}:{Settings.Port}.",
+                ex =>
+                {
+                    StatusBarText = $"Error initiating connection: {ex.Message}";
+                    Log.Error(ex, "Error executing ConnectCommand");
+                });
+            return;
+        }
+        else if (command.Arguments.Count == 1)
+        {
+            // :connect server:port
+            // Parse server:port from first argument (already validated by parser)
+            var parts = command.Arguments[0].Split(':');
+            if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || !int.TryParse(parts[1], out int port) || port < 1 || port > 65535)
             {
-                StatusBarText = $"Error initiating connection: {ex.Message}";
-                Log.Error(ex, "Error executing ConnectCommand");
-            });
-        return;
+                StatusBarText = $"Error: Invalid format for :connect argument '{command.Arguments[0]}'. Expected: <server_address:port>";
+                Log.Warning("Invalid format for :connect argument: {Argument}", command.Arguments[0]);
+                return;
+            }
+            string host = parts[0];
+
+            // Update settings before connecting
+            Settings.Hostname = host;
+            Settings.Port = port;
+
+            StatusBarText = $"Attempting to connect to {host}:{port}...";
+            ConnectCommand.Execute().Subscribe(
+                _ => StatusBarText = $"Successfully initiated connection to {host}:{port}.",
+                ex =>
+                {
+                    StatusBarText = $"Error initiating connection: {ex.Message}";
+                    Log.Error(ex, "Error executing ConnectCommand");
+                });
+            return;
+        }
+        else
+        {
+            // Should never reach here as parser validates argument count
+            StatusBarText = "Error: :connect accepts 0 or 1 argument. Use :setuser/:setpass for authentication.";
+            Log.Warning("Invalid argument count for :connect command: {Count}", command.Arguments.Count);
+            return;
+        }
     }
 
     private void Export(ParsedCommand command)
