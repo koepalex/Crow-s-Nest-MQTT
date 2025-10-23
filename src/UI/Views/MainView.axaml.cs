@@ -24,11 +24,14 @@ public partial class MainView : UserControl
 {
     private INotifyCollectionChanged? _observableHistory;
     private IDisposable? _focusCommandSubscription; // Added for focus command
+   private IDisposable? _focusTopicTreeSubscription; // Added for topic tree focus command
    private IDisposable? _gotFocusSubscription; // Added for window focus tracking
    private IDisposable? _lostFocusSubscription; // Added for window focus tracking
    private IDisposable? _clipboardInteractionSubscription; // Added for clipboard interaction
    private IDisposable? _rawPayloadDocumentSubscription; // Added for tracking document changes
    private IDisposable? _keyDownSubscription; // Added for keyboard navigation shortcuts
+   private IDisposable? _commandInputGotFocusSubscription; // Added for command input focus tracking
+   private IDisposable? _commandInputLostFocusSubscription; // Added for command input focus tracking
    private Window? _parentWindow; // Added reference to the parent window
    private readonly AvaloniaEdit.TextEditor? _rawPayloadEditor; // Reference to the editor (now readonly)
 
@@ -118,6 +121,28 @@ public partial class MainView : UserControl
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(e => OnWindowKeyDown(e.EventArgs));
 #pragma warning restore IL2026
+
+                // Track command input focus to suppress shortcuts when typing
+                if (CommandAutoCompleteBox != null)
+                {
+#pragma warning disable IL2026 // Suppress trim warning for FromEventPattern
+                    _commandInputGotFocusSubscription = Observable.FromEventPattern<GotFocusEventArgs>(CommandAutoCompleteBox, nameof(Control.GotFocus))
+                        .ObserveOn(RxApp.MainThreadScheduler)
+                        .Subscribe(_ =>
+                        {
+                            CrowsNestMqtt.Utils.AppLogger.Trace("CommandAutoCompleteBox GotFocus. Setting IsCommandInputFocused = true.");
+                            viewModel.IsCommandInputFocused = true;
+                        });
+
+                    _commandInputLostFocusSubscription = Observable.FromEventPattern<RoutedEventArgs>(CommandAutoCompleteBox, nameof(Control.LostFocus))
+                        .ObserveOn(RxApp.MainThreadScheduler)
+                        .Subscribe(_ =>
+                        {
+                            CrowsNestMqtt.Utils.AppLogger.Trace("CommandAutoCompleteBox LostFocus. Setting IsCommandInputFocused = false.");
+                            viewModel.IsCommandInputFocused = false;
+                        });
+#pragma warning restore IL2026
+                }
             }
             else
             {
@@ -180,6 +205,28 @@ public partial class MainView : UserControl
                 .Subscribe(_ =>
                {
                    CommandAutoCompleteBox?.Focus(); // Focus the control
+               });
+
+            // Subscribe to the FocusTopicTreeCommand
+            _focusTopicTreeSubscription = vm.FocusTopicTreeCommand
+                .ObserveOn(RxApp.MainThreadScheduler) // Ensure focus happens on UI thread
+                .Subscribe(_ =>
+               {
+                   CrowsNestMqtt.Utils.AppLogger.Debug("FocusTopicTreeCommand triggered - attempting to focus TreeView");
+                   // Post focus operation with Input priority to ensure it happens after Enter key processing
+                   Dispatcher.UIThread.Post(() =>
+                   {
+                       CrowsNestMqtt.Utils.AppLogger.Debug("Focusing TopicTreeView. TreeView null? {IsNull}", TopicTreeView == null);
+
+                       // First, explicitly remove focus from command palette
+                       if (CommandAutoCompleteBox?.IsFocused == true)
+                       {
+                           CrowsNestMqtt.Utils.AppLogger.Debug("CommandAutoCompleteBox has focus, moving focus to TreeView");
+                       }
+
+                       var focused = TopicTreeView?.Focus();
+                       CrowsNestMqtt.Utils.AppLogger.Debug("TopicTreeView.Focus() returned: {FocusResult}, IsFocused: {IsFocused}", focused ?? false, TopicTreeView?.IsFocused ?? false);
+                   }, DispatcherPriority.Input);
                });
 
             // Subscribe to the CopyTextToClipboardInteraction
@@ -334,6 +381,8 @@ public partial class MainView : UserControl
         // Dispose focus command subscription
         _focusCommandSubscription?.Dispose();
         _focusCommandSubscription = null;
+        _focusTopicTreeSubscription?.Dispose();
+        _focusTopicTreeSubscription = null;
 // Dispose focus event subscriptions
 _gotFocusSubscription?.Dispose();
 _gotFocusSubscription = null;
@@ -341,6 +390,10 @@ _lostFocusSubscription?.Dispose();
 _lostFocusSubscription = null;
 _keyDownSubscription?.Dispose(); // Dispose keyboard navigation subscription
 _keyDownSubscription = null;
+_commandInputGotFocusSubscription?.Dispose(); // Dispose command input focus tracking
+_commandInputGotFocusSubscription = null;
+_commandInputLostFocusSubscription?.Dispose(); // Dispose command input focus tracking
+_commandInputLostFocusSubscription = null;
 _clipboardInteractionSubscription?.Dispose(); // Dispose clipboard interaction subscription
 _clipboardInteractionSubscription = null;
 _rawPayloadDocumentSubscription?.Dispose(); // Dispose document subscription

@@ -125,6 +125,13 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         set => this.RaiseAndSetIfChanged(ref _commandText, value);
     }
 
+    private bool _isCommandInputFocused;
+    public bool IsCommandInputFocused
+    {
+        get => _isCommandInputFocused;
+        set => this.RaiseAndSetIfChanged(ref _isCommandInputFocused, value);
+    }
+
     // Replaced SelectedTopic with SelectedNode for the TreeView
     private NodeViewModel? _selectedNode;
     public NodeViewModel? SelectedNode
@@ -657,6 +664,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; } // Added Settings Command
     public ReactiveCommand<Unit, Unit> SubmitInputCommand { get; } // Added for command/search input
     public ReactiveCommand<Unit, Unit> FocusCommandBarCommand { get; } // Added command to trigger focus
+    public ReactiveCommand<Unit, Unit> FocusTopicTreeCommand { get; } // Added command to focus topic tree after search
     public ReactiveCommand<object?, Unit> CopyPayloadCommand { get; } // Added command to copy payload
     public ReactiveCommand<Unit, Unit> DeleteTopicCommand { get; } // Added command to delete selected topic's retained messages
     public ReactiveCommand<string?, Unit> NavigateToResponseCommand { get; } // Added command to navigate to response messages
@@ -775,7 +783,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         _keyboardNavigationService = new KeyboardNavigationService(
             _topicSearchService,
             _messageNavigationState,
-            () => false // TODO: Implement focus detection
+            () => IsCommandInputFocused // Suppress shortcuts when command palette has focus
         );
 
         // --- DynamicData Pipeline for Message History Filtering ---
@@ -1005,6 +1013,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         OpenSettingsCommand = ReactiveCommand.Create(OpenSettings); // Initialize Settings Command
         SubmitInputCommand = ReactiveCommand.Create(ExecuteSubmitInput); // Allow execution even when text is empty (handled inside method)
         FocusCommandBarCommand = ReactiveCommand.Create(() => { Log.Debug("FocusCommandBarCommand executed by global hook."); /* Actual focus happens in View code-behind */ });
+        FocusTopicTreeCommand = ReactiveCommand.Create(() => { Log.Debug("FocusTopicTreeCommand executed after search."); /* Actual focus happens in View code-behind */ });
         CopyPayloadCommand = ReactiveCommand.CreateFromTask<object?>(CopyPayloadToClipboardAsync); // Initialize copy payload command
         DeleteTopicCommand = ReactiveCommand.CreateFromTask(ExecuteDeleteTopicAsync); // Initialize delete topic command
         NavigateToResponseCommand = ReactiveCommand.Create<string?>(NavigateToResponse); // Initialize navigate to response command
@@ -2568,6 +2577,12 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                             }
                             Log.Information("Topic search found {Count} matches for '{Term}'. Use 'n' and 'N' to navigate.",
                                 searchContext.TotalMatches, topicSearchTerm);
+
+                            // Focus topic tree to enable immediate n/N navigation
+                            if (!_testMode)
+                            {
+                                FocusTopicTreeCommand.Execute().Subscribe();
+                            }
                         }
                         else
                         {
@@ -2864,34 +2879,58 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
     private void ConnectToMqttBroker(ParsedCommand command)
     {
-        if (command.Arguments.Count != 1)
-        {
-            StatusBarText = "Error: :connect requires exactly one argument: <server_address:port>";
-            Log.Warning("Invalid arguments for :connect command.");
-            return;
-        }
-        // Parse server:port
-        var parts = command.Arguments[0].Split(':');
-        if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || !int.TryParse(parts[1], out int port) || port < 1 || port > 65535)
-        {
-            StatusBarText = $"Error: Invalid format for :connect argument '{command.Arguments[0]}'. Expected: <server_address:port>";
-            Log.Warning("Invalid format for :connect argument: {Argument}", command.Arguments[0]);
-            return;
-        }
-        string host = parts[0];
+        // Handle different argument counts:
+        // 0 args: use settings (hostname, port, and authentication from saved settings)
+        // 1 arg: server:port (override hostname and port, authentication from settings)
+        // Use :setuser, :setpass, :setauthmode commands for authentication configuration
 
-        // Update settings before connecting
-        Settings.Hostname = host;
-        Settings.Port = port;
-        StatusBarText = $"Attempting to connect to {host}:{port}...";
-        ConnectCommand.Execute().Subscribe(
-            _ => StatusBarText = $"Successfully initiated connection to {host}:{port}.", // Success here means command executed, not necessarily connected yet
-            ex =>
+        if (command.Arguments.Count == 0)
+        {
+            // :connect (use all from settings)
+            StatusBarText = $"Attempting to connect to {Settings.Hostname}:{Settings.Port}...";
+            ConnectCommand.Execute().Subscribe(
+                _ => StatusBarText = $"Successfully initiated connection to {Settings.Hostname}:{Settings.Port}.",
+                ex =>
+                {
+                    StatusBarText = $"Error initiating connection: {ex.Message}";
+                    Log.Error(ex, "Error executing ConnectCommand");
+                });
+            return;
+        }
+        else if (command.Arguments.Count == 1)
+        {
+            // :connect server:port
+            // Parse server:port from first argument (already validated by parser)
+            var parts = command.Arguments[0].Split(':');
+            if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || !int.TryParse(parts[1], out int port) || port < 1 || port > 65535)
             {
-                StatusBarText = $"Error initiating connection: {ex.Message}";
-                Log.Error(ex, "Error executing ConnectCommand");
-            });
-        return;
+                StatusBarText = $"Error: Invalid format for :connect argument '{command.Arguments[0]}'. Expected: <server_address:port>";
+                Log.Warning("Invalid format for :connect argument: {Argument}", command.Arguments[0]);
+                return;
+            }
+            string host = parts[0];
+
+            // Update settings before connecting
+            Settings.Hostname = host;
+            Settings.Port = port;
+
+            StatusBarText = $"Attempting to connect to {host}:{port}...";
+            ConnectCommand.Execute().Subscribe(
+                _ => StatusBarText = $"Successfully initiated connection to {host}:{port}.",
+                ex =>
+                {
+                    StatusBarText = $"Error initiating connection: {ex.Message}";
+                    Log.Error(ex, "Error executing ConnectCommand");
+                });
+            return;
+        }
+        else
+        {
+            // Should never reach here as parser validates argument count
+            StatusBarText = "Error: :connect accepts 0 or 1 argument. Use :setuser/:setpass for authentication.";
+            Log.Warning("Invalid argument count for :connect command: {Count}", command.Arguments.Count);
+            return;
+        }
     }
 
     private void Export(ParsedCommand command)
@@ -3786,6 +3825,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 OpenSettingsCommand?.Dispose();
                 SubmitInputCommand?.Dispose();
                 FocusCommandBarCommand?.Dispose();
+                FocusTopicTreeCommand?.Dispose();
                 CopyPayloadCommand?.Dispose(); // Dispose the new command
                 DeleteTopicCommand?.Dispose(); // Dispose delete topic command
                 NavigateToResponseCommand?.Dispose(); // Dispose navigate to response command

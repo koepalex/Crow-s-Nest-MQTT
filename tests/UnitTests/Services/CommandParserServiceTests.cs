@@ -376,28 +376,19 @@ namespace CrowsNestMqtt.UnitTests.Services
         }
 
         [Fact]
-        public void ParseCommand_Connect_ValidServerPortUsername_ShouldSucceed()
+        public void ParseCommand_Connect_WithUsername_ShouldFail()
         {
             var result = _parser.ParseCommand(":connect localhost:1883 testuser", _defaultSettings);
-            Assert.True(result.IsSuccess);
-            Assert.NotNull(result.ParsedCommand);
-            Assert.Equal(CommandType.Connect, result.ParsedCommand.Type);
-            Assert.Equal(2, result.ParsedCommand.Arguments.Count);
-            Assert.Equal("localhost:1883", result.ParsedCommand.Arguments[0]);
-            Assert.Equal("testuser", result.ParsedCommand.Arguments[1]);
+            Assert.False(result.IsSuccess);
+            Assert.Equal("Invalid arguments for :connect. Too many arguments. Expected: :connect [<server:port>]. Use :setuser, :setpass, and :setauthmode for authentication.", result.ErrorMessage);
         }
 
         [Fact]
-        public void ParseCommand_Connect_ValidServerPortUsernamePassword_ShouldSucceed()
+        public void ParseCommand_Connect_WithUsernamePassword_ShouldFail()
         {
             var result = _parser.ParseCommand(":connect localhost:1883 testuser testpass", _defaultSettings);
-            Assert.True(result.IsSuccess);
-            Assert.NotNull(result.ParsedCommand);
-            Assert.Equal(CommandType.Connect, result.ParsedCommand.Type);
-            Assert.Equal(3, result.ParsedCommand.Arguments.Count);
-            Assert.Equal("localhost:1883", result.ParsedCommand.Arguments[0]);
-            Assert.Equal("testuser", result.ParsedCommand.Arguments[1]);
-            Assert.Equal("testpass", result.ParsedCommand.Arguments[2]);
+            Assert.False(result.IsSuccess);
+            Assert.Equal("Invalid arguments for :connect. Too many arguments. Expected: :connect [<server:port>]. Use :setuser, :setpass, and :setauthmode for authentication.", result.ErrorMessage);
         }
 
         [Fact]
@@ -405,7 +396,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         {
             var result = _parser.ParseCommand(":connect invalidformat", _defaultSettings);
             Assert.False(result.IsSuccess);
-            Assert.Equal("Invalid arguments for :connect. If one argument is provided, it must be in 'server:port' format.", result.ErrorMessage);
+            Assert.Equal("Invalid arguments for :connect. Argument must be in 'server:port' format.", result.ErrorMessage);
         }
 
         [Fact]
@@ -421,7 +412,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         {
             var result = _parser.ParseCommand(":connect localhost:1883 user pass extra", _defaultSettings);
             Assert.False(result.IsSuccess);
-            Assert.Equal("Invalid arguments for :connect. Too many arguments. Expected: :connect [<server:port>] [<username>] [<password>]", result.ErrorMessage);
+            Assert.Equal("Invalid arguments for :connect. Too many arguments. Expected: :connect [<server:port>]. Use :setuser, :setpass, and :setauthmode for authentication.", result.ErrorMessage);
         }
 
         // Disconnect command tests

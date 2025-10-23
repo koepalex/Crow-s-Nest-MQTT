@@ -69,7 +69,7 @@ public class JsonNodeViewModel : ReactiveObject
             JsonValueKind.True => Brushes.DarkOrange,
             JsonValueKind.False => Brushes.DarkOrange,
             JsonValueKind.Null => Brushes.Gray,
-            _ => Brushes.Black // Default for keys, objects, arrays
+            _ => Brushes.White // Default for keys, objects, arrays (visible on dark background)
         };
     }
 }
