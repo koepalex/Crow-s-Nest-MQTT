@@ -15,7 +15,7 @@
     <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
     <PackageVersion Include="SharpHook" Version="5.3.9" />
     <PackageVersion Include="SharpHook.Reactive" Version="5.3.9" />
-    <PackageVersion Include="Avalonia.AvaloniaEdit" Version="11.2.0" />
+    <PackageVersion Include="Avalonia.AvaloniaEdit" Version="11.3.0" />
     <PackageVersion Include="Avalonia.Xaml.Behaviors" Version="11.2.7.3" />
     <PackageVersion Include="Avalonia.Xaml.Interactivity" Version="11.2.7.3" />
     <PackageVersion Include="Avalonia.Controls.DataGrid" Version="11.2.8" />
