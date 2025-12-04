@@ -1,8 +1,8 @@
 <Project>
   <PropertyGroup>
-    <AppTargetFramework>net9.0</AppTargetFramework>
-    <LibTargetFramework>net9.0</LibTargetFramework>
-    <TestsTargetFramework>net9.0</TestsTargetFramework>
+    <AppTargetFramework>net10.0</AppTargetFramework>
+    <LibTargetFramework>net10.0</LibTargetFramework>
+    <TestsTargetFramework>net10.0</TestsTargetFramework>
     <TargetRuntimeIdentifiers>win-x64;linux-x64;osx-x64</TargetRuntimeIdentifiers>
   </PropertyGroup>
 </Project>

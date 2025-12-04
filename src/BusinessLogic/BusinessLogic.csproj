@@ -2,7 +2,7 @@
   <PropertyGroup>
     <RootNamespace>CrowsNestMqtt.BusinessLogic</RootNamespace>
     <AssemblyName>CrowsNestMqtt.BusinessLogic</AssemblyName>
-    <TargetFrameworks>net9.0</TargetFrameworks> 
+    <TargetFrameworks>$(LibTargetFramework)</TargetFrameworks>
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
