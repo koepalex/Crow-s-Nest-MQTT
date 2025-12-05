@@ -35,7 +35,8 @@ public class CommandParserService : ICommandParserService
 
             if (string.IsNullOrWhiteSpace(searchTerm))
             {
-                return CommandResult.Failure("Topic search term cannot be empty. Usage: /[term]");
+                return CommandResult.SuccessCommand(
+                    new ParsedCommand(CommandType.TopicSearch, new List<string>()));
             }
 
             return CommandResult.SuccessCommand(
