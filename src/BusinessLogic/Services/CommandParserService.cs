@@ -11,6 +11,7 @@ using CrowsNestMqtt.BusinessLogic.Exporter;
 public class CommandParserService : ICommandParserService
 {
     private const char CommandPrefix = ':';
+    private const char TopicSearchPrefix = '/';
 
     /// <inheritdoc />
     public CommandResult ParseInput(string input, SettingsData settingsData)
@@ -26,6 +27,19 @@ public class CommandParserService : ICommandParserService
         if (input.StartsWith(CommandPrefix))
         {
             return ParseCommand(input, settingsData);
+        }
+        else if (input.StartsWith(TopicSearchPrefix))
+        {
+            // FR-001: Topic search triggered by /[term] syntax
+            var searchTerm = input.Substring(1).Trim();
+
+            if (string.IsNullOrWhiteSpace(searchTerm))
+            {
+                return CommandResult.Failure("Topic search term cannot be empty. Usage: /[term]");
+            }
+
+            return CommandResult.SuccessCommand(
+                new ParsedCommand(CommandType.TopicSearch, new List<string> { searchTerm }));
         }
         else
         {
@@ -68,8 +82,7 @@ public class CommandParserService : ICommandParserService
                     }
                     else if (arguments.Count == 1)
                     {
-                        // :connect <arg1>
-                        // <arg1> must be server:port
+                        // :connect <server:port>
                         if (isValidServerPortFormat(arguments[0]))
                         {
                             string[] sp = arguments[0].Split(':');
@@ -84,54 +97,12 @@ public class CommandParserService : ICommandParserService
                         }
                         else
                         {
-                            return CommandResult.Failure("Invalid arguments for :connect. If one argument is provided, it must be in 'server:port' format.");
+                            return CommandResult.Failure("Invalid arguments for :connect. Argument must be in 'server:port' format.");
                         }
                     }
-                    else if (arguments.Count == 2)
+                    else // arguments.Count > 1
                     {
-                        // :connect <arg1> <arg2>
-                        // <arg1> must be server:port, <arg2> is username
-                        if (isValidServerPortFormat(arguments[0]))
-                        {
-                             string[] sp = arguments[0].Split(':');
-                             if (sp.Length == 2 && isValidPortRange(sp[1]))
-                             {
-                                return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, new List<string> { arguments[0], arguments[1] }));
-                             }
-                             else
-                             {
-                                return CommandResult.Failure("Invalid server:port format in :connect command. Port must be between 1 and 65535.");
-                             }
-                        }
-                        else
-                        {
-                             return CommandResult.Failure("Invalid arguments for :connect. First argument must be in 'server:port' format when providing username.");
-                        }
-                    }
-                    else if (arguments.Count == 3)
-                    {
-                        // :connect <arg1> <arg2> <arg3>
-                        // <arg1> server:port, <arg2> username, <arg3> password
-                        if (isValidServerPortFormat(arguments[0]))
-                        {
-                            string[] sp = arguments[0].Split(':');
-                            if (sp.Length == 2 && isValidPortRange(sp[1]))
-                            {
-                                return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Connect, new List<string> { arguments[0], arguments[1], arguments[2] }));
-                            }
-                            else
-                            {
-                                return CommandResult.Failure("Invalid server:port format in :connect command. Port must be between 1 and 65535.");
-                            }
-                        }
-                        else
-                        {
-                            return CommandResult.Failure("Invalid arguments for :connect. First argument must be in 'server:port' format when providing username and password.");
-                        }
-                    }
-                    else // arguments.Count > 3
-                    {
-                        return CommandResult.Failure("Invalid arguments for :connect. Too many arguments. Expected: :connect [<server:port>] [<username>] [<password>]");
+                        return CommandResult.Failure("Invalid arguments for :connect. Too many arguments. Expected: :connect [<server:port>]. Use :setuser, :setpass, and :setauthmode for authentication.");
                     }
                 }
 

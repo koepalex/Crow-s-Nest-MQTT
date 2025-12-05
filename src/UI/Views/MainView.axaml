@@ -108,6 +108,13 @@
               <TextBlock Text="(Filtered)" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Orange" FontStyle="Italic" IsVisible="{Binding IsTopicFilterActive}"/>
               <!-- Status Bar Text -->
               <TextBlock Text="{Binding StatusBarText}" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Gray" FontStyle="Italic"/>
+              <!-- Search Status Indicator (FR-022, FR-023, FR-024) -->
+              <TextBlock Text="{Binding SearchStatusViewModel.StatusText}"
+                         VerticalAlignment="Center"
+                         Margin="10,0,0,0"
+                         Foreground="DodgerBlue"
+                         FontStyle="Italic"
+                         IsVisible="{Binding SearchStatusViewModel.IsVisible}" />
               <!-- Connection Status Message (for Connecting/Disconnected) -->
               <TextBlock Text="{Binding ConnectionStatusMessage}" 
                          VerticalAlignment="Center" 
@@ -130,28 +137,40 @@
           <Grid Grid.Row="0" Grid.Column="0" ColumnDefinitions="1*,Auto,3*">
               <!-- Left Panel: Topic List -->
               <!-- Removed right border -->
-              <Border Grid.Column="0" BorderBrush="Gray" BorderThickness="0" MinWidth="200">
-                  <TreeView ItemsSource="{Binding TopicTreeNodes}"
-                            SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
-                            Margin="5">
-                      <TreeView.ItemTemplate>
-                          <TreeDataTemplate  DataType="{x:Type vm:NodeViewModel}" ItemsSource="{Binding Children}">
-                              <StackPanel Orientation="Horizontal" Spacing="5">
-                                  <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
-                                  <Border Background="Gray" CornerRadius="3" Padding="3,1">
-                                      <TextBlock Text="{Binding MessageCount}" FontSize="10" Foreground="White" VerticalAlignment="Center"/>
-                                  </Border>
-                              </StackPanel>
-                          </TreeDataTemplate >
-                      </TreeView.ItemTemplate>
-                      <TreeView.Styles>
-                          <Style Selector="TreeViewItem" x:DataType="vm:NodeViewModel">
-                              <Setter Property="IsVisible" Value="{Binding IsVisible}"/>
-                              <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-                          </Style>
-                      </TreeView.Styles>
-                  </TreeView>
-              </Border>
+              <Panel Grid.Column="0" ClipToBounds="True">
+                  <Border BorderBrush="Gray" BorderThickness="0" MinWidth="200">
+                      <TreeView x:Name="TopicTreeView"
+                                ItemsSource="{Binding TopicTreeNodes}"
+                                SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
+                                ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                HorizontalAlignment="Stretch"
+                                Focusable="True"
+                                Margin="5">
+                          <TreeView.ItemTemplate>
+                              <TreeDataTemplate  DataType="{x:Type vm:NodeViewModel}" ItemsSource="{Binding Children}">
+                                  <StackPanel Orientation="Horizontal" Spacing="5">
+                                      <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextWrapping="NoWrap"/>
+                                      <Border Background="Gray" CornerRadius="3" Padding="3,1">
+                                          <TextBlock Text="{Binding MessageCount}" FontSize="10" Foreground="White" VerticalAlignment="Center"/>
+                                      </Border>
+                                  </StackPanel>
+                              </TreeDataTemplate >
+                          </TreeView.ItemTemplate>
+                          <TreeView.Styles>
+                              <!-- Style the internal ScrollViewer in TreeView -->
+                              <Style Selector="TreeView > ScrollViewer">
+                                  <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
+                                  <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+                              </Style>
+                              <Style Selector="TreeViewItem" x:DataType="vm:NodeViewModel">
+                                  <Setter Property="IsVisible" Value="{Binding IsVisible}"/>
+                                  <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                              </Style>
+                          </TreeView.Styles>
+                      </TreeView>
+                  </Border>
+              </Panel>
 
               <!-- Vertical Grid Splitter -->
               <GridSplitter Grid.Column="1"

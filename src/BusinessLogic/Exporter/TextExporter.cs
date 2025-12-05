@@ -2,6 +2,7 @@ namespace CrowsNestMqtt.BusinessLogic.Exporter;
 
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using MQTTnet;
 using CrowsNestMqtt.Utils; // For AppLogger
 
@@ -53,7 +54,32 @@ public class TextExporter : IMessageExporter
             {
                 payloadAsString = Encoding.UTF8.GetString(msg.Payload); // Use overload for ReadOnlySequence<byte>
                 isPayloadValidUtf8 = true;
-                sb.AppendLine(payloadAsString);
+                
+                // Check if content type is application/json and attempt to pretty-print
+                if (string.Equals(msg.ContentType, "application/json", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        // Parse and pretty-print JSON
+                        using var document = JsonDocument.Parse(payloadAsString);
+                        var prettyJson = JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions 
+                        { 
+                            WriteIndented = true,
+                            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                        });
+                        sb.AppendLine(prettyJson);
+                    }
+                    catch (JsonException)
+                    {
+                        // If JSON parsing fails, fall back to raw payload
+                        sb.AppendLine(payloadAsString);
+                    }
+                }
+                else
+                {
+                    // Not JSON content type, use raw payload
+                    sb.AppendLine(payloadAsString);
+                }
             }
             else
             {
