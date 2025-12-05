@@ -7,7 +7,7 @@
     <PackageVersion Include="Avalonia" Version="11.3.8" />
     <PackageVersion Include="Avalonia.Desktop" Version="11.3.8" />
     <PackageVersion Include="Avalonia.ReactiveUI" Version="11.3.8" />
-    <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.7" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.8" Condition="'$(Configuration)' == 'Debug'" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.8" />
     <PackageVersion Include="GitVersion.MsBuild" Version="5.*" />
     <PackageVersion Include="Serilog" Version="4.2.0" />
