@@ -2591,8 +2591,10 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                     }
                     else
                     {
-                        StatusBarText = "Topic search requires a search term. Usage: /[term]";
-                        Log.Warning("Topic search command executed with empty term");
+                        _topicSearchService.ClearSearch();
+                        _searchStatusViewModel.UpdateFromContext(null);
+                        StatusBarText = "Topic search cleared.";
+                        Log.Information("Topic search cleared.");
                     }
                     break;
                 case CommandType.Expand:
