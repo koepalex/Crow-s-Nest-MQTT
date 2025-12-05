@@ -32,6 +32,8 @@ using SharpHook.Native; // Added SharpHook Native for KeyCode and ModifierMask
 using SharpHook.Reactive; // Added SharpHook Reactive
 using System.Reactive.Concurrency;
 using System.Linq;
+using CrowsNestMQTT.BusinessLogic.Navigation; // Added for keyboard navigation
+using Avalonia.Input; // Added for KeyModifiers
 
 namespace CrowsNestMqtt.UI.ViewModels;
 
@@ -82,6 +84,12 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly ITopicMessageStore _messageStore;
     private readonly Dictionary<Guid, MessageViewModel> _messageIndex = new();
 
+    // Keyboard navigation services (Feature 004)
+    private readonly ITopicSearchService _topicSearchService;
+    private readonly IKeyboardNavigationService? _keyboardNavigationService;
+    private readonly SearchStatusViewModel _searchStatusViewModel;
+    private readonly MessageNavigationState _messageNavigationState;
+
     // Topic normalization helper (single place)
     private static string? NormalizeTopic(string? t) => string.IsNullOrWhiteSpace(t) ? null : t.Trim().TrimEnd('/');
 
@@ -115,6 +123,13 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     {
         get => _commandText;
         set => this.RaiseAndSetIfChanged(ref _commandText, value);
+    }
+
+    private bool _isCommandInputFocused;
+    public bool IsCommandInputFocused
+    {
+        get => _isCommandInputFocused;
+        set => this.RaiseAndSetIfChanged(ref _isCommandInputFocused, value);
     }
 
     // Replaced SelectedTopic with SelectedNode for the TreeView
@@ -391,6 +406,21 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     // --- JSON Viewer ---
     public JsonViewerViewModel JsonViewer { get; } // Added for JSON display
 
+    /// <summary>
+    /// Gets the keyboard navigation service for n/N/j/k shortcuts (Feature 004).
+    /// </summary>
+    public IKeyboardNavigationService? KeyboardNavigationService => _keyboardNavigationService;
+
+    /// <summary>
+    /// Gets the search status view model for displaying search feedback (Feature 004).
+    /// </summary>
+    public SearchStatusViewModel SearchStatusViewModel => _searchStatusViewModel;
+
+    /// <summary>
+    /// Gets the message navigation state for j/k message history navigation (Feature 004).
+    /// </summary>
+    public MessageNavigationState MessageNavigationState => _messageNavigationState;
+
     private bool _isJsonViewerVisible = false; // Added backing field for visibility
     public bool IsJsonViewerVisible // Added property for visibility binding
     {
@@ -634,6 +664,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; } // Added Settings Command
     public ReactiveCommand<Unit, Unit> SubmitInputCommand { get; } // Added for command/search input
     public ReactiveCommand<Unit, Unit> FocusCommandBarCommand { get; } // Added command to trigger focus
+    public ReactiveCommand<Unit, Unit> FocusTopicTreeCommand { get; } // Added command to focus topic tree after search
     public ReactiveCommand<object?, Unit> CopyPayloadCommand { get; } // Added command to copy payload
     public ReactiveCommand<Unit, Unit> DeleteTopicCommand { get; } // Added command to delete selected topic's retained messages
     public ReactiveCommand<string?, Unit> NavigateToResponseCommand { get; } // Added command to navigate to response messages
@@ -744,6 +775,16 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                                   .Select(name => ":" + name.ToLowerInvariant()) // Prefix with ':'
                                   .OrderBy(cmd => cmd) // Sort alphabetically
                                   .ToList();
+
+        // Initialize keyboard navigation services (Feature 004)
+        _topicSearchService = new TopicSearchService(GetAllTopicReferences);
+        _searchStatusViewModel = new SearchStatusViewModel();
+        _messageNavigationState = new MessageNavigationState();
+        _keyboardNavigationService = new KeyboardNavigationService(
+            _topicSearchService,
+            _messageNavigationState,
+            () => IsCommandInputFocused // Suppress shortcuts when command palette has focus
+        );
 
         // --- DynamicData Pipeline for Message History Filtering ---
 
@@ -900,6 +941,14 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                         {
                             SelectedMessage = _filteredMessageHistory.FirstOrDefault();
                         }
+
+                        // Update MessageNavigationState for j/k navigation (Feature 004)
+                        var mqttMessages = _filteredMessageHistory
+                            .Select(vm => vm.GetFullMessage())
+                            .Where(msg => msg != null)
+                            .Cast<MqttApplicationMessage>()
+                            .ToList();
+                        _messageNavigationState.UpdateMessages(mqttMessages);
                     }
                     finally
                     {
@@ -964,6 +1013,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         OpenSettingsCommand = ReactiveCommand.Create(OpenSettings); // Initialize Settings Command
         SubmitInputCommand = ReactiveCommand.Create(ExecuteSubmitInput); // Allow execution even when text is empty (handled inside method)
         FocusCommandBarCommand = ReactiveCommand.Create(() => { Log.Debug("FocusCommandBarCommand executed by global hook."); /* Actual focus happens in View code-behind */ });
+        FocusTopicTreeCommand = ReactiveCommand.Create(() => { Log.Debug("FocusTopicTreeCommand executed after search."); /* Actual focus happens in View code-behind */ });
         CopyPayloadCommand = ReactiveCommand.CreateFromTask<object?>(CopyPayloadToClipboardAsync); // Initialize copy payload command
         DeleteTopicCommand = ReactiveCommand.CreateFromTask(ExecuteDeleteTopicAsync); // Initialize delete topic command
         NavigateToResponseCommand = ReactiveCommand.Create<string?>(NavigateToResponse); // Initialize navigate to response command
@@ -2330,6 +2380,35 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     /// <summary>
     /// Finds a topic node in the topic tree by topic path.
     /// </summary>
+    /// <summary>
+    /// Navigates to a topic by path (used by keyboard navigation - Feature 004).
+    /// Automatically expands all parent nodes to make the target node visible.
+    /// </summary>
+    public void NavigateToTopic(string topicPath)
+    {
+        var node = FindTopicNode(topicPath);
+        if (node != null)
+        {
+            // Expand all parent nodes to make the selected node visible
+            ExpandParentNodes(node);
+            SelectedNode = node;
+        }
+    }
+
+    /// <summary>
+    /// Expands all parent nodes in the tree hierarchy to make the specified node visible.
+    /// </summary>
+    /// <param name="node">The target node whose parents should be expanded.</param>
+    private void ExpandParentNodes(NodeViewModel node)
+    {
+        var current = node.Parent;
+        while (current != null)
+        {
+            current.IsExpanded = true;
+            current = current.Parent;
+        }
+    }
+
     private NodeViewModel? FindTopicNode(string topicPath)
     {
         if (string.IsNullOrEmpty(topicPath))
@@ -2475,6 +2554,46 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                     CurrentSearchTerm = searchTerm;
                     StatusBarText = string.IsNullOrWhiteSpace(searchTerm) ? "Search cleared." : $"Search filter applied: '{searchTerm}'.";
                     Log.Information("Search command executed. Term: '{SearchTerm}'", searchTerm);
+                    break;
+                case CommandType.TopicSearch:
+                    // FR-001: Topic search triggered by /[term] command
+                    string topicSearchTerm = command.Arguments.FirstOrDefault() ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(topicSearchTerm))
+                    {
+                        // Execute search using TopicSearchService
+                        var searchContext = _topicSearchService.ExecuteSearch(topicSearchTerm);
+
+                        // Update search status view model for display
+                        _searchStatusViewModel.UpdateFromContext(searchContext);
+
+                        // Navigate to first match if any exist
+                        if (searchContext.HasMatches)
+                        {
+                            var firstMatch = searchContext.GetCurrentMatch();
+                            if (firstMatch != null)
+                            {
+                                // Navigate to the first match (this will auto-expand the tree)
+                                NavigateToTopic(firstMatch.TopicPath);
+                            }
+                            Log.Information("Topic search found {Count} matches for '{Term}'. Use 'n' and 'N' to navigate.",
+                                searchContext.TotalMatches, topicSearchTerm);
+
+                            // Focus topic tree to enable immediate n/N navigation
+                            if (!_testMode)
+                            {
+                                FocusTopicTreeCommand.Execute().Subscribe();
+                            }
+                        }
+                        else
+                        {
+                            Log.Information("Topic search found no matches for '{Term}'", topicSearchTerm);
+                        }
+                    }
+                    else
+                    {
+                        StatusBarText = "Topic search requires a search term. Usage: /[term]";
+                        Log.Warning("Topic search command executed with empty term");
+                    }
                     break;
                 case CommandType.Expand:
                     ExpandAllNodes();
@@ -2760,34 +2879,58 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
     private void ConnectToMqttBroker(ParsedCommand command)
     {
-        if (command.Arguments.Count != 1)
-        {
-            StatusBarText = "Error: :connect requires exactly one argument: <server_address:port>";
-            Log.Warning("Invalid arguments for :connect command.");
-            return;
-        }
-        // Parse server:port
-        var parts = command.Arguments[0].Split(':');
-        if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || !int.TryParse(parts[1], out int port) || port < 1 || port > 65535)
-        {
-            StatusBarText = $"Error: Invalid format for :connect argument '{command.Arguments[0]}'. Expected: <server_address:port>";
-            Log.Warning("Invalid format for :connect argument: {Argument}", command.Arguments[0]);
-            return;
-        }
-        string host = parts[0];
+        // Handle different argument counts:
+        // 0 args: use settings (hostname, port, and authentication from saved settings)
+        // 1 arg: server:port (override hostname and port, authentication from settings)
+        // Use :setuser, :setpass, :setauthmode commands for authentication configuration
 
-        // Update settings before connecting
-        Settings.Hostname = host;
-        Settings.Port = port;
-        StatusBarText = $"Attempting to connect to {host}:{port}...";
-        ConnectCommand.Execute().Subscribe(
-            _ => StatusBarText = $"Successfully initiated connection to {host}:{port}.", // Success here means command executed, not necessarily connected yet
-            ex =>
+        if (command.Arguments.Count == 0)
+        {
+            // :connect (use all from settings)
+            StatusBarText = $"Attempting to connect to {Settings.Hostname}:{Settings.Port}...";
+            ConnectCommand.Execute().Subscribe(
+                _ => StatusBarText = $"Successfully initiated connection to {Settings.Hostname}:{Settings.Port}.",
+                ex =>
+                {
+                    StatusBarText = $"Error initiating connection: {ex.Message}";
+                    Log.Error(ex, "Error executing ConnectCommand");
+                });
+            return;
+        }
+        else if (command.Arguments.Count == 1)
+        {
+            // :connect server:port
+            // Parse server:port from first argument (already validated by parser)
+            var parts = command.Arguments[0].Split(':');
+            if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || !int.TryParse(parts[1], out int port) || port < 1 || port > 65535)
             {
-                StatusBarText = $"Error initiating connection: {ex.Message}";
-                Log.Error(ex, "Error executing ConnectCommand");
-            });
-        return;
+                StatusBarText = $"Error: Invalid format for :connect argument '{command.Arguments[0]}'. Expected: <server_address:port>";
+                Log.Warning("Invalid format for :connect argument: {Argument}", command.Arguments[0]);
+                return;
+            }
+            string host = parts[0];
+
+            // Update settings before connecting
+            Settings.Hostname = host;
+            Settings.Port = port;
+
+            StatusBarText = $"Attempting to connect to {host}:{port}...";
+            ConnectCommand.Execute().Subscribe(
+                _ => StatusBarText = $"Successfully initiated connection to {host}:{port}.",
+                ex =>
+                {
+                    StatusBarText = $"Error initiating connection: {ex.Message}";
+                    Log.Error(ex, "Error executing ConnectCommand");
+                });
+            return;
+        }
+        else
+        {
+            // Should never reach here as parser validates argument count
+            StatusBarText = "Error: :connect accepts 0 or 1 argument. Use :setuser/:setpass for authentication.";
+            Log.Warning("Invalid argument count for :connect command: {Count}", command.Arguments.Count);
+            return;
+        }
     }
 
     private void Export(ParsedCommand command)
@@ -2993,6 +3136,42 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     /// <summary>
     /// Applies a filter to the topic tree, showing only nodes where at least one path segment fuzzy matches the filter.
     /// </summary>
+    /// <summary>
+    /// Gets all topic references for search functionality (Feature 004).
+    /// </summary>
+    private IEnumerable<TopicReference> GetAllTopicReferences()
+    {
+        var topics = new List<TopicReference>();
+        CollectTopicReferencesRecursive(TopicTreeNodes, topics);
+        return topics;
+    }
+
+    /// <summary>
+    /// Recursively collects topic references from the topic tree.
+    /// Only includes topics that have messages (MessageCount > 0).
+    /// </summary>
+    private void CollectTopicReferencesRecursive(IEnumerable<NodeViewModel> nodes, List<TopicReference> topics)
+    {
+        foreach (var node in nodes)
+        {
+            // Only add nodes that have actual messages
+            if (!string.IsNullOrEmpty(node.FullPath) && node.MessageCount > 0)
+            {
+                topics.Add(new TopicReference(
+                    node.FullPath,
+                    node.Name,
+                    Guid.NewGuid() // Use a generated GUID since NodeViewModel doesn't have an ID
+                ));
+            }
+
+            // Continue searching children
+            if (node.Children.Count > 0)
+            {
+                CollectTopicReferencesRecursive(node.Children, topics);
+            }
+        }
+    }
+
     /// <param name="filter">The filter string. If null or empty, clears the filter.</param>
     private void ApplyTopicFilter(string? filter)
     {
@@ -3540,6 +3719,14 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             {
                 SelectedMessage = _simpleFilteredHistory.FirstOrDefault();
             }
+
+            // Update MessageNavigationState for j/k navigation (Feature 004)
+            var mqttMessages = _simpleFilteredHistory
+                .Select(vm => vm.GetFullMessage())
+                .Where(msg => msg != null)
+                .Cast<MqttApplicationMessage>()
+                .ToList();
+            _messageNavigationState.UpdateMessages(mqttMessages);
         }
         catch (Exception ex)
         {
@@ -3638,6 +3825,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 OpenSettingsCommand?.Dispose();
                 SubmitInputCommand?.Dispose();
                 FocusCommandBarCommand?.Dispose();
+                FocusTopicTreeCommand?.Dispose();
                 CopyPayloadCommand?.Dispose(); // Dispose the new command
                 DeleteTopicCommand?.Dispose(); // Dispose delete topic command
                 NavigateToResponseCommand?.Dispose(); // Dispose navigate to response command
