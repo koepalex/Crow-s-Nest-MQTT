@@ -66,7 +66,7 @@ namespace UnitTests.ViewModels
             var vm = new JsonNodeViewModel("obj", element, "$.obj");
             Assert.Equal("{...}", vm.ValueDisplay);
             Assert.Equal(JsonValueKind.Object, vm.ValueKind);
-            Assert.Equal(Brushes.Black, vm.ValueBrush);
+            Assert.Equal(Brushes.White, vm.ValueBrush);
             Assert.True(vm.IsValueNode); // Children not populated in constructor
         }
 
@@ -77,7 +77,7 @@ namespace UnitTests.ViewModels
             var vm = new JsonNodeViewModel("arr", element, "$.arr");
             Assert.Equal("[...] (3)", vm.ValueDisplay);
             Assert.Equal(JsonValueKind.Array, vm.ValueKind);
-            Assert.Equal(Brushes.Black, vm.ValueBrush);
+            Assert.Equal(Brushes.White, vm.ValueBrush);
         }
     }
 }

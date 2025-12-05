@@ -13,6 +13,8 @@ Auto-generated from constitution v1.0.0. Last updated: 2025-09-23
 - In-memory message buffers with configurable limits, file export capabilities (002-export-of-correlation)
 - C# (.NET - latest stable version per CLAUDE.md) + WPF/Avalonia (UI framework), MQTTnet (MQTT client), Serilog (logging) (003-json-viewer-should)
 - In-memory message buffers with configurable limits (per CLAUDE.md) (003-json-viewer-should)
+- C# (.NET - latest stable version per CLAUDE.md) + WPF/Avalonia (UI framework), MQTTnet (MQTT client library), Serilog (structured logging) (004-improve-keyboard-navigation)
+- In-memory message buffers with configurable limits (existing architecture) (004-improve-keyboard-navigation)
 
 ## Project Structure
 ```
@@ -35,7 +37,10 @@ tests/
 - GUI elements support but never replace command interface
 
 **Key Commands to Support:**
-- `:connect [server:port] [username] [password]` - MQTT broker connection
+- `:connect [server:port]` - MQTT broker connection (uses settings if no parameters provided)
+- `:setuser <username>` - Set MQTT username
+- `:setpass <password>` - Set MQTT password
+- `:setauthmode <anonymous|userpass|enhanced>` - Set authentication mode
 - `:filter [regex_pattern]` - Message filtering
 - `:export <json|txt> <filepath>` - Data export
 - `:view <raw|json|image|video|hex>` - Payload viewers
@@ -100,6 +105,7 @@ Examples:
 - Performance tests: Message throughput, memory usage
 
 ## Recent Changes
+- 004-improve-keyboard-navigation: Added C# (.NET - latest stable version per CLAUDE.md) + WPF/Avalonia (UI framework), MQTTnet (MQTT client library), Serilog (structured logging)
 
 1. Delete Topic Command (Feature 001) - Added `:deletetopic` command for clearing retained messages with parallel processing and error handling
 2. Constitution v1.0.0 - Initial project governance and architectural principles
