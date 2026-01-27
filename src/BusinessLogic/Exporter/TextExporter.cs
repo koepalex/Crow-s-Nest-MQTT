@@ -6,7 +6,7 @@ using System.Text.Json;
 using MQTTnet;
 using CrowsNestMqtt.Utils; // For AppLogger
 
-public class TextExporter : IMessageExporter
+public class TextExporter : MessageExporterBase
 {
     // Define a fixed set of characters to replace for cross-platform compatibility.
     // This set includes characters that are commonly invalid in filenames on various OS
@@ -14,9 +14,9 @@ public class TextExporter : IMessageExporter
     private static readonly char[] s_charactersToReplace = new char[] { ':', '?', '*', '<', '>', '/', '\\', '|', '"' };
 
     /// <inheritdoc />
-    public ExportTypes ExporterType => ExportTypes.txt;
+    public override ExportTypes ExporterType => ExportTypes.txt;
 
-    public (string content, bool isPayloadValidUtf8, string payloadAsString) GenerateDetailedTextFromMessage(MqttApplicationMessage msg, DateTime receivedTime)
+    public override (string content, bool isPayloadValidUtf8, string payloadAsString) GenerateDetailedTextFromMessage(MqttApplicationMessage msg, DateTime receivedTime)
     {
         var sb = new StringBuilder();
         var correlationData = msg.CorrelationData?.ToArray() ?? Array.Empty<byte>();
@@ -97,7 +97,7 @@ public class TextExporter : IMessageExporter
         return (sb.ToString(), isPayloadValidUtf8, payloadAsString);
     }
 
-    public string? ExportToFile(MqttApplicationMessage msg, DateTime receivedTime, string exportFolderPath)
+    public override string? ExportToFile(MqttApplicationMessage msg, DateTime receivedTime, string exportFolderPath)
     {
         try
         {
@@ -126,5 +126,39 @@ public class TextExporter : IMessageExporter
             AppLogger.Error(ex, "Error exporting message (topic: {Topic}) to file", msg.Topic);
             return null;
         }
+    }
+
+    /// <summary>
+    /// T033: Refactored to use base class validation and error handling.
+    /// </summary>
+    protected override string? ExecuteExportAll(
+        List<MqttApplicationMessage> messages,
+        List<DateTime> timestamps,
+        string outputFilePath)
+    {
+        var sb = new StringBuilder();
+        const string delimiter = "\n" + "================================================================================\n\n";
+
+        for (int i = 0; i < messages.Count; i++)
+        {
+            var msg = messages[i];
+            var receivedTime = timestamps[i];
+
+            // Generate detailed text for this message
+            var (messageContent, _, _) = GenerateDetailedTextFromMessage(msg, receivedTime);
+            sb.Append(messageContent);
+
+            // Add delimiter between messages (but not after the last one)
+            if (i < messages.Count - 1)
+            {
+                sb.Append(delimiter);
+            }
+        }
+
+        // Write using base class error handling
+        return SafeWriteToFile(outputFilePath, () =>
+        {
+            File.WriteAllText(outputFilePath, sb.ToString());
+        }, messages.Count);
     }
 }

@@ -11,19 +11,20 @@ using System.Text.Json.Serialization;
 // Define the JsonSerializerContext
 [JsonSourceGenerationOptions(WriteIndented = true)]
 [JsonSerializable(typeof(JsonExporter.MqttMessageExportDto))]
+[JsonSerializable(typeof(List<JsonExporter.MqttMessageExportDto>))]
 [JsonSerializable(typeof(JsonExporter.MqttUserPropertyDto))]
 internal partial class JsonExporterContext : JsonSerializerContext
 {
     // Removed GeneratedSerializerOptions override to avoid conflict CS0102
 }
 
-public class JsonExporter : IMessageExporter
+public class JsonExporter : MessageExporterBase
 {
     // Define a fixed set of characters to replace for cross-platform compatibility.
     private static readonly char[] s_charactersToReplace = new char[] { ':', '?', '*', '<', '>', '/', '\\', '|', '"' };
 
     /// <inheritdoc />
-    public ExportTypes ExporterType => ExportTypes.json;
+    public override ExportTypes ExporterType => ExportTypes.json;
 
     // Define a DTO to control serialization
     internal record MqttMessageExportDto // Changed from private to internal
@@ -44,7 +45,7 @@ public class JsonExporter : IMessageExporter
     internal record MqttUserPropertyDto(string Name, string Value); // Changed from private to internal
 
 
-    public (string content, bool isPayloadValidUtf8, string payloadAsString) GenerateDetailedTextFromMessage(MqttApplicationMessage msg, DateTime receivedTime)
+    public override (string content, bool isPayloadValidUtf8, string payloadAsString) GenerateDetailedTextFromMessage(MqttApplicationMessage msg, DateTime receivedTime)
     {
         string jsonContent = string.Empty;
         string payloadAsString = "[No Payload]"; // Default value
@@ -101,7 +102,7 @@ public class JsonExporter : IMessageExporter
         return (jsonContent, isPayloadValidUtf8, payloadAsString);
     }
 
-    public string? ExportToFile(MqttApplicationMessage msg, DateTime receivedTime, string exportFolderPath)
+    public override string? ExportToFile(MqttApplicationMessage msg, DateTime receivedTime, string exportFolderPath)
     {
         try
         {
@@ -130,5 +131,73 @@ public class JsonExporter : IMessageExporter
             AppLogger.Error(ex, "Error exporting message (topic: {Topic}) to file", msg.Topic);
             return null;
         }
+    }
+
+    /// <summary>
+    /// T033: Refactored to use base class validation and error handling.
+    /// </summary>
+    protected override string? ExecuteExportAll(
+        List<MqttApplicationMessage> messages,
+        List<DateTime> timestamps,
+        string outputFilePath)
+    {
+        // Create DTOs for all messages
+        var dtos = new List<MqttMessageExportDto>();
+
+        for (int i = 0; i < messages.Count; i++)
+        {
+            var msg = messages[i];
+            var receivedTime = timestamps[i];
+
+            // Decode payload
+            string? payloadAsString = null;
+            bool isPayloadValidUtf8 = false;
+
+            if (msg.Payload.Length > 0)
+            {
+                try
+                {
+                    payloadAsString = Encoding.UTF8.GetString(msg.Payload);
+                    isPayloadValidUtf8 = true;
+                }
+                catch (Exception decodeEx)
+                {
+                    AppLogger.Warning(decodeEx, "Could not decode payload as UTF-8 for message {Index} (Topic: {Topic})", i, msg.Topic);
+                    isPayloadValidUtf8 = false;
+                }
+            }
+            else
+            {
+                isPayloadValidUtf8 = true; // Empty payload is valid
+            }
+
+            // Create DTO
+            var dto = new MqttMessageExportDto
+            {
+                Timestamp = receivedTime,
+                Topic = msg.Topic,
+                ResponseTopic = msg.ResponseTopic,
+                QualityOfServiceLevel = msg.QualityOfServiceLevel,
+                Retain = msg.Retain,
+                MessageExpiryInterval = msg.MessageExpiryInterval,
+                CorrelationData = msg.CorrelationData != null && msg.CorrelationData.Length > 0
+                    ? BitConverter.ToString(msg.CorrelationData.ToArray()).Replace("-", string.Empty)
+                    : null,
+                PayloadFormatIndicator = msg.PayloadFormatIndicator,
+                ContentType = msg.ContentType,
+                UserProperties = msg.UserProperties?.Select(up => new MqttUserPropertyDto(up.Name, up.Value)).ToList(),
+                Payload = isPayloadValidUtf8 ? payloadAsString : null
+            };
+
+            dtos.Add(dto);
+        }
+
+        // Serialize and write using base class error handling
+        return SafeWriteToFile(outputFilePath, () =>
+        {
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            string jsonContent = JsonSerializer.Serialize(dtos, options);
+            File.WriteAllText(outputFilePath, jsonContent);
+        }, messages.Count);
     }
 }
