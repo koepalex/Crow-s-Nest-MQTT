@@ -5,6 +5,7 @@ using Avalonia.Threading; // Already present
 using ReactiveUI;
 using Serilog; // Added Serilog
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Reactive; // Required for Unit
 using System.Reactive.Linq; // Required for Select, ObserveOn, Throttle, DistinctUntilChanged
 using System.Buffers;
@@ -151,6 +152,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 _normalizedSelectedPath = NormalizeTopic(_selectedNode?.FullPath);
                 Log.Debug("SelectedNode changed. Raw='{Raw}' Normalized='{Norm}'", _selectedNode?.FullPath, _normalizedSelectedPath);
                 this.RaisePropertyChanged(nameof(IsDeleteButtonEnabled));
+                this.RaisePropertyChanged(nameof(IsExportAllButtonEnabled));
                 CurrentSearchTerm = string.Empty;
 
                 // Immediate best-effort selection using current filtered snapshot
@@ -956,6 +958,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                     try
                     {
                         _isAutoSelectingMessage = true;
+                        this.RaisePropertyChanged(nameof(IsExportAllButtonEnabled));
 
                         // Auto-select first message when:
                         //  - A node is selected
@@ -983,6 +986,11 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 }, ex => Log.Error(ex, "Error in MessageHistory DynamicData pipeline"));
 
             FilteredMessageHistory = _filteredMessageHistory; // Assign the bound collection
+            if (FilteredMessageHistory is INotifyCollectionChanged ncc)
+            {
+                ncc.CollectionChanged += (_, __) => this.RaisePropertyChanged(nameof(IsExportAllButtonEnabled));
+            }
+            this.RaisePropertyChanged(nameof(IsExportAllButtonEnabled));
         }
 
         if (!string.IsNullOrEmpty(aspireHostname) && aspirePort.HasValue)

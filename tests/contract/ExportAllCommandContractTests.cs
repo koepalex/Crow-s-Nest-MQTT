@@ -1,4 +1,6 @@
+using CrowsNestMqtt.BusinessLogic.Commands;
 using CrowsNestMqtt.BusinessLogic.Configuration;
+using CrowsNestMqtt.BusinessLogic.Exporter;
 using CrowsNestMqtt.BusinessLogic.Services;
 using Xunit;
 
@@ -30,7 +32,7 @@ public class ExportAllCommandContractTests
         var parser = new CommandParserService();
         var settings = new SettingsData
         {
-            ExportFormat = CrowsNestMqtt.BusinessLogic.Exporter.ExportTypes.Json,
+            ExportFormat = ExportTypes.json,
             ExportPath = "C:\\test\\exports"
         };
 
@@ -38,17 +40,14 @@ public class ExportAllCommandContractTests
         var result = parser.ParseInput(":export all", settings);
 
         // Assert - CONTRACT REQUIREMENT
-        // When "all" parameter is present, command should succeed
-        // and include "all" as first argument
-        Assert.True(result.Success, "Command parsing should succeed for :export all");
-        Assert.Equal("export", result.Command?.ToLowerInvariant());
-
-        // The arguments should include "all" indicator
-        // Exact format TBD during implementation, but "all" must be present
-        Assert.Contains(result.Arguments, arg => arg.Equals("all", StringComparison.OrdinalIgnoreCase));
-
-        // NOTE: This test WILL FAIL because CommandParserService
-        // doesn't yet parse the "all" parameter (implementation in T013)
+        Assert.True(result.IsSuccess, "Command parsing should succeed for :export all");
+        Assert.NotNull(result.ParsedCommand);
+        var cmd = result.ParsedCommand!;
+        Assert.Equal(CommandType.Export, cmd.Type);
+        Assert.Equal(3, cmd.Arguments.Count);
+        Assert.Equal("all", cmd.Arguments[0], ignoreCase: true);
+        Assert.Equal("json", cmd.Arguments[1], ignoreCase: true);
+        Assert.Equal("C:\\test\\exports", cmd.Arguments[2]);
     }
 
     /// <summary>
@@ -66,15 +65,14 @@ public class ExportAllCommandContractTests
         var result = parser.ParseInput(":export all txt C:\\custom\\path", settings);
 
         // Assert - CONTRACT REQUIREMENT
-        Assert.True(result.Success, "Command parsing should succeed for :export all with params");
-        Assert.Equal("export", result.Command?.ToLowerInvariant());
-
-        // Arguments should be: ["all", "txt", "C:\\custom\\path"]
-        Assert.Contains("all", result.Arguments, StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("txt", result.Arguments, StringComparer.OrdinalIgnoreCase);
-        Assert.Contains(result.Arguments, arg => arg.Contains("custom"));
-
-        // NOTE: This test WILL FAIL because :export all parsing not implemented (T013)
+        Assert.True(result.IsSuccess, "Command parsing should succeed for :export all with params");
+        Assert.NotNull(result.ParsedCommand);
+        var cmd = result.ParsedCommand!;
+        Assert.Equal(CommandType.Export, cmd.Type);
+        Assert.Equal(3, cmd.Arguments.Count);
+        Assert.Equal("all", cmd.Arguments[0], ignoreCase: true);
+        Assert.Equal("txt", cmd.Arguments[1], ignoreCase: true);
+        Assert.Equal("C:\\custom\\path", cmd.Arguments[2]);
     }
 
     /// <summary>
@@ -93,7 +91,7 @@ public class ExportAllCommandContractTests
 
         // Assert - CONTRACT REQUIREMENT
         // Invalid formats should be rejected with clear error message
-        Assert.False(result.Success, "Invalid format 'xml' should cause failure");
+        Assert.False(result.IsSuccess, "Invalid format 'xml' should cause failure");
         Assert.NotNull(result.ErrorMessage);
         Assert.Contains("format", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
 
@@ -141,17 +139,24 @@ public class ExportAllCommandContractTests
     {
         // Arrange
         var parser = new CommandParserService();
-        var settings = new SettingsData();
+        var settings = new SettingsData
+        {
+            ExportFormat = ExportTypes.json,
+            ExportPath = "C:\\defaults"
+        };
 
         // Act
         var result = parser.ParseInput(":export all json", settings);
 
         // Assert
-        Assert.True(result.Success, ":export all json should succeed (path from settings)");
-        Assert.Contains("all", result.Arguments, StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("json", result.Arguments, StringComparer.OrdinalIgnoreCase);
-
-        // NOTE: This test WILL FAIL - not implemented (T013)
+        Assert.True(result.IsSuccess, ":export all json should succeed (path from settings)");
+        Assert.NotNull(result.ParsedCommand);
+        var cmd = result.ParsedCommand!;
+        Assert.Equal(CommandType.Export, cmd.Type);
+        Assert.Equal(3, cmd.Arguments.Count);
+        Assert.Equal("all", cmd.Arguments[0], ignoreCase: true);
+        Assert.Equal("json", cmd.Arguments[1], ignoreCase: true);
+        Assert.Equal("C:\\defaults", cmd.Arguments[2]);
     }
 
     /// <summary>
@@ -162,7 +167,11 @@ public class ExportAllCommandContractTests
     {
         // Arrange
         var parser = new CommandParserService();
-        var settings = new SettingsData();
+        var settings = new SettingsData
+        {
+            ExportFormat = ExportTypes.json,
+            ExportPath = "C:\\defaults"
+        };
 
         // Act - Try various case combinations
         var resultLower = parser.ParseInput(":export all", settings);
@@ -170,10 +179,8 @@ public class ExportAllCommandContractTests
         var resultMixed = parser.ParseInput(":export All", settings);
 
         // Assert - Case insensitivity contract
-        Assert.True(resultLower.Success, "Lowercase 'all' should work");
-        Assert.True(resultUpper.Success, "Uppercase 'ALL' should work");
-        Assert.True(resultMixed.Success, "Mixed case 'All' should work");
-
-        // NOTE: This test WILL FAIL - not implemented (T013)
+        Assert.True(resultLower.IsSuccess, "Lowercase 'all' should work");
+        Assert.True(resultUpper.IsSuccess, "Uppercase 'ALL' should work");
+        Assert.True(resultMixed.IsSuccess, "Mixed case 'All' should work");
     }
 }

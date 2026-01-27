@@ -492,6 +492,45 @@ namespace CrowsNestMqtt.UnitTests.Services
             Assert.Equal("Invalid arguments for :export. Expected: :export <format:{json|txt}> <filepath>", result.ErrorMessage);
         }
 
+        [Fact]
+        public void ParseCommand_ExportAll_WithSettings_ShouldSucceed()
+        {
+            var settings = new SettingsData("testhost", 1883)
+            {
+                ExportFormat = ExportTypes.json,
+                ExportPath = "/path/to/export"
+            };
+            var result = _parser.ParseCommand(":export all", settings);
+            Assert.True(result.IsSuccess);
+            Assert.NotNull(result.ParsedCommand);
+            Assert.Equal(CommandType.Export, result.ParsedCommand!.Type);
+            Assert.Equal(3, result.ParsedCommand.Arguments.Count);
+            Assert.Equal("all", result.ParsedCommand.Arguments[0], ignoreCase: true);
+            Assert.Equal("json", result.ParsedCommand.Arguments[1], ignoreCase: true);
+            Assert.Equal("/path/to/export", result.ParsedCommand.Arguments[2]);
+        }
+
+        [Fact]
+        public void ParseCommand_ExportAll_WithExplicitParams_ShouldSucceed()
+        {
+            var result = _parser.ParseCommand(":export all txt /path", _defaultSettings);
+            Assert.True(result.IsSuccess);
+            Assert.NotNull(result.ParsedCommand);
+            Assert.Equal(CommandType.Export, result.ParsedCommand!.Type);
+            Assert.Equal(3, result.ParsedCommand.Arguments.Count);
+            Assert.Equal("all", result.ParsedCommand.Arguments[0], ignoreCase: true);
+            Assert.Equal("txt", result.ParsedCommand.Arguments[1], ignoreCase: true);
+            Assert.Equal("/path", result.ParsedCommand.Arguments[2]);
+        }
+
+        [Fact]
+        public void ParseCommand_ExportAll_InvalidFormat_ShouldFail()
+        {
+            var result = _parser.ParseCommand(":export all xml /path", _defaultSettings);
+            Assert.False(result.IsSuccess);
+            Assert.Equal("Invalid format for :export all. Expected 'json' or 'txt'.", result.ErrorMessage);
+        }
+
         // Filter command tests
         [Fact]
         public void ParseCommand_Filter_NoArgs_ShouldSucceed()

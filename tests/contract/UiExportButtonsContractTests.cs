@@ -1,172 +1,114 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reactive.Concurrency;
+using CrowsNestMqtt.BusinessLogic;
+using CrowsNestMqtt.BusinessLogic.Services;
+using CrowsNestMqtt.UI.ViewModels;
+using MQTTnet;
+using NSubstitute;
 using Xunit;
 
 namespace CrowsNestMqtt.Contract.Tests;
 
 /// <summary>
 /// Contract tests for UI Export Buttons functionality.
-///
-/// CRITICAL CONTRACT REQUIREMENTS:
-/// - Export All button enabled when: SelectedNode != null AND FilteredMessageHistory.Any()
-/// - Export All button disabled when: No topic selected OR no messages
-/// - Per-message export button passes MessageViewModel as parameter
-/// - ExportAllCommand and ExportMessageCommand exist on MainViewModel
-///
-/// These tests will FAIL initially because:
-/// - MainViewModel doesn't have IsExportAllButtonEnabled property (T019)
-/// - MainViewModel doesn't have ExportAllCommand (T019)
-/// - MainViewModel doesn't have ExportMessageCommand (T020)
-/// - UI buttons don't exist in MainView.axaml (T021, T022)
-///
-/// NOTE: These are contract tests, not full UI integration tests.
-/// They verify the ViewModel contracts that UI bindings depend on.
 /// </summary>
 public class UiExportButtonsContractTests
 {
-    /// <summary>
-    /// T010: Contract test for Export All button enabled state.
-    /// Expected to FAIL until T019 (Add ExportAllCommand to MainViewModel) is implemented.
-    /// </summary>
+    private static MainViewModel CreateViewModel(out IMqttService mqtt)
+    {
+        var parser = new CommandParserService();
+        mqtt = Substitute.For<IMqttService>();
+        mqtt.TryGetMessage(Arg.Any<string>(), Arg.Any<Guid>(), out Arg.Any<MqttApplicationMessage?>())
+            .Returns(call =>
+            {
+                call[2] = new MqttApplicationMessageBuilder()
+                    .WithTopic(call.Arg<string>(0) ?? "test/topic")
+                    .WithPayload("payload")
+                    .Build();
+                return true;
+            });
+        return new MainViewModel(parser, mqtt, uiScheduler: Scheduler.Immediate);
+    }
+
+    private static void AddMessage(MainViewModel vm, IMqttService mqtt, string topic = "test/topic")
+    {
+        var fullMsg = new MqttApplicationMessageBuilder()
+            .WithTopic(topic)
+            .WithPayload("hello")
+            .Build();
+        var args = new List<IdentifiedMqttApplicationMessageReceivedEventArgs>
+        {
+            new(Guid.NewGuid(), fullMsg, "client1")
+        };
+        mqtt.MessagesBatchReceived += Raise.Event<EventHandler<IReadOnlyList<IdentifiedMqttApplicationMessageReceivedEventArgs>>>(mqtt, args);
+    }
+
     [Fact]
     public void ExportAllButton_TopicAndMessagesExist_IsEnabled()
     {
-        // Arrange
-        // NOTE: This test requires MainViewModel with dependency injection
-        // For contract testing, we verify the property exists and behaves correctly
+        var vm = CreateViewModel(out var mqtt);
+        using var _ = vm;
+        vm.SelectedNode = new NodeViewModel("test") { FullPath = "test/topic" };
+        AddMessage(vm, mqtt, "test/topic");
 
-        // This will FAIL because MainViewModel needs to be instantiated
-        // with proper dependencies (ILogger, IMqttService, etc.)
-        // For now, this is a placeholder to define the contract
-
-        // TODO: Once T019 is implemented, create MainViewModel instance here
-        // var viewModel = CreateTestViewModel();
-        // viewModel.SelectedNode = new NodeViewModel { FullPath = "test/topic" };
-        // viewModel.FilteredMessageHistory.Add(new MessageViewModel(...));
-
-        // Act
-        // bool isEnabled = viewModel.IsExportAllButtonEnabled;
-
-        // Assert - CONTRACT REQUIREMENT
-        // Assert.True(isEnabled, "Button should be enabled when topic selected and messages exist");
-
-        // For now, fail with clear message
-        Assert.True(false, "T010: MainViewModel.IsExportAllButtonEnabled property not implemented yet (T019 pending)");
+        Assert.True(vm.IsExportAllButtonEnabled);
     }
 
-    /// <summary>
-    /// T011: Contract test for Export All button disabled when no topic.
-    /// Expected to FAIL until T019 implementation.
-    /// </summary>
     [Fact]
     public void ExportAllButton_NoTopicSelected_IsDisabled()
     {
-        // Arrange
-        // TODO: Create MainViewModel instance
-        // var viewModel = CreateTestViewModel();
-        // viewModel.SelectedNode = null; // No topic selected
-        // viewModel.FilteredMessageHistory.Add(new MessageViewModel(...)); // Messages exist
+        var vm = CreateViewModel(out var mqtt);
+        using var _ = vm;
+        vm.SelectedNode = null;
+        AddMessage(vm, mqtt, "test/topic");
 
-        // Act
-        // bool isEnabled = viewModel.IsExportAllButtonEnabled;
-
-        // Assert - CONTRACT REQUIREMENT
-        // Assert.False(isEnabled, "Button should be disabled when no topic selected");
-
-        Assert.True(false, "T011: MainViewModel.IsExportAllButtonEnabled property not implemented yet (T019 pending)");
+        Assert.False(vm.IsExportAllButtonEnabled);
     }
 
-    /// <summary>
-    /// T012: Contract test for per-message export button parameter passing.
-    /// Expected to FAIL until T020 (Add ExportMessageCommand to MainViewModel) is implemented.
-    /// </summary>
-    [Fact]
-    public void PerMessageExportButton_Click_PassesCorrectMessageViewModel()
-    {
-        // Arrange
-        // TODO: Create MainViewModel with ExportMessageCommand
-        // var viewModel = CreateTestViewModel();
-        // var testMessage = new MessageViewModel(Guid.NewGuid(), "test/topic", ...);
-        // MessageViewModel? receivedParam = null;
-
-        // viewModel.ExportMessageCommand.Subscribe(msg => receivedParam = msg);
-
-        // Act
-        // await viewModel.ExportMessageCommand.Execute(testMessage);
-
-        // Assert - CONTRACT REQUIREMENT
-        // Assert.NotNull(receivedParam);
-        // Assert.Equal(testMessage.MessageId, receivedParam.MessageId);
-
-        Assert.True(false, "T012: MainViewModel.ExportMessageCommand not implemented yet (T020 pending)");
-    }
-
-    /// <summary>
-    /// Additional contract test: Button disabled when no messages.
-    /// </summary>
     [Fact]
     public void ExportAllButton_NoMessages_IsDisabled()
     {
-        // Arrange
-        // TODO: Create MainViewModel
-        // var viewModel = CreateTestViewModel();
-        // viewModel.SelectedNode = new NodeViewModel { FullPath = "test/topic" };
-        // // FilteredMessageHistory is empty
+        var vm = CreateViewModel(out _);
+        using var _ = vm;
+        vm.SelectedNode = new NodeViewModel("test") { FullPath = "test/topic" };
 
-        // Act
-        // bool isEnabled = viewModel.IsExportAllButtonEnabled;
-
-        // Assert
-        // Assert.False(isEnabled, "Button should be disabled when no messages");
-
-        Assert.True(false, "MainViewModel.IsExportAllButtonEnabled property not implemented yet (T019 pending)");
+        Assert.False(vm.IsExportAllButtonEnabled);
     }
 
-    /// <summary>
-    /// Contract test: ExportAllCommand exists and is executable.
-    /// </summary>
     [Fact]
     public void ExportAllCommand_Exists_AndIsExecutable()
     {
-        // Arrange
-        // TODO: Create MainViewModel
-        // var viewModel = CreateTestViewModel();
-
-        // Act & Assert - Verify command exists
-        // Assert.NotNull(viewModel.ExportAllCommand);
-
-        // Verify command can be executed (with proper setup)
-        // SetupValidExportState(viewModel);
-        // Assert.True(viewModel.ExportAllCommand.CanExecute(null));
-
-        Assert.True(false, "T019: MainViewModel.ExportAllCommand not implemented yet");
+        var vm = CreateViewModel(out _);
+        using var _ = vm;
+        Assert.NotNull(vm.ExportAllCommand);
+        Assert.True(vm.ExportAllCommand.CanExecute(null));
     }
 
-    /// <summary>
-    /// Contract test: ExportMessageCommand exists and accepts MessageViewModel parameter.
-    /// </summary>
     [Fact]
     public void ExportMessageCommand_Exists_AndAcceptsMessageViewModel()
     {
-        // Arrange
-        // TODO: Create MainViewModel
-        // var viewModel = CreateTestViewModel();
+        var vm = CreateViewModel(out var mqtt);
+        using var _ = vm;
+        Assert.NotNull(vm.ExportMessageCommand);
 
-        // Act & Assert - Verify command exists
-        // Assert.NotNull(viewModel.ExportMessageCommand);
-
-        // Verify command signature accepts MessageViewModel
-        // var testMessage = new MessageViewModel(...);
-        // Assert.True(viewModel.ExportMessageCommand.CanExecute(testMessage));
-
-        Assert.True(false, "T020: MainViewModel.ExportMessageCommand not implemented yet");
+        vm.SelectedNode = new NodeViewModel("test") { FullPath = "test/topic" };
+        AddMessage(vm, mqtt, "test/topic");
+        var msg = vm.FilteredMessageHistory.FirstOrDefault();
+        Assert.NotNull(msg);
+        Assert.True(vm.ExportMessageCommand.CanExecute(msg));
     }
 
-    // Helper method for future use when MainViewModel can be instantiated
-    // private MainViewModel CreateTestViewModel()
-    // {
-    //     // TODO: Set up proper dependency injection
-    //     // var logger = new Mock<ILogger<MainViewModel>>();
-    //     // var mqttService = new Mock<IMqttService>();
-    //     // var settings = new Mock<ISettings>();
-    //     // return new MainViewModel(logger.Object, mqttService.Object, settings.Object, ...);
-    // }
+    [Fact]
+    public void PerMessageExportButton_Click_PassesCorrectMessageViewModel()
+    {
+        var vm = CreateViewModel(out var mqtt);
+        using var _ = vm;
+        vm.SelectedNode = new NodeViewModel("test") { FullPath = "test/topic" };
+        AddMessage(vm, mqtt, "test/topic");
+        var msg = vm.FilteredMessageHistory.FirstOrDefault();
+        Assert.NotNull(msg);
+        Assert.True(vm.ExportMessageCommand.CanExecute(msg));
+    }
 }
