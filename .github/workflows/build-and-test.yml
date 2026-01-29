@@ -48,7 +48,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
         dotnet tool install -g dotnet-reportgenerator-globaltool
-        reportgenerator -reports:"./tests/**/coverage.cobertura.xml" -targetdir:"./TestResults/CoverageReport" -reporttypes:"Html;Cobertura;JsonSummary"
+        reportgenerator -reports:"./tests/**/TestResults/coverage/coverage.cobertura.xml" -targetdir:"./TestResults/CoverageReport" -reporttypes:"Html;Cobertura;JsonSummary"
 
     - name: Upload coverage report
       if: matrix.os == 'windows-latest'
