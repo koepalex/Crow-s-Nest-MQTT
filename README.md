@@ -120,6 +120,7 @@ Crow's Nest MQTT provides a command interface (likely accessible via a dedicated
 *   `:connect [<server:port>] [<username>] [<password>]` - Connect to an MQTT broker. If arguments are omitted, connection details are loaded from settings.
 *   `:disconnect` - Disconnect from the current MQTT broker.
 *   `:export <json|txt> <filepath>` - Export messages to a file in JSON or plain text format. If arguments are omitted, the path and format are loaded from settings.
+*   `:export all` - Export all messages from the currently selected topic to a single JSON file in the configured export path. The file contains an array of all messages from that topic.
 *   `:filter [regex_pattern]` - Filter messages based on a regex pattern. Clears the filter if no pattern is provided.
 *   `/[search_term]` - Search for topics containing the search term (case-insensitive). Use `n` to navigate to the next match and `N` (Shift+n) to navigate to the previous match. The topic tree automatically expands to show the selected topic.
 *   `:clear` - Clear all messages from the display.
@@ -191,4 +192,46 @@ Crow's NestMQTT is will automatically connect to the MQTT Broker endpoint, defin
       .AddExecutable("mqtt-client", Path.Combine(mqttViewerWorkingDirectory, "CrowsNestMqtt.App.exe"), mqttViewerWorkingDirectory)
       .WithReference(mqttBrokerEndpoint)
       .WaitFor(mqttBroker);
+```
+
+## Scripts
+
+The `tools/` directory contains utility scripts for working with exported MQTT data.
+
+### extract-payloads.ps1
+
+A PowerShell script that extracts and formats the `Payload` property from exported JSON files.
+
+**Purpose:**  
+When messages are exported using `:export all`, each file contains the complete MQTT message structure including metadata. The payload itself is stored as a JSON string within the `Payload` property. This script parses each exported JSON file, extracts the payload, and saves it as a properly formatted, readable JSON file.
+
+**Usage:**
+```powershell
+cd tools
+.\extract-payloads.ps1
+```
+
+**Behavior:**
+- Processes all `*.json` files in the script's directory
+- Skips files that have already been extracted (files ending with `_extracted.json`)
+- For each file with a `Payload` property, creates a new file named `<original>_extracted.json`
+- The extracted JSON is properly indented for readability
+- Files without a `Payload` property are skipped with a warning
+
+**Example:**  
+If you have an exported file `sensor_temperature.json` containing:
+```json
+{
+  "Topic": "sensor/temperature",
+  "Payload": "{\"value\":23.5,\"unit\":\"celsius\"}",
+  "ContentType": "application/json"
+}
+```
+
+Running the script creates `sensor_temperature_extracted.json` with:
+```json
+{
+  "value": 23.5,
+  "unit": "celsius"
+}
 ```

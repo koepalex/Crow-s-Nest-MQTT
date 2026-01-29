@@ -5,6 +5,7 @@ using Avalonia.Threading; // Already present
 using ReactiveUI;
 using Serilog; // Added Serilog
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Reactive; // Required for Unit
 using System.Reactive.Linq; // Required for Select, ObserveOn, Throttle, DistinctUntilChanged
 using System.Buffers;
@@ -151,6 +152,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 _normalizedSelectedPath = NormalizeTopic(_selectedNode?.FullPath);
                 Log.Debug("SelectedNode changed. Raw='{Raw}' Normalized='{Norm}'", _selectedNode?.FullPath, _normalizedSelectedPath);
                 this.RaisePropertyChanged(nameof(IsDeleteButtonEnabled));
+                this.RaisePropertyChanged(nameof(IsExportAllButtonEnabled));
                 CurrentSearchTerm = string.Empty;
 
                 // Immediate best-effort selection using current filtered snapshot
@@ -363,6 +365,30 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             catch (Exception ex)
             {
                 Log.Warning(ex, "Error checking delete button enabled state");
+                return false;
+            }
+        }
+    }
+
+    // T021: Export All button is enabled when a topic is selected and it has messages
+    public bool IsExportAllButtonEnabled
+    {
+        get
+        {
+            try
+            {
+                var hasSelectedTopic = SelectedNode != null;
+                var hasMessages = FilteredMessageHistory.Count > 0;
+                var result = hasSelectedTopic && hasMessages;
+
+                Log.Verbose("IsExportAllButtonEnabled: HasTopic={HasTopic}, HasMessages={HasMessages}, Result={Result}",
+                    hasSelectedTopic, hasMessages, result);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Error checking export all button enabled state");
                 return false;
             }
         }
@@ -668,6 +694,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     public ReactiveCommand<object?, Unit> CopyPayloadCommand { get; } // Added command to copy payload
     public ReactiveCommand<Unit, Unit> DeleteTopicCommand { get; } // Added command to delete selected topic's retained messages
     public ReactiveCommand<string?, Unit> NavigateToResponseCommand { get; } // Added command to navigate to response messages
+    public ReactiveCommand<object?, Unit> ExportMessageCommand { get; } // T020: Added command to export single message from row button
+    public ReactiveCommand<Unit, Unit> ExportAllCommand { get; } // T021: Added command to export all messages from selected topic
 
     // Interaction for requesting clipboard copy from the View
     public Interaction<string, Unit> CopyTextToClipboardInteraction { get; }
@@ -930,6 +958,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                     try
                     {
                         _isAutoSelectingMessage = true;
+                        this.RaisePropertyChanged(nameof(IsExportAllButtonEnabled));
 
                         // Auto-select first message when:
                         //  - A node is selected
@@ -957,6 +986,11 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 }, ex => Log.Error(ex, "Error in MessageHistory DynamicData pipeline"));
 
             FilteredMessageHistory = _filteredMessageHistory; // Assign the bound collection
+            if (FilteredMessageHistory is INotifyCollectionChanged ncc)
+            {
+                ncc.CollectionChanged += (_, __) => this.RaisePropertyChanged(nameof(IsExportAllButtonEnabled));
+            }
+            this.RaisePropertyChanged(nameof(IsExportAllButtonEnabled));
         }
 
         if (!string.IsNullOrEmpty(aspireHostname) && aspirePort.HasValue)
@@ -1017,6 +1051,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         CopyPayloadCommand = ReactiveCommand.CreateFromTask<object?>(CopyPayloadToClipboardAsync); // Initialize copy payload command
         DeleteTopicCommand = ReactiveCommand.CreateFromTask(ExecuteDeleteTopicAsync); // Initialize delete topic command
         NavigateToResponseCommand = ReactiveCommand.Create<string?>(NavigateToResponse); // Initialize navigate to response command
+        ExportMessageCommand = ReactiveCommand.CreateFromTask<object?>(ExecuteExportMessageAsync); // T020: Initialize export message command
+        ExportAllCommand = ReactiveCommand.Create(ExecuteExportAllCommand); // T021: Initialize export all command
 
         // --- Property Change Reactions ---
 
@@ -2937,6 +2973,17 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
     private void Export(ParsedCommand command)
     {
+        // T019: Check if this is an "export all" command
+        bool isExportAll = command.Arguments.Count > 0 &&
+                           command.Arguments[0].Equals("all", StringComparison.OrdinalIgnoreCase);
+
+        if (isExportAll)
+        {
+            ExportAllMessages(command);
+            return;
+        }
+
+        // Existing single message export logic
         var selectedMsgVmNullable = SelectedMessage; // Cache locally
         if (selectedMsgVmNullable == null)
         {
@@ -3001,6 +3048,229 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         {
             StatusBarText = $"Error during export: {ex.Message}";
             Log.Error(ex, "Exception during export command execution.");
+        }
+    }
+
+    /// <summary>
+    /// T019: Exports all messages from the selected topic's history view.
+    /// Handles the :export all command with format: ["all", "json|txt", "/path"]
+    /// </summary>
+    private void ExportAllMessages(ParsedCommand command)
+    {
+        // Validate we have a selected topic
+        if (SelectedNode == null)
+        {
+            StatusBarText = "Error: No topic selected for export all.";
+            Log.Warning("Export all command failed: No topic selected.");
+            return;
+        }
+
+        // Validate we have messages to export
+        if (!FilteredMessageHistory.Any())
+        {
+            StatusBarText = "Error: No messages to export.";
+            Log.Warning("Export all command failed: No messages in history.");
+            return;
+        }
+
+        // Arguments: ["all", "format", "path"]
+        if (command.Arguments.Count < 3)
+        {
+            StatusBarText = "Error: :export all requires format and path arguments.";
+            Log.Warning("Invalid arguments for :export all command.");
+            return;
+        }
+
+        string format = command.Arguments[1].ToLowerInvariant();
+        string folderPath = command.Arguments[2];
+
+        // Create exporter
+        IMessageExporter exporter;
+        if (format == "json")
+        {
+            exporter = new JsonExporter();
+        }
+        else if (format == "txt")
+        {
+            exporter = new TextExporter();
+        }
+        else
+        {
+            StatusBarText = $"Error: Invalid export format '{format}'. Use 'json' or 'txt'.";
+            Log.Warning("Invalid export format specified: {Format}", format);
+            return;
+        }
+
+        try
+        {
+            // Get most recent 100 messages
+            var messagesToExport = FilteredMessageHistory
+                .Take(100)
+                .ToList();
+
+            // Extract full messages and timestamps
+            var fullMessages = new List<MQTTnet.MqttApplicationMessage>();
+            var timestamps = new List<DateTime>();
+
+            foreach (var msgVm in messagesToExport)
+            {
+                var fullMsg = msgVm.GetFullMessage();
+                if (fullMsg != null)
+                {
+                    fullMessages.Add(fullMsg);
+                    timestamps.Add(msgVm.Timestamp);
+                }
+            }
+
+            if (!fullMessages.Any())
+            {
+                StatusBarText = "Error: No valid messages to export.";
+                Log.Warning("Export all command failed: No valid full messages retrieved.");
+                return;
+            }
+
+            // Generate filename using FilenameGenerator
+            string topicName = SelectedNode.FullPath ?? "unknown_topic";
+            string filename = CrowsNestMqtt.Utils.FilenameGenerator.GenerateExportAllFilename(
+                topicName,
+                DateTime.Now,
+                format);
+
+            string outputFilePath = Path.Combine(folderPath, filename);
+
+            // Execute export
+            string? result = exporter.ExportAllToFile(fullMessages, timestamps, outputFilePath);
+
+            if (result != null)
+            {
+                int totalCount = FilteredMessageHistory.Count;
+                string statusMessage;
+
+                if (totalCount > 100)
+                {
+                    statusMessage = $"Exported {fullMessages.Count} of {totalCount} messages to {Path.GetFileName(result)} (limit enforced)";
+                }
+                else
+                {
+                    statusMessage = $"Exported {fullMessages.Count} messages to {Path.GetFileName(result)}";
+                }
+
+                StatusBarText = statusMessage;
+                ClipboardText = result;
+                Log.Information("Export all command successful. File: {FilePath}, Count: {Count}", result, fullMessages.Count);
+            }
+            else
+            {
+                StatusBarText = "Export all failed. Check logs for details.";
+                Log.Warning("Export all command failed: ExportAllToFile returned null.");
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusBarText = $"Error during export all: {ex.Message}";
+            Log.Error(ex, "Exception during export command execution.");
+        }
+    }
+
+    /// <summary>
+    /// T021: Executes the export all command from the UI button.
+    /// Uses current settings for format and path.
+    /// </summary>
+    private void ExecuteExportAllCommand()
+    {
+        // Validate settings
+        if (Settings.ExportFormat == null || string.IsNullOrWhiteSpace(Settings.ExportPath))
+        {
+            StatusBarText = "Error: Export settings not configured.";
+            Log.Warning("Export all button clicked but settings not configured.");
+            return;
+        }
+
+        // Create a ParsedCommand equivalent to ":export all"
+        var command = new ParsedCommand(
+            CommandType.Export,
+            new List<string>
+            {
+                "all",
+                Settings.ExportFormat.ToString()!.ToLowerInvariant(),
+                Settings.ExportPath
+            });
+
+        // Delegate to existing ExportAllMessages method
+        ExportAllMessages(command);
+    }
+
+    /// <summary>
+    /// T020: Exports a single message when the per-message export button is clicked.
+    /// </summary>
+    private async Task ExecuteExportMessageAsync(object? parameter)
+    {
+        // Parameter should be a MessageViewModel
+        if (parameter is not MessageViewModel msgVm)
+        {
+            StatusBarText = "Error: Invalid parameter for export message command.";
+            Log.Warning("Export message command called with invalid parameter type.");
+            return;
+        }
+
+        try
+        {
+            // Get full message
+            var fullMessage = msgVm.GetFullMessage();
+            if (fullMessage == null)
+            {
+                StatusBarText = "Error: Message no longer available in buffer.";
+                Log.Warning("Export message failed: Message not available in buffer. MessageId: {MessageId}", msgVm.MessageId);
+                return;
+            }
+
+            // Use settings for format and path
+            if (Settings.ExportFormat == null || string.IsNullOrWhiteSpace(Settings.ExportPath))
+            {
+                StatusBarText = "Error: Export settings not configured.";
+                Log.Warning("Export message failed: Settings not configured.");
+                return;
+            }
+
+            // Create exporter based on settings
+            IMessageExporter exporter;
+            if (Settings.ExportFormat == ExportTypes.json)
+            {
+                exporter = new JsonExporter();
+            }
+            else if (Settings.ExportFormat == ExportTypes.txt)
+            {
+                exporter = new TextExporter();
+            }
+            else
+            {
+                StatusBarText = $"Error: Invalid export format '{Settings.ExportFormat}'.";
+                Log.Warning("Invalid export format in settings: {Format}", Settings.ExportFormat);
+                return;
+            }
+
+            // Execute export (using existing ExportToFile method)
+            await Task.Run(() =>
+            {
+                string? result = exporter.ExportToFile(fullMessage, msgVm.Timestamp, Settings.ExportPath);
+
+                if (result != null)
+                {
+                    StatusBarText = $"Exported message to {Path.GetFileName(result)}";
+                    ClipboardText = result;
+                    Log.Information("Export message command successful. File: {FilePath}", result);
+                }
+                else
+                {
+                    StatusBarText = "Export message failed - check logs";
+                    Log.Warning("Export message failed: ExportToFile returned null.");
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            StatusBarText = $"Error exporting message: {ex.Message}";
+            Log.Error(ex, "Exception during export message command execution.");
         }
     }
 

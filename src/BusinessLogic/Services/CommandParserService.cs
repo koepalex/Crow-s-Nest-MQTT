@@ -115,25 +115,79 @@ public class CommandParserService : ICommandParserService
                 return CommandResult.Failure("Invalid arguments for :disconnect. Expected: :disconnect");
 
             case "export":
-                // TODO: Implement more robust file path validation
-                if (arguments.Count == 2)
+                // T013: Support for :export all command
+                // Check if first argument is "all" for bulk export
+                bool isExportAll = arguments.Count > 0 && arguments[0].Equals("all", StringComparison.OrdinalIgnoreCase);
+
+                if (isExportAll)
                 {
-                    // Basic validation for format
-                    string format = arguments[0].ToLowerInvariant();
-                    if (format != "json" && format != "txt")
+                    // :export all [format] [path]
+                    if (arguments.Count == 1)
                     {
-                        return CommandResult.Failure("Invalid format for :export. Expected 'json' or 'txt'.");
-                    }
-                    // Argument 1 is filepath
-                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Export, arguments));
-                }
-                else if (arguments.Count == 0 && !string.IsNullOrEmpty(settingsData.ExportPath) && (settingsData.ExportFormat == ExportTypes.json || settingsData.ExportFormat == ExportTypes.txt))
-                {
+                        // :export all → use settings
+                        if (!string.IsNullOrEmpty(settingsData.ExportPath) &&
+                            (settingsData.ExportFormat == ExportTypes.json || settingsData.ExportFormat == ExportTypes.txt))
+                        {
 #pragma warning disable CS8601 // Possible null reference assignment.
-                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Export, [settingsData.ExportFormat!.ToString(), settingsData.ExportPath]));
+                            return CommandResult.SuccessCommand(
+                                new ParsedCommand(CommandType.Export, ["all", settingsData.ExportFormat!.ToString(), settingsData.ExportPath]));
 #pragma warning restore CS8601 // Possible null reference assignment.
+                        }
+                        return CommandResult.Failure("Export settings not configured. Expected: :export all <format:{json|txt}> <filepath>");
+                    }
+                    else if (arguments.Count == 3)
+                    {
+                        // :export all json /path OR :export all txt /path
+                        string format = arguments[1].ToLowerInvariant();
+                        if (format != "json" && format != "txt")
+                        {
+                            return CommandResult.Failure("Invalid format for :export all. Expected 'json' or 'txt'.");
+                        }
+                        // Arguments: ["all", "json", "/path"]
+                        return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Export, arguments));
+                    }
+                    else if (arguments.Count == 2)
+                    {
+                        // :export all json OR :export all txt (path from settings)
+                        string format = arguments[1].ToLowerInvariant();
+                        if (format != "json" && format != "txt")
+                        {
+                            return CommandResult.Failure("Invalid format for :export all. Expected 'json' or 'txt'.");
+                        }
+                        if (!string.IsNullOrEmpty(settingsData.ExportPath))
+                        {
+                            return CommandResult.SuccessCommand(
+                                new ParsedCommand(CommandType.Export, ["all", format, settingsData.ExportPath]));
+                        }
+                        return CommandResult.Failure("Export path not configured. Expected: :export all <format> <filepath>");
+                    }
+                    return CommandResult.Failure("Invalid arguments for :export all. Expected: :export all [<format:{json|txt}>] [<filepath>]");
                 }
-                return CommandResult.Failure("Invalid arguments for :export. Expected: :export <format:{json|txt}> <filepath>");
+                else
+                {
+                    // Existing :export behavior (backward compatibility)
+                    // TODO: Implement more robust file path validation
+                    if (arguments.Count == 2)
+                    {
+                        // Basic validation for format
+                        string format = arguments[0].ToLowerInvariant();
+                        if (format != "json" && format != "txt")
+                        {
+                            return CommandResult.Failure("Invalid format for :export. Expected 'json' or 'txt'.");
+                        }
+                        // Argument 1 is filepath
+                        return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Export, arguments));
+                    }
+                    else if (arguments.Count == 0 && !string.IsNullOrEmpty(settingsData.ExportPath) &&
+                             (settingsData.ExportFormat == ExportTypes.json || settingsData.ExportFormat == ExportTypes.txt))
+                    {
+#pragma warning disable CS8601 // Possible null reference assignment.
+                        return CommandResult.SuccessCommand(
+                            new ParsedCommand(CommandType.Export, [settingsData.ExportFormat!.ToString(), settingsData.ExportPath]));
+#pragma warning restore CS8601 // Possible null reference assignment.
+                    }
+                    return CommandResult.Failure("Invalid arguments for :export. Expected: :export <format:{json|txt}> <filepath>");
+                }
 
             case "filter":
                 // TODO: Implement regex validation

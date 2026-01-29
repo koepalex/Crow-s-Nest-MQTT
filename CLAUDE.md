@@ -15,6 +15,10 @@ Auto-generated from constitution v1.0.0. Last updated: 2025-09-23
 - In-memory message buffers with configurable limits (per CLAUDE.md) (003-json-viewer-should)
 - C# (.NET - latest stable version per CLAUDE.md) + WPF/Avalonia (UI framework), MQTTnet (MQTT client library), Serilog (structured logging) (004-improve-keyboard-navigation)
 - In-memory message buffers with configurable limits (existing architecture) (004-improve-keyboard-navigation)
+- C# (.NET - latest stable version per CLAUDE.md) + GitHub Actions, Microsoft Store Submission API, MSIX packaging tools, code signing certificate infrastructure (type TBD during research) (005-available-in-msstore)
+- GitHub Secrets for Partner Center credentials and certificate storage (005-available-in-msstore)
+- C# (.NET - latest stable version per CLAUDE.md) + WPF/Avalonia (UI framework), MQTTnet (MQTT client), Serilog (structured logging) (006-there-is-already)
+- In-memory message buffers with configurable limits, file system for export operations (006-there-is-already)
 
 ## Project Structure
 ```
@@ -105,6 +109,8 @@ Examples:
 - Performance tests: Message throughput, memory usage
 
 ## Recent Changes
+- 006-there-is-already: Added C# (.NET - latest stable version per CLAUDE.md) + WPF/Avalonia (UI framework), MQTTnet (MQTT client), Serilog (structured logging)
+- 005-available-in-msstore: Added C# (.NET - latest stable version per CLAUDE.md) + GitHub Actions, Microsoft Store Submission API, MSIX packaging tools, code signing certificate infrastructure (type TBD during research)
 - 004-improve-keyboard-navigation: Added C# (.NET - latest stable version per CLAUDE.md) + WPF/Avalonia (UI framework), MQTTnet (MQTT client library), Serilog (structured logging)
 
 1. Delete Topic Command (Feature 001) - Added `:deletetopic` command for clearing retained messages with parallel processing and error handling
@@ -113,5 +119,4 @@ Examples:
 
 <!-- MANUAL ADDITIONS START -->
 **Constitutional Compliance Notes:**
-- All features must pass constitutional checks before implementation
 <!-- MANUAL ADDITIONS END -->
