@@ -42,13 +42,13 @@ jobs:
 
     - name: Test with coverage
       if: matrix.os == 'windows-latest'
-      run: dotnet test --no-build --configuration Release --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=./TestResults/coverage/
+      run: dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./TestResults
 
     - name: Generate coverage report
       if: matrix.os == 'windows-latest'
       run: |
         dotnet tool install -g dotnet-reportgenerator-globaltool
-        reportgenerator -reports:"./tests/**/TestResults/coverage/coverage.cobertura.xml" -targetdir:"./TestResults/CoverageReport" -reporttypes:"Html;Cobertura;JsonSummary"
+        reportgenerator -reports:"./TestResults/**/coverage.cobertura.xml" -targetdir:"./TestResults/CoverageReport" -reporttypes:"Html;Cobertura;JsonSummary"
 
     - name: Upload coverage report
       if: matrix.os == 'windows-latest'
