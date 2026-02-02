@@ -3,7 +3,6 @@ using System.Text;
 using System.Threading.Tasks;
 using Xunit;
 using MQTTnet;
-using MQTTnet.Client;
 using MQTTnet.Protocol;
 
 namespace CrowsNestMqtt.Integration.Tests
