@@ -34,9 +34,9 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.4.5" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="ReportGenerator" Version="5.4.12" />
-    <PackageVersion Include="Avalonia.Headless" Version="11.3.8" />
-    <PackageVersion Include="Avalonia.Headless.XUnit" Version="11.3.8" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.1" />
+    <PackageVersion Include="Avalonia.Headless" Version="11.3.10" />
+    <PackageVersion Include="Avalonia.Headless.XUnit" Version="11.3.10" />
+    <<PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />
   </ItemGroup>
