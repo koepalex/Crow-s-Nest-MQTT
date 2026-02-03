@@ -1,58 +1,50 @@
-<!--
-Sync Impact Report:
-Version change: Template → 1.0.0
-Modified principles: Initial constitution creation with 5 core principles
-Added sections: Technical Standards, Quality Assurance
-Removed sections: None (first implementation)
-Templates requiring updates: ✅ plan-template.md, ✅ spec-template.md, ✅ tasks-template.md
-Follow-up TODOs: None
--->
-
-# Crow's NestMQTT Constitution
+# [PROJECT_NAME] Constitution
+<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
 
 ## Core Principles
 
-### I. User-Centric Interface
-Every feature MUST prioritize developer experience through command-driven interaction. The command palette (Ctrl+Shift+P) serves as the primary interface. All operations MUST be accessible via colon-prefixed commands with clear, memorable syntax. GUI elements support commands but never replace them.
+### [PRINCIPLE_1_NAME]
+<!-- Example: I. Library-First -->
+[PRINCIPLE_1_DESCRIPTION]
+<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
 
-**Rationale**: Developers require efficient, keyboard-driven workflows. Command interfaces provide predictable, scriptable, and discoverable functionality that scales with user expertise.
+### [PRINCIPLE_2_NAME]
+<!-- Example: II. CLI Interface -->
+[PRINCIPLE_2_DESCRIPTION]
+<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
 
-### II. Real-Time Performance
-The application MUST handle high-volume MQTT message streams without blocking the user interface. Message processing, filtering, and display operations MUST remain responsive under load. Buffer limits and pagination MUST prevent memory exhaustion while maintaining real-time visibility.
+### [PRINCIPLE_3_NAME]
+<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
+[PRINCIPLE_3_DESCRIPTION]
+<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
 
-**Rationale**: MQTT environments often generate thousands of messages per second. Users need immediate feedback and the ability to monitor live systems without performance degradation.
+### [PRINCIPLE_4_NAME]
+<!-- Example: IV. Integration Testing -->
+[PRINCIPLE_4_DESCRIPTION]
+<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
 
-### III. Test-Driven Development (NON-NEGOTIABLE)
-All features MUST follow strict TDD methodology: Write failing tests first, implement minimal code to pass, then refactor. Integration tests are mandatory for MQTT protocol interactions, UI command processing, and cross-component communication. No feature ships without comprehensive test coverage.
+### [PRINCIPLE_5_NAME]
+<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
+[PRINCIPLE_5_DESCRIPTION]
+<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
 
-**Rationale**: MQTT client reliability is critical for production debugging and monitoring. TDD ensures robust protocol handling, prevents regression in message processing, and maintains stability under various broker configurations.
+## [SECTION_2_NAME]
+<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
 
-### IV. Modular Architecture
-Code MUST be organized into distinct layers: UI (presentation), BusinessLogic (domain logic), and Utils (shared utilities). Dependencies MUST flow inward (UI → BusinessLogic → Utils). No circular dependencies allowed. Each module MUST be independently testable and have clearly defined responsibilities.
+[SECTION_2_CONTENT]
+<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
 
-**Rationale**: Separation of concerns enables independent testing, reduces coupling, and allows for UI framework changes or business logic reuse. Clear boundaries improve maintainability and team collaboration.
+## [SECTION_3_NAME]
+<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
 
-### V. Cross-Platform Compatibility
-All features MUST function identically across Windows, Linux, and macOS. Platform-specific code MUST be isolated and abstracted. File paths, keyboard shortcuts, and system integrations MUST adapt to platform conventions while maintaining consistent user experience.
-
-**Rationale**: Developers work across diverse environments. Consistent behavior reduces cognitive load and training overhead while maximizing adoption across development teams.
-
-## Technical Standards
-
-Application MUST comply with MQTT 5.0 specification including enhanced authentication, user properties, and message metadata. C# code MUST follow established conventions: async/await for I/O operations, dependency injection for testability, and structured logging for observability.
-
-Performance targets: Handle 10,000+ messages/second without UI blocking, maintain <100ms response time for user commands, support message buffers up to 1GB per topic with graceful overflow handling.
-
-## Quality Assurance
-
-Every pull request MUST pass automated testing including unit tests (>90% coverage), integration tests with live MQTT brokers, and cross-platform compatibility validation. Manual testing scenarios MUST verify command interface functionality, message filtering accuracy, and export capabilities.
-
-Code reviews MUST verify architectural compliance, performance considerations, and user experience consistency. No feature merges without demonstrating value through quickstart documentation and acceptance criteria validation.
+[SECTION_3_CONTENT]
+<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
 
 ## Governance
+<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-This constitution supersedes all other development practices and guidelines. All technical decisions MUST align with stated principles or document justified exceptions in complexity tracking.
+[GOVERNANCE_RULES]
+<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
 
-Amendments require documentation of rationale, impact assessment across dependent templates, and validation that changes support rather than undermine core values. Use `CLAUDE.md` for AI-assisted development guidance that complements constitutional requirements.
-
-**Version**: 1.0.0 | **Ratified**: 2025-09-23 | **Last Amended**: 2025-09-23
+**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
+<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
