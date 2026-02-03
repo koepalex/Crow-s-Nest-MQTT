@@ -1,13 +1,3 @@
-<!--
-Sync Impact Report:
-Version change: Template → 1.0.0
-Modified principles: Initial constitution creation with 5 core principles
-Added sections: Technical Standards, Quality Assurance
-Removed sections: None (first implementation)
-Templates requiring updates: ✅ plan-template.md, ✅ spec-template.md, ✅ tasks-template.md
-Follow-up TODOs: None
--->
-
 # Crow's NestMQTT Constitution
 
 ## Core Principles
@@ -53,6 +43,6 @@ Code reviews MUST verify architectural compliance, performance considerations, a
 
 This constitution supersedes all other development practices and guidelines. All technical decisions MUST align with stated principles or document justified exceptions in complexity tracking.
 
-Amendments require documentation of rationale, impact assessment across dependent templates, and validation that changes support rather than undermine core values. Use `CLAUDE.md` for AI-assisted development guidance that complements constitutional requirements.
+Amendments require documentation of rationale, impact assessment across dependent templates, and validation that changes support rather than undermine core values. Use `.github/copilot-instructions.md` for AI-assisted development guidance that complements constitutional requirements.
 
-**Version**: 1.0.0 | **Ratified**: 2025-09-23 | **Last Amended**: 2025-09-23
+**Version**: 1.1.0 | **Ratified**: 2026-02-03 | **Last Amended**: 2026-02-03
