@@ -46,6 +46,9 @@ private MqttClientOptions? _currentOptions;
     private IList<TopicBufferLimit> _topicSpecificBufferLimits = new List<TopicBufferLimit>();
     internal const long DefaultMaxTopicBufferSize = 1 * 1024 * 1024; // Changed to internal const
     private readonly object _bufferReconfigLock = new(); // Lock for reconfiguring existing topic buffers
+    
+    // Track subscription error to preserve error message during disconnect
+    private string? _pendingErrorMessage;
 
 
     // Batch processing for high-volume message scenarios  
@@ -128,7 +131,19 @@ private MqttClientOptions? _currentOptions;
             {
                 if (subResult.ResultCode > MqttClientSubscribeResultCode.GrantedQoS2)
                 {
-                     LogMessage?.Invoke(this, $"Failed to subscribe to topic '{subResult.TopicFilter.Topic}'. Result: {subResult.ResultCode}");
+                    var errorMessage = $"Subscription to '{subResult.TopicFilter.Topic}' failed: {subResult.ResultCode}. Check broker permissions.";
+                    LogMessage?.Invoke(this, $"Failed to subscribe to topic '{subResult.TopicFilter.Topic}'. Result: {subResult.ResultCode}");
+                    
+                    // Store error message to be included in disconnect event
+                    _pendingErrorMessage = errorMessage;
+                    
+                    // Cancel and disconnect - OnClientDisconnected will fire with the error message
+                    _connectionCts?.Cancel();
+                    if (_client.IsConnected)
+                    {
+                        await _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build(), CancellationToken.None);
+                    }
+                    return;
                 }
                 else
                 {
@@ -140,7 +155,16 @@ private MqttClientOptions? _currentOptions;
         catch (Exception ex)
         {
             LogMessage?.Invoke(this, $"Subscription failed: {ex.Message}");
-            ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, ex, ConnectionStatusState.Disconnected));
+            
+            // Store error message to be included in disconnect event
+            _pendingErrorMessage = $"Subscription failed: {ex.Message}";
+            
+            // Cancel and disconnect - OnClientDisconnected will fire with the error message
+            _connectionCts?.Cancel();
+            if (_client.IsConnected)
+            {
+                await _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build(), CancellationToken.None);
+            }
         }
     }
 
@@ -1009,7 +1033,15 @@ private Task OnClientConnected(MqttClientConnectedEventArgs args)
         // then set the state to Disconnected and do not attempt to reconnect.
         if (_isDisposing || (_connectionCts?.IsCancellationRequested ?? true))
         {
-            ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, e.Exception, ConnectionStatusState.Disconnected));
+            // Include any pending error message (e.g., from subscription failure)
+            var errorMessage = _pendingErrorMessage;
+            _pendingErrorMessage = null; // Clear after use
+            
+            ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(
+                false, 
+                e.Exception, 
+                ConnectionStatusState.Disconnected,
+                errorMessage: errorMessage));
             return Task.CompletedTask;
         }
 

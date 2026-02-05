@@ -399,8 +399,17 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     public string? ConnectionStatusMessage
     {
         get => _connectionStatusMessage;
-        private set => this.RaiseAndSetIfChanged(ref _connectionStatusMessage, value);
+        private set
+        {
+            this.RaiseAndSetIfChanged(ref _connectionStatusMessage, value);
+            this.RaisePropertyChanged(nameof(HasConnectionError));
+        }
     }
+    
+    /// <summary>
+    /// Indicates whether there is a connection error message to display.
+    /// </summary>
+    public bool HasConnectionError => !string.IsNullOrEmpty(ConnectionStatusMessage) && IsDisconnected;
 
     private bool _isPaused;
     public bool IsPaused
@@ -1220,12 +1229,13 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         void Apply()
         {
             ConnectionStatus = e.ConnectionStatus;
-            ConnectionStatusMessage = e.ReconnectInfo ?? e.Error?.Message;
+            ConnectionStatusMessage = e.ErrorMessage ?? e.ReconnectInfo ?? e.Error?.Message;
 
             this.RaisePropertyChanged(nameof(IsConnected));
             this.RaisePropertyChanged(nameof(IsConnecting));
             this.RaisePropertyChanged(nameof(IsDisconnected));
             this.RaisePropertyChanged(nameof(IsDeleteButtonEnabled));
+            this.RaisePropertyChanged(nameof(HasConnectionError));
 
             if (ConnectionStatus == ConnectionStatusState.Connected)
             {
@@ -1235,7 +1245,14 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             }
             else
             {
-                Log.Warning(e.Error, "MQTT Client is not connected. Stopping UI Timer.");
+                if (!string.IsNullOrEmpty(e.ErrorMessage))
+                {
+                    Log.Error("MQTT Error: {ErrorMessage}", e.ErrorMessage);
+                }
+                else
+                {
+                    Log.Warning(e.Error, "MQTT Client is not connected. Stopping UI Timer.");
+                }
                 StopTimer();
             }
         }
@@ -2263,6 +2280,11 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     private async Task ConnectAsync()
     {
         Log.Information("Connect command executed.");
+        
+        // Clear any previous error message before starting new connection
+        ConnectionStatusMessage = null;
+        this.RaisePropertyChanged(nameof(HasConnectionError));
+        
         // Rebuild connection settings from ViewModel just before connecting
         var connectionSettings = new MqttConnectionSettings
         {
