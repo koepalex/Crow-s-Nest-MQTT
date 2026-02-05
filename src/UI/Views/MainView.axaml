@@ -134,13 +134,20 @@
                          Foreground="DodgerBlue"
                          FontStyle="Italic"
                          IsVisible="{Binding SearchStatusViewModel.IsVisible}" />
-              <!-- Connection Status Message (for Connecting/Disconnected) -->
+              <!-- Connection Status Message (for Connecting/Disconnected with error) -->
               <TextBlock Text="{Binding ConnectionStatusMessage}" 
                          VerticalAlignment="Center" 
                          Margin="10,0,0,0" 
                          Foreground="OrangeRed" 
                          FontStyle="Italic"
                          IsVisible="{Binding IsConnecting}" />
+              <!-- Connection Error Message (persists when disconnected due to error) -->
+              <TextBlock Text="{Binding ConnectionStatusMessage}" 
+                         VerticalAlignment="Center" 
+                         Margin="10,0,0,0" 
+                         Foreground="Red" 
+                         FontWeight="SemiBold"
+                         IsVisible="{Binding HasConnectionError}" />
              </StackPanel>
 
           <!-- Right-aligned Settings button with Icon -->

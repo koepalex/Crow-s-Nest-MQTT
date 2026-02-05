@@ -58,7 +58,9 @@ namespace CrowsNestMqtt.Utils
         /// <summary>
         /// Child nodes (for Object/Array types).
         /// </summary>
+#pragma warning disable CA2227 // Collection properties should be read only - required for UI data binding
         public ObservableCollection<JsonTreeNode> Children { get; set; } = new();
+#pragma warning restore CA2227
 
         /// <summary>
         /// Reference to parent node (null for root).

@@ -12,6 +12,12 @@ namespace CrowsNestMqtt.Tests.TestData;
 public static class MqttTestDataGenerator
 {
     /// <summary>
+    /// Helper method to create MqttUserProperty with UTF-8 encoded value.
+    /// </summary>
+    private static MqttUserProperty CreateUserProperty(string name, string value) 
+        => new(name, Encoding.UTF8.GetBytes(value));
+
+    /// <summary>
     /// Creates test messages with various correlation data formats for comprehensive testing.
     /// </summary>
     public static IEnumerable<BufferedMqttMessage> GetCorrelationDataTestMessages()
@@ -115,8 +121,8 @@ public static class MqttTestDataGenerator
         // Simple user properties
         var simpleProps = new List<MqttUserProperty>
         {
-            new("source", "sensor-001"),
-            new("version", "1.0.0")
+            CreateUserProperty("source", "sensor-001"),
+            CreateUserProperty("version", "1.0.0")
         };
         messages.Add(CreateTestMessage(
             topic: "sensor/data/props",
@@ -129,9 +135,9 @@ public static class MqttTestDataGenerator
         // Unicode user properties
         var unicodeProps = new List<MqttUserProperty>
         {
-            new("位置", "北京"),
-            new("température", "25°C"),
-            new("emoji", "🌡️📊")
+            CreateUserProperty("位置", "北京"),
+            CreateUserProperty("température", "25°C"),
+            CreateUserProperty("emoji", "🌡️📊")
         };
         messages.Add(CreateTestMessage(
             topic: "sensor/international/props",
@@ -184,8 +190,8 @@ public static class MqttTestDataGenerator
             payloadFormatIndicator: MqttPayloadFormatIndicator.CharacterData,
             userProperties: new List<MqttUserProperty>
             {
-                new("test-type", "complete"),
-                new("version", "5.0")
+                CreateUserProperty("test-type", "complete"),
+                CreateUserProperty("version", "5.0")
             },
             timestamp: timestamp.AddSeconds(15)
         ));

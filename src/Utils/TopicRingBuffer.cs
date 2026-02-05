@@ -1,6 +1,7 @@
 using System.Text;
 using System.Linq;
 using MQTTnet;
+using MQTTnet.Packets;
 
 namespace CrowsNestMqtt.Utils;
 
@@ -14,7 +15,7 @@ namespace CrowsNestMqtt.Utils;
 public class TopicRingBuffer
 {
     // --- Private Nested Class for Buffered Message ---
-    private class InternalBufferedMqttMessage
+    private sealed class InternalBufferedMqttMessage
     {
         public Guid MessageId { get; }
         public MqttApplicationMessage Message { get; }
@@ -39,6 +40,8 @@ public class TopicRingBuffer
     /// <param name="proxyId">If a proxy message was inserted instead of the original, its ID.</param>
     public IReadOnlyList<Guid> AddMessageWithEvictionInfo(MqttApplicationMessage message, Guid messageId, out bool added, out Guid? proxyId)
     {
+        ArgumentNullException.ThrowIfNull(message);
+        
         var evicted = new List<Guid>();
         added = false;
         proxyId = null;
@@ -84,16 +87,16 @@ public class TopicRingBuffer
                 var builder = new MqttApplicationMessageBuilder()
                     .WithTopic(message.Topic)
                     .WithPayload("Payload too large for buffer")
-                    .WithUserProperty("CrowProxy", "PayloadTooLarge")
-                    .WithUserProperty("OriginalPayloadSize", bufferedMessage.Size.ToString())
-                    .WithUserProperty("ReceivedTime", DateTime.UtcNow.ToString("o"))
-                    .WithUserProperty("Preview", GetPreview(message));
+                    .WithUserProperty("CrowProxy", Encoding.UTF8.GetBytes("PayloadTooLarge"))
+                    .WithUserProperty("OriginalPayloadSize", Encoding.UTF8.GetBytes(bufferedMessage.Size.ToString()))
+                    .WithUserProperty("ReceivedTime", Encoding.UTF8.GetBytes(DateTime.UtcNow.ToString("o")))
+                    .WithUserProperty("Preview", Encoding.UTF8.GetBytes(GetPreview(message)));
 
                 if (message.UserProperties != null)
                 {
                     foreach (var prop in message.UserProperties)
                     {
-                        builder.WithUserProperty(prop.Name, prop.Value);
+                        builder.WithUserProperty(prop.Name, prop.ValueBuffer);
                     }
                 }
 
@@ -127,6 +130,7 @@ public class TopicRingBuffer
 
         static string GetPreview(MqttApplicationMessage msg)
         {
+#pragma warning disable CA1031 // Do not catch general exception types - preview generation must handle any encoding/payload errors gracefully
             try
             {
                 if (msg.Payload.IsEmpty)
@@ -134,13 +138,14 @@ public class TopicRingBuffer
                 var bytes = msg.Payload.FirstSpan.ToArray();
                 var preview = Encoding.UTF8.GetString(bytes);
                 if (preview.Length > 100)
-                    preview = preview.Substring(0, 100) + "...";
+                    preview = string.Concat(preview.AsSpan(0, 100), "...");
                 return preview.Replace("\r", " ").Replace("\n", " ");
             }
             catch
             {
                 return "[Binary or non-UTF8 Payload]";
             }
+#pragma warning restore CA1031
         }
     }
 

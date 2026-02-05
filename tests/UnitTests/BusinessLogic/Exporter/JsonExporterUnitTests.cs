@@ -83,8 +83,8 @@ namespace CrowsNestMqtt.UnitTests.BusinessLogic.Exporter
         {
             var msg = new MqttApplicationMessageBuilder()
                 .WithTopic("test/topic")
-                .WithUserProperty("key1", "value1")
-                .WithUserProperty("key2", "value2")
+                .WithUserProperty("key1", Encoding.UTF8.GetBytes("value1"))
+                .WithUserProperty("key2", Encoding.UTF8.GetBytes("value2"))
                 .Build();
             var receivedTime = DateTime.UtcNow;
 
@@ -213,7 +213,7 @@ namespace CrowsNestMqtt.UnitTests.BusinessLogic.Exporter
                     .WithRetainFlag()
                     .WithResponseTopic("response/topic")
                     .WithContentType("text/plain")
-                    .WithUserProperty("key", "value")
+                    .WithUserProperty("key", Encoding.UTF8.GetBytes("value"))
                     .Build();
                 var receivedTime = DateTime.UtcNow;
 

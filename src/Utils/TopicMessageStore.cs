@@ -54,8 +54,7 @@ public class TopicMessageStore : ITopicMessageStore
         long defaultPerTopicLimitBytes,
         IReadOnlyDictionary<string, long>? specificTopicLimits = null)
     {
-        if (defaultPerTopicLimitBytes <= 0)
-            throw new ArgumentOutOfRangeException(nameof(defaultPerTopicLimitBytes));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(defaultPerTopicLimitBytes);
 
         _defaultPerTopicLimitBytes = defaultPerTopicLimitBytes;
         _specificTopicLimits = specificTopicLimits ?? new Dictionary<string, long>();
@@ -64,7 +63,7 @@ public class TopicMessageStore : ITopicMessageStore
     public (IReadOnlyList<AddedMessage> added, IReadOnlyList<EvictedMessage> evicted) AddBatch(
         IEnumerable<(Guid id, string topic, MqttApplicationMessage message)> batch)
     {
-        if (batch == null) throw new ArgumentNullException(nameof(batch));
+        ArgumentNullException.ThrowIfNull(batch);
 
         var added = new List<AddedMessage>();
         var evicted = new List<EvictedMessage>();

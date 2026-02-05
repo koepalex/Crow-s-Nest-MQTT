@@ -22,11 +22,11 @@ if (-not $JsonPath -or $JsonPath -eq "") { $JsonPath = $defaultJsonPath }
 if (-not $BinaryPath -or $BinaryPath -eq "") { $BinaryPath = $defaultBinaryPath }
 
 # Ensure MQTTnet is available
-$nuget = [System.IO.Path]::Combine($env:TEMP, "mqttnet.5.0.1.1416.nupkg")
+$nuget = [System.IO.Path]::Combine($env:TEMP, "mqttnet.5.1.0.1559.nupkg")
 if (-not (Test-Path $nuget)) {
-    Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/MQTTnet/5.0.1.1416" -OutFile $nuget
+    Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/MQTTnet/5.1.0.1559" -OutFile $nuget
 }
-$extractPath = Join-Path $env:TEMP "MQTTnet_extracted"
+$extractPath = Join-Path $env:TEMP "MQTTnet_extracted_5.1.0"
 if (-not (Test-Path $extractPath)) {
     Expand-Archive -Path $nuget -DestinationPath $extractPath -Force
 }
@@ -312,6 +312,43 @@ Write-Host "  Topic: test/pirate/ship/request/crew-status"
 Write-Host "  Response Topic: $responseTopic2"
 Write-Host "  Correlation Data: $correlationHex2"
 Write-Host "  Response Sent: NO (demonstrating request without response)"
+Write-Host ""
+
+# --- Message with User Properties ---
+$userPropsPayload = @{
+    messageType = "user_properties_test"
+    description = "Testing MQTT 5 user properties display"
+    timestamp = (Get-Date).ToString("o")
+    data = @{
+        testValue = 42
+        testString = "Hello, World!"
+    }
+} | ConvertTo-Json -Depth 3
+
+$userPropsBytes = [System.Text.Encoding]::UTF8.GetBytes($userPropsPayload)
+Write-Host "Prepared user properties test message: $($userPropsBytes.Length) bytes"
+
+$userPropsMsgBuilder = [MQTTnet.MqttApplicationMessageBuilder]::new()
+$userPropsMsgBuilder = $userPropsMsgBuilder.WithTopic("test/userprops/demo").WithPayload($userPropsBytes)
+$userPropsMsgBuilder = $userPropsMsgBuilder.WithContentType("application/json")
+$userPropsMsgBuilder = $userPropsMsgBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+# Add user properties using MQTTnet 5.x API with ArraySegment<byte> to resolve overload ambiguity
+$currentTimeBytes = [System.Text.Encoding]::UTF8.GetBytes((Get-Date).ToString("o"))
+$currentTimeSegment = [System.ArraySegment[byte]]::new($currentTimeBytes)
+$userPropsMsgBuilder = $userPropsMsgBuilder.WithUserProperty("sent-at", $currentTimeSegment)
+$senderBytes = [System.Text.Encoding]::UTF8.GetBytes("SendTestData.ps1")
+$senderSegment = [System.ArraySegment[byte]]::new($senderBytes)
+$userPropsMsgBuilder = $userPropsMsgBuilder.WithUserProperty("sender", $senderSegment)
+$versionBytes = [System.Text.Encoding]::UTF8.GetBytes("1.0.0")
+$versionSegment = [System.ArraySegment[byte]]::new($versionBytes)
+$userPropsMsgBuilder = $userPropsMsgBuilder.WithUserProperty("version", $versionSegment)
+$userPropsMessage = $userPropsMsgBuilder.Build()
+
+$null = $client.PublishAsync($userPropsMessage).GetAwaiter().GetResult()
+Write-Host "User properties test message sent to topic 'test/userprops/demo' with 3 user properties."
+Write-Host "  - sent-at: $(Get-Date -Format 'o')"
+Write-Host "  - sender: SendTestData.ps1"
+Write-Host "  - version: 1.0.0"
 Write-Host ""
 
 # Disconnect

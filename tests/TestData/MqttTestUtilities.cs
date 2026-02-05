@@ -108,7 +108,7 @@ public class MqttTestUtilities : IAsyncDisposable
             {
                 foreach (var prop in msg.UserProperties)
                 {
-                    mqttMessage.WithUserProperty(prop.Name, prop.Value);
+                    mqttMessage.WithUserProperty(prop.Name, prop.ValueBuffer);
                 }
             }
 

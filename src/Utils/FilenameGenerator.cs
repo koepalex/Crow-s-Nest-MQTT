@@ -129,6 +129,7 @@ public static class FilenameGenerator
     /// </summary>
     /// <param name="path">The file or directory path to validate.</param>
     /// <returns>True if the path is valid and potentially writable.</returns>
+#pragma warning disable CA1031 // Do not catch general exception types - validation method must handle all path-related exceptions
     public static bool IsValidPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -153,9 +154,11 @@ public static class FilenameGenerator
             return false;
         }
     }
+#pragma warning restore CA1031
 
     private static bool CanCreateDirectory(string path)
     {
+#pragma warning disable CA1031 // Do not catch general exception types - validation method must handle all path-related exceptions
         try
         {
             // Check if we have permissions to create directory
@@ -166,5 +169,6 @@ public static class FilenameGenerator
         {
             return false;
         }
+#pragma warning restore CA1031
     }
 }
