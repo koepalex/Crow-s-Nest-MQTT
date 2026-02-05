@@ -3,5 +3,6 @@
   <Project Path="src/BusinessLogic/BusinessLogic.csproj" />
   <Project Path="src/UI/UI.csproj" />
   <Project Path="src/Utils/Utils.csproj" />
+  <Project Path="src/AppHost/AppHost.csproj" />
   <Project Path="tests/UnitTests/UnitTests.csproj" />
 </Solution>
