@@ -68,7 +68,7 @@ public class MqttEngineTopicLimitTests
             new TopicBufferLimit(TopicFilter: "long/specific/filter/then/hash/#", MaxSizeBytes: 380 ),
             new TopicBufferLimit(TopicFilter: "#", MaxSizeBytes: 50 ) // Least specific
         };
-        var engine = CreateEngineWithRules(rules);
+        using var engine = CreateEngineWithRules(rules);
 
         Assert.Equal(100, engine.GetMaxBufferSizeForTopic("exact/match"));
         Assert.Equal(200, engine.GetMaxBufferSizeForTopic("wildcard/test/one"));
@@ -87,7 +87,7 @@ public class MqttEngineTopicLimitTests
             new TopicBufferLimit(TopicFilter: "specific/topic", MaxSizeBytes: 100),
             // No "#" rule
         };
-        var engine = CreateEngineWithRules(rules);
+        using var engine = CreateEngineWithRules(rules);
 
         Assert.Equal(MqttEngine.DefaultMaxTopicBufferSize, engine.GetMaxBufferSizeForTopic("some/other/topic"));
     }
@@ -95,7 +95,7 @@ public class MqttEngineTopicLimitTests
     [Fact]
     public void GetMaxBufferSizeForTopic_HandlesEmptyRulesList()
     {
-        var engine = CreateEngineWithRules(new List<TopicBufferLimit>());
+        using var engine = CreateEngineWithRules(new List<TopicBufferLimit>());
         Assert.Equal(MqttEngine.DefaultMaxTopicBufferSize, engine.GetMaxBufferSizeForTopic("any/topic"));
     }
 
@@ -103,7 +103,7 @@ public class MqttEngineTopicLimitTests
     public void GetMaxBufferSizeForTopic_HandlesNullRulesListInSettings()
     {
         var settings = new MqttConnectionSettings { TopicSpecificBufferLimits = null! }; // Test null explicitly
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
         Assert.Equal(MqttEngine.DefaultMaxTopicBufferSize, engine.GetMaxBufferSizeForTopic("any/topic"));
     }
 
@@ -117,9 +117,9 @@ public class MqttEngineTopicLimitTests
             new TopicBufferLimit(TopicFilter: "foo/#", MaxSizeBytes: 30 ),       // General for foo/anything/anddeeper
             new TopicBufferLimit(TopicFilter: "#", MaxSizeBytes: 5 ),             // Catch all
         };
-        var engine = CreateEngineWithRules(rules);
+        using var engine = CreateEngineWithRules(rules);
 
-        Assert.Equal(10, engine.GetMaxBufferSizeForTopic("foo/bar"));       // Matches "foo/bar"
+        Assert.Equal(10, engine.GetMaxBufferSizeForTopic("foo/bar"));// Matches "foo/bar"
         Assert.Equal(20, engine.GetMaxBufferSizeForTopic("foo/baz"));       // Matches "foo/+"
         Assert.Equal(30, engine.GetMaxBufferSizeForTopic("foo/bar/baz"));   // Matches "foo/#"
         Assert.Equal(5, engine.GetMaxBufferSizeForTopic("other/topic"));  // Matches "#"
@@ -133,7 +133,7 @@ public class MqttEngineTopicLimitTests
             new TopicBufferLimit(TopicFilter: "", MaxSizeBytes: 10000 ), // Empty filter
             new TopicBufferLimit(TopicFilter: "real/topic", MaxSizeBytes: 200 )
         };
-        var engine = CreateEngineWithRules(rules);
+        using var engine = CreateEngineWithRules(rules);
 
         Assert.Equal(200, engine.GetMaxBufferSizeForTopic("real/topic"));
         Assert.Equal(MqttEngine.DefaultMaxTopicBufferSize, engine.GetMaxBufferSizeForTopic("another/topic"));
@@ -148,7 +148,7 @@ public class MqttEngineTopicLimitTests
             new TopicBufferLimit(TopicFilter: "#", MaxSizeBytes: 6117121), // User configured 6MB limit
             new TopicBufferLimit(TopicFilter: "test/#", MaxSizeBytes: 6117121)
         };
-        var engine = CreateEngineWithRules(rules);
+        using var engine = CreateEngineWithRules(rules);
 
         // Should use the user-configured "#" rule, not add a default one
         Assert.Equal(6117121, engine.GetMaxBufferSizeForTopic("test/viewer/image"));
@@ -163,7 +163,7 @@ public class MqttEngineTopicLimitTests
         {
             new TopicBufferLimit(TopicFilter: "test/#", MaxSizeBytes: 6117121)
         };
-        var engine = CreateEngineWithRules(rules);
+        using var engine = CreateEngineWithRules(rules);
 
         // Should match test/# rule for test topics
         Assert.Equal(6117121, engine.GetMaxBufferSizeForTopic("test/viewer/image"));
@@ -183,7 +183,7 @@ public class MqttEngineTopicLimitTests
             },
             DefaultTopicBufferSizeBytes = 10 * 1024 * 1024 // 10MB custom default
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Should match test/# rule for test topics
         Assert.Equal(6117121, engine.GetMaxBufferSizeForTopic("test/viewer/image"));
@@ -204,7 +204,7 @@ public class MqttEngineTopicLimitTests
             },
             DefaultTopicBufferSizeBytes = 10 * 1024 * 1024 // 10MB custom default (should be ignored)
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Should use the more specific test/# rule
         Assert.Equal(2000000, engine.GetMaxBufferSizeForTopic("test/viewer/image"));
@@ -223,7 +223,7 @@ public class MqttEngineTopicLimitTests
                 new TopicBufferLimit(TopicFilter: "test/#", MaxSizeBytes: 1000000)
             }
         };
-        var engine = new MqttEngine(initialSettings);
+        using var engine = new MqttEngine(initialSettings);
 
         var updatedSettings = new MqttConnectionSettings
         {

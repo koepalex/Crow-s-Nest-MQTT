@@ -8,7 +8,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class SettingsViewModelJsonContextTests
     {
-        private class TestViewModel
+        private sealed class TestViewModel
         {
             public ObservableCollection<TopicBufferLimitViewModel> Limits { get; set; } = 
                 new ObservableCollection<TopicBufferLimitViewModel>();

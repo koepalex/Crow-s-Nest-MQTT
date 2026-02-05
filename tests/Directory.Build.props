@@ -1,0 +1,10 @@
+<Project>
+  <!-- Import parent Directory.Build.props to inherit common settings -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+  
+  <PropertyGroup>
+    <!-- Suppress CA1707 (Identifiers should not contain underscores) for test projects -->
+    <!-- Underscore naming convention (e.g., Method_Scenario_Expected) is standard for test methods -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+</Project>

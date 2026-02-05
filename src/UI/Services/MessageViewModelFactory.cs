@@ -100,7 +100,7 @@ public class MessageViewModelFactory : IMessageViewModelFactory
                 messageId.ToString(),
                 message.CorrelationData,
                 message.ResponseTopic,
-                ttlMinutes: 30);
+                ttlMinutes: 30).ConfigureAwait(false);
 
             Log.Information(
                 "Request registration {Result} for message {MessageId}",
@@ -119,7 +119,7 @@ public class MessageViewModelFactory : IMessageViewModelFactory
             var linked = await _correlationService.LinkResponseAsync(
                 messageId.ToString(),
                 message.CorrelationData,
-                topic);
+                topic).ConfigureAwait(false);
 
             Log.Information(
                 "Response linking {Result} for message {MessageId}",

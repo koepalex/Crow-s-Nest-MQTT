@@ -33,7 +33,7 @@ namespace CrowsNestMqtt.UnitTests.UI
         {
             // Arrange
             var viewLocator = new ViewLocator();
-            var viewModel = CreateTestMainViewModel();
+            using var viewModel = CreateTestMainViewModel();
 
             // Act
             var result = viewLocator.Build(viewModel);
@@ -67,7 +67,7 @@ namespace CrowsNestMqtt.UnitTests.UI
         {
             // Arrange
             var viewLocator = new ViewLocator();
-            var reactiveObject = CreateTestMainViewModel();
+            using var reactiveObject = CreateTestMainViewModel();
 
             // Act
             var result = viewLocator.Match(reactiveObject);
@@ -108,7 +108,7 @@ namespace CrowsNestMqtt.UnitTests.UI
         {
             // Arrange
             var viewLocator = new ViewLocator();
-            var viewModel = CreateTestMainViewModel();
+            using var viewModel = CreateTestMainViewModel();
 
             // Act
             var result1 = viewLocator.Build(viewModel);
