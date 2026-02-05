@@ -24,6 +24,11 @@ dotnet test tests/integration/Integration.Tests.csproj
 dotnet test tests/contract/Contract.Tests.csproj
 ```
 
+### Run the aspire environment
+```powershell
+dotnet run --project src/AppHost/AppHost.csproj --launch-profile http 
+```
+
 ### Run Single Test
 ```powershell
 dotnet test tests/UnitTests/UnitTests.csproj --filter "ClassName.TestMethodName"
