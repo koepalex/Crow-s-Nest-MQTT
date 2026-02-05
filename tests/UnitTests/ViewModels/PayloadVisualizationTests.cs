@@ -30,7 +30,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             }
         }
 
-        private class ImmediateDispatcher : IDispatcher
+        private sealed class ImmediateDispatcher : IDispatcher
         {
             public bool CheckAccess() => true;
             public void Post(Action action) => action();
@@ -206,21 +206,21 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.Equal(3, viewModel.JsonViewer.RootNodes[0].Children.Count);
        }
 
-        private class MockLibVLC : LibVLC
+        private sealed class MockLibVLC : LibVLC
         {
             public MockLibVLC() : base() { }
         }
 
-        private class MockMediaPlayer : MediaPlayer
+        private sealed class MockMediaPlayer : MediaPlayer
         {
             public MockMediaPlayer(LibVLC libvlc) : base(libvlc) { }
 
-            public new virtual void Play()
+            public new void Play()
             {
                 // Do nothing
             }
 
-            public new virtual void Stop()
+            public new void Stop()
             {
                 // Do nothing
             }

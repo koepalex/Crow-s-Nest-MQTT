@@ -24,7 +24,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
            }
        }
 
-       private class ImmediateDispatcher : Avalonia.Threading.IDispatcher
+       private sealed class ImmediateDispatcher : Avalonia.Threading.IDispatcher
        {
            public bool CheckAccess() => true;
            public void Post(Action action) => action();
