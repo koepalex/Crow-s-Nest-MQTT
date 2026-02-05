@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using MQTTnet;
+using MQTTnet.Packets;
 using CrowsNestMqtt.Utils; // For AppLogger
 
 public class TextExporter : MessageExporterBase
@@ -39,7 +40,7 @@ public class TextExporter : MessageExporterBase
             sb.AppendLine("\n--- User Properties ---");
             foreach (var prop in msg.UserProperties)
             {
-                sb.AppendLine($"{prop.Name}: {prop.Value}");
+                sb.AppendLine($"{prop.Name}: {prop.ReadValueAsString()}");
             }
         }
 

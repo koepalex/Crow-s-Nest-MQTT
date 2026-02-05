@@ -92,7 +92,7 @@ public class TextExporterTests : IDisposable
             sb.AppendLine("\n--- User Properties ---");
             foreach (var prop in msg.UserProperties)
             {
-                sb.AppendLine($"{prop.Name}: {prop.Value}");
+                sb.AppendLine($"{prop.Name}: {prop.ReadValueAsString()}");
             }
         }
 
@@ -155,7 +155,7 @@ public class TextExporterTests : IDisposable
         var exporter = new TextExporter();
         var timestamp = new DateTimeOffset(2024, 5, 15, 10, 30, 45, 123, TimeSpan.Zero);
         var correlationBytes = new byte[] { 0x01, 0x02, 0x03 };
-        var userProps = new List<MqttUserProperty> { new MqttUserProperty("Prop1", "Value1") };
+        var userProps = new List<MqttUserProperty> { new MqttUserProperty("Prop1", Encoding.UTF8.GetBytes("Value1")) };
         var bufferedMessage = CreateTestBufferedMessage(
             topic: "sensor/data",
             payload: "{\"temp\": 25.5}",

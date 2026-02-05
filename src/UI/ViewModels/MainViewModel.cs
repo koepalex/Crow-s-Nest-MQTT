@@ -15,6 +15,7 @@ using Avalonia.Media.Imaging;
 using AvaloniaEdit.Document; // Added for TextDocument
 using LibVLCSharp.Shared;
 using MQTTnet;
+using MQTTnet.Packets;
 using AvaloniaEdit.Highlighting; // Added for Syntax Highlighting
 using CrowsNestMqtt.BusinessLogic; // Required for MqttEngine, MqttConnectionStateChangedEventArgs, IMqttService
 using CrowsNestMqtt.BusinessLogic.Commands; // Added for command parsing
@@ -1875,7 +1876,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         {
             foreach (var prop in msg.UserProperties)
             {
-                MessageUserProperties.Add(new MetadataItem(prop.Name, prop.Value));
+                MessageUserProperties.Add(new MetadataItem(prop.Name, prop.ReadValueAsString()));
             }
         }
         else

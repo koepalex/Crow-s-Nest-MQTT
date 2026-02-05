@@ -22,11 +22,11 @@ if (-not $JsonPath -or $JsonPath -eq "") { $JsonPath = $defaultJsonPath }
 if (-not $BinaryPath -or $BinaryPath -eq "") { $BinaryPath = $defaultBinaryPath }
 
 # Ensure MQTTnet is available
-$nuget = [System.IO.Path]::Combine($env:TEMP, "mqttnet.5.0.1.1416.nupkg")
+$nuget = [System.IO.Path]::Combine($env:TEMP, "mqttnet.5.1.0.1559.nupkg")
 if (-not (Test-Path $nuget)) {
-    Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/MQTTnet/5.0.1.1416" -OutFile $nuget
+    Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/MQTTnet/5.1.0.1559" -OutFile $nuget
 }
-$extractPath = Join-Path $env:TEMP "MQTTnet_extracted"
+$extractPath = Join-Path $env:TEMP "MQTTnet_extracted_5.1.0"
 if (-not (Test-Path $extractPath)) {
     Expand-Archive -Path $nuget -DestinationPath $extractPath -Force
 }

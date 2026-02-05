@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.IO;
 using System.Linq; // Added for LINQ operations on UserProperties
 using MQTTnet;
+using MQTTnet.Packets;
 using CrowsNestMqtt.Utils; // For AppLogger
 using System.Text.Json.Serialization;
 
@@ -86,7 +87,7 @@ public class JsonExporter : MessageExporterBase
                     : null, // Convert to hexadecimal string to match metadata table display
                 PayloadFormatIndicator = msg.PayloadFormatIndicator,
                 ContentType = msg.ContentType,
-                UserProperties = msg.UserProperties?.Select(up => new MqttUserPropertyDto(up.Name, up.Value)).ToList(),
+                UserProperties = msg.UserProperties?.Select(up => new MqttUserPropertyDto(up.Name, up.ReadValueAsString())).ToList(),
                 Payload = isPayloadValidUtf8 ? payloadAsString : null // Only include valid UTF-8 payload in JSON DTO, otherwise null
             };
 
@@ -185,7 +186,7 @@ public class JsonExporter : MessageExporterBase
                     : null,
                 PayloadFormatIndicator = msg.PayloadFormatIndicator,
                 ContentType = msg.ContentType,
-                UserProperties = msg.UserProperties?.Select(up => new MqttUserPropertyDto(up.Name, up.Value)).ToList(),
+                UserProperties = msg.UserProperties?.Select(up => new MqttUserPropertyDto(up.Name, up.ReadValueAsString())).ToList(),
                 Payload = isPayloadValidUtf8 ? payloadAsString : null
             };
 

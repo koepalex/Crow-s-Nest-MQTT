@@ -154,8 +154,8 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
            var payload = "test";
            var userProperties = new List<MQTTnet.Packets.MqttUserProperty>
            {
-               new MQTTnet.Packets.MqttUserProperty("Property1", "Value1"),
-               new MQTTnet.Packets.MqttUserProperty("Property2", "Value2")
+               new MQTTnet.Packets.MqttUserProperty("Property1", Encoding.UTF8.GetBytes("Value1")),
+               new MQTTnet.Packets.MqttUserProperty("Property2", Encoding.UTF8.GetBytes("Value2"))
            };
             // Corrected approach:
             var fullMessageBuilder = new MqttApplicationMessageBuilder() // Declare the builder
@@ -165,7 +165,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Add user properties individually by chaining
             foreach (var prop in userProperties)
             {
-                fullMessageBuilder = fullMessageBuilder.WithUserProperty(prop.Name, prop.Value); // Chain the builder
+                fullMessageBuilder = fullMessageBuilder.WithUserProperty(prop.Name, prop.ValueBuffer); // Chain the builder
             }
             var fullMessage = fullMessageBuilder.Build(); // Build the final message
 
