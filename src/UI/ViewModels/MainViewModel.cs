@@ -3861,7 +3861,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             try
             {
                 using var ms = new MemoryStream(msg.Payload.ToArray());
-                var bitmap = new Bitmap(ms);
+                using var bitmap = new Bitmap(ms);
                 var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"crowsnest_image_{Guid.NewGuid():N}.png");
                 using (var fs = System.IO.File.OpenWrite(tempPath))
                 {

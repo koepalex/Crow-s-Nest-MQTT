@@ -281,7 +281,7 @@ public class DeleteTopicCommandExtensionsTests
     {
         // Arrange
         var arguments = new[] { "test/topic" };
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         CancellationToken capturedToken = default;
 
         _mockDeleteService.DeleteTopicAsync(Arg.Any<DeleteTopicCommand>(), Arg.Do<CancellationToken>(ct => capturedToken = ct))

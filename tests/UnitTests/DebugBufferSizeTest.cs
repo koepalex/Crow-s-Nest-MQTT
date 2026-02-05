@@ -22,7 +22,7 @@ public class DebugBufferSizeTest
             }
         };
 
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Act: Check what buffer sizes are calculated
         var imageTopicSize = engine.GetMaxBufferSizeForTopic("test/viewer/image");
@@ -72,7 +72,7 @@ public class DebugBufferSizeTest
             TopicSpecificBufferLimits = userLimits
         };
 
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Verify that the settings are correctly applied by checking the buffer sizes
         var hashTopicSize = engine.GetMaxBufferSizeForTopic("some/random/topic");

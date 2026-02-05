@@ -41,10 +41,10 @@ public class MqttEngineTests : IClassFixture<MqttBrokerFixture>
             ClientId = $"test-client-{Guid.NewGuid()}",
             CleanSession = true
         };
-        var engine = new MqttEngine(connectionSettings);
+        using var engine = new MqttEngine(connectionSettings);
 
         IdentifiedMqttApplicationMessageReceivedEventArgs? receivedArgs = null;
-        var messageReceivedEvent = new ManualResetEventSlim(false);
+        using var messageReceivedEvent = new ManualResetEventSlim(false);
 
 engine.MessagesBatchReceived += (sender, batch) =>
         {
@@ -110,10 +110,10 @@ engine.MessagesBatchReceived += (sender, batch) =>
             ClientId = $"test-client-{Guid.NewGuid()}",
             CleanSession = true
         };
-        var engine = new MqttEngine(connectionSettings);
+        using var engine = new MqttEngine(connectionSettings);
 
         IdentifiedMqttApplicationMessageReceivedEventArgs? receivedArgs = null;
-        var messageReceivedEvent = new ManualResetEventSlim(false);
+        using var messageReceivedEvent = new ManualResetEventSlim(false);
 
 engine.MessagesBatchReceived += (sender, batch) =>
         {
@@ -177,7 +177,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             Port = TestConfiguration.MqttPort,
             AuthMode = new CrowsNestMqtt.BusinessLogic.Configuration.UsernamePasswordAuthenticationMode("testuser", "testpass")
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Act
         // Use reflection to access the private method BuildMqttOptions
@@ -201,7 +201,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             Port = TestConfiguration.MqttPort,
             AuthMode = new CrowsNestMqtt.BusinessLogic.Configuration.AnonymousAuthenticationMode()
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Act
         var methodInfo = typeof(MqttEngine).GetMethod("BuildMqttOptions", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -222,7 +222,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             Port = TestConfiguration.MqttPort,
             AuthMode = new EnhancedAuthenticationMode("Enhanced Authentication", "my-jwt-token"),
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Act
         var methodInfo = typeof(MqttEngine).GetMethod("BuildMqttOptions", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -244,7 +244,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             Port = 8883,
             UseTls = true
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Act
         var methodInfo = typeof(MqttEngine).GetMethod("BuildMqttOptions", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -270,7 +270,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             Hostname = TestConfiguration.MqttHostname,
             Port = TestConfiguration.MqttPort
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -291,7 +291,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             ClientId = $"test-client-{Guid.NewGuid()}",
             CleanSession = true
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         try
         {
@@ -320,7 +320,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             Hostname = TestConfiguration.MqttHostname,
             Port = TestConfiguration.MqttPort
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -341,7 +341,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             ClientId = $"test-client-{Guid.NewGuid()}",
             CleanSession = true
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         try
         {
@@ -374,7 +374,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             Hostname = _brokerFixture.Hostname,
             Port = _brokerFixture.Port
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
         
         string? logMessage = null;
         engine.LogMessage += (sender, message) => logMessage = message;
@@ -398,7 +398,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             ClientId = $"test-client-{Guid.NewGuid()}",
             CleanSession = true
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
         
         string? logMessage = null;
         engine.LogMessage += (sender, message) => logMessage = message;
@@ -429,7 +429,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             Hostname = TestConfiguration.MqttHostname,
             Port = TestConfiguration.MqttPort
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Act
         var messages = engine.GetMessagesForTopic("nonexistent/topic");
@@ -450,9 +450,9 @@ engine.MessagesBatchReceived += (sender, batch) =>
             ClientId = $"test-client-{Guid.NewGuid()}",
             CleanSession = true
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
-        var messageReceived = new ManualResetEventSlim(false);
+        using var messageReceived = new ManualResetEventSlim(false);
 engine.MessagesBatchReceived += (sender, batch) =>
         {
             foreach (var args in batch)
@@ -517,7 +517,7 @@ Assert.Equal("test message content", messagesList[0].Message.ConvertPayloadToStr
             Hostname = TestConfiguration.MqttHostname,
             Port = TestConfiguration.MqttPort
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Act
         var topics = engine.GetBufferedTopics();
@@ -539,10 +539,10 @@ Assert.Equal("test message content", messagesList[0].Message.ConvertPayloadToStr
             ClientId = $"test-client-{Guid.NewGuid()}",
             CleanSession = true
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         var messagesReceived = 0;
-        var messageReceivedEvent = new ManualResetEventSlim(false);
+        using var messageReceivedEvent = new ManualResetEventSlim(false);
 engine.MessagesBatchReceived += (sender, batch) =>
         {
             foreach (var args in batch)
@@ -623,7 +623,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             Hostname = TestConfiguration.MqttHostname,
             Port = TestConfiguration.MqttPort
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         string? logMessage = null;
         engine.LogMessage += (sender, message) => logMessage = message;
@@ -646,7 +646,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             Hostname = TestConfiguration.MqttHostname,
             Port = TestConfiguration.MqttPort
         };
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
         var messageId = Guid.NewGuid();
 
         // Act
@@ -671,7 +671,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
                 new TopicBufferLimit("sensors/+/temp", 15_000)
             }
         };
-        var engine = new MqttEngine(initialSettings);
+        using var engine = new MqttEngine(initialSettings);
 
         string topic = "sensors/a/temp";
         int payloadSize = 1500; // bytes

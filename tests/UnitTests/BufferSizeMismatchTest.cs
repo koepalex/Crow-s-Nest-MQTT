@@ -25,7 +25,7 @@ public class BufferSizeMismatchTest
             }
         };
 
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Simulate a large message similar to the one in the logs (2460512 bytes)
         var largePayload = new byte[2460512];
@@ -75,7 +75,7 @@ public class BufferSizeMismatchTest
             }
         };
 
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Act: Force buffer creation by injecting a small message first
         var smallPayload = new byte[100];
@@ -121,7 +121,7 @@ public class BufferSizeMismatchTest
             }
         };
 
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Force buffer creation
         engine.InjectTestMessage("test/viewer/image", new byte[100]);

@@ -40,6 +40,7 @@ public class MqttEngine : IMqttService // Implement the interface
 private bool _isDisposing;
 private MqttClientOptions? _currentOptions;
     private CancellationTokenSource? _connectionCts; // To control the entire connection/reconnection cycle
+    private CancellationTokenSource? _linkedConnectionCts; // Linked token for the current connection attempt
     private readonly object _reconnectLock = new object();
     private bool _isReconnectLoopRunning = false;
     private readonly ConcurrentDictionary<string, TopicRingBuffer> _topicBuffers;
@@ -241,8 +242,10 @@ public async Task ConnectAsync(CancellationToken cancellationToken = default)
     // Cancel any previous attempts before starting a new one.
     _connectionCts?.Cancel();
     _connectionCts?.Dispose();
+    _linkedConnectionCts?.Dispose();
     _connectionCts = new CancellationTokenSource();
-    var combinedToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _connectionCts.Token).Token;
+    _linkedConnectionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _connectionCts.Token);
+    var combinedToken = _linkedConnectionCts.Token;
 
     try
     {
@@ -994,6 +997,8 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
                 }
             }
 
+            _connectionCts?.Dispose();
+            _linkedConnectionCts?.Dispose();
             _client?.Dispose();
             LogMessage?.Invoke(this, "MqttEngine disposed.");
         }

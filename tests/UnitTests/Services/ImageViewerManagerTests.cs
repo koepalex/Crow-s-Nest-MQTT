@@ -49,7 +49,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
     public void Constructor_InitializesWithDefaultValues()
     {
         // Arrange & Act
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
 
         // Assert
         Assert.False(manager.IsImageViewerVisible);
@@ -60,7 +60,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
     public void TryLoadImage_WithValidImageBytes_ReturnsTrue()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var imageBytes = CreateValidPngBytes();
 
         // Act
@@ -77,16 +77,13 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.NotNull(manager.ImagePayload);
         Assert.Contains("Image loaded", statusMessage);
         Assert.Contains("1x1", statusMessage); // Check dimensions are reported
-
-        // Cleanup
-        manager.Dispose();
     }
 
     [Fact]
     public void TryLoadImage_WithEmptyBytes_ReturnsFalse()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var payload = Array.Empty<byte>();
 
         // Act
@@ -103,7 +100,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
     public void TryLoadImage_WithNullBytes_ReturnsFalse()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
 
         // Act
         var result = manager.TryLoadImage(null!, out var statusMessage);
@@ -119,7 +116,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
     public void TryLoadImage_WithInvalidImageBytes_ReturnsFalseOrSucceeds()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         // Use bytes that are definitely not a valid image format
         var invalidBytes = System.Text.Encoding.UTF8.GetBytes("This is not an image");
 
@@ -139,16 +136,13 @@ public class ImageViewerManagerTests : AvaloniaTestBase
             Assert.True(manager.IsImageViewerVisible);
             Assert.NotNull(manager.ImagePayload);
         }
-
-        // Cleanup
-        manager.Dispose();
     }
 
     [Fact]
     public void TryLoadImage_WithTextBytes_HandlesGracefully()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         // Use plain text that should fail
         var textBytes = new byte[] { 0x48, 0x65, 0x6C, 0x6C, 0x6F }; // "Hello"
 
@@ -158,19 +152,13 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         // Assert - Test behavior is consistent regardless of decoder leniency
         Assert.NotNull(statusMessage);
         Assert.NotEmpty(statusMessage);
-
-        // Cleanup if image was loaded
-        if (result)
-        {
-            manager.Dispose();
-        }
     }
 
     [Fact]
     public void ClearImage_ClearsAllState()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var imageBytes = CreateValidPngBytes();
         manager.TryLoadImage(imageBytes, out _);
 
@@ -180,16 +168,13 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         // Assert
         Assert.False(manager.IsImageViewerVisible);
         Assert.Null(manager.ImagePayload);
-
-        // Cleanup
-        manager.Dispose();
     }
 
     [Fact]
     public void ImageViewerVisibilityChanged_EventRaisedWhenVisibilityChanges()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var eventRaised = false;
         var receivedValue = false;
 
@@ -207,16 +192,13 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         // Assert
         Assert.True(eventRaised);
         Assert.True(receivedValue);
-
-        // Cleanup
-        manager.Dispose();
     }
 
     [Fact]
     public void ImagePayloadChanged_EventRaisedWhenPayloadChanges()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var eventRaised = false;
         Bitmap? receivedPayload = null;
 
@@ -236,16 +218,13 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.NotNull(receivedPayload);
         Assert.Equal(1, receivedPayload.PixelSize.Width);
         Assert.Equal(1, receivedPayload.PixelSize.Height);
-
-        // Cleanup
-        manager.Dispose();
     }
 
     [Fact]
     public void ImageViewerVisibilityChanged_NotRaisedWhenValueDoesNotChange()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var eventCount = 0;
 
         manager.ImageViewerVisibilityChanged += (sender, isVisible) =>
@@ -264,7 +243,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
     public void TryLoadImage_UpdatesExistingImage()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var imageBytes1 = CreateValidPngBytes();
         var imageBytes2 = CreateValidPngBytes();
 
@@ -277,16 +256,13 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.NotNull(manager.ImagePayload);
         Assert.True(manager.IsImageViewerVisible);
         Assert.Contains("Image loaded", statusMessage);
-
-        // Cleanup
-        manager.Dispose();
     }
 
     [Fact]
     public void ImagePayloadChanged_EventNotRaisedWhenSamePayloadSet()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var imageBytes = CreateValidPngBytes();
         manager.TryLoadImage(imageBytes, out _);
 
@@ -302,16 +278,13 @@ public class ImageViewerManagerTests : AvaloniaTestBase
 
         // Assert - should fire because it's a new Bitmap instance
         Assert.Equal(1, eventCount);
-
-        // Cleanup
-        manager.Dispose();
     }
 
     [Fact]
     public void ClearImage_RaisesVisibilityChangedEvent()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var imageBytes = CreateValidPngBytes();
         manager.TryLoadImage(imageBytes, out _);
 
@@ -330,16 +303,13 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         // Assert
         Assert.True(eventRaised);
         Assert.False(receivedValue);
-
-        // Cleanup
-        manager.Dispose();
     }
 
     [Fact]
     public void ClearImage_RaisesPayloadChangedEvent()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var imageBytes = CreateValidPngBytes();
         manager.TryLoadImage(imageBytes, out _);
 
@@ -358,16 +328,13 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         // Assert
         Assert.True(eventRaised);
         Assert.Null(receivedPayload);
-
-        // Cleanup
-        manager.Dispose();
     }
 
     [Fact]
     public void Dispose_DisposesImagePayload()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var imageBytes = CreateValidPngBytes();
         manager.TryLoadImage(imageBytes, out _);
 
@@ -383,7 +350,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
     public void Dispose_CanBeCalledMultipleTimes()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var imageBytes = CreateValidPngBytes();
         manager.TryLoadImage(imageBytes, out _);
 
@@ -397,7 +364,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
     public void Dispose_WhenNoImageLoaded_DoesNotThrow()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
 
         // Act & Assert - no exception should be thrown
         manager.Dispose();
@@ -407,7 +374,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
     public void TryLoadImage_DisposesOldBitmapWhenLoadingNew()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var imageBytes1 = CreateValidPngBytes();
         var imageBytes2 = CreateValidPngBytes();
 
@@ -421,16 +388,13 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.NotNull(oldBitmap);
         Assert.NotNull(newBitmap);
         Assert.NotSame(oldBitmap, newBitmap);
-
-        // Cleanup
-        manager.Dispose();
     }
 
     [Fact]
     public void ClearImage_AfterFailedLoad_DoesNotThrow()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var invalidBytes = new byte[] { 0x00, 0x01, 0x02 };
         manager.TryLoadImage(invalidBytes, out _);
 
@@ -444,7 +408,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
     public void TryLoadImage_AfterClear_WorksCorrectly()
     {
         // Arrange
-        var manager = new ImageViewerManager();
+        using var manager = new ImageViewerManager();
         var imageBytes = CreateValidPngBytes();
         manager.TryLoadImage(imageBytes, out _);
         manager.ClearImage();
@@ -457,8 +421,5 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.True(manager.IsImageViewerVisible);
         Assert.NotNull(manager.ImagePayload);
         Assert.Contains("Image loaded", statusMessage);
-
-        // Cleanup
-        manager.Dispose();
     }
 }
