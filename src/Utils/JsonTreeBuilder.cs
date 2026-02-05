@@ -8,7 +8,6 @@ namespace CrowsNestMqtt.Utils
     /// </summary>
     public class JsonTreeBuilder
     {
-        private const int MaxAutoExpandDepth = 5;
 
         /// <summary>
         /// Builds a JsonTreeNode tree from a JsonDocument.
@@ -17,8 +16,7 @@ namespace CrowsNestMqtt.Utils
         /// <returns>Root JsonTreeNode with depth = 1</returns>
         public JsonTreeNode BuildTree(JsonDocument document)
         {
-            if (document == null)
-                throw new ArgumentNullException(nameof(document));
+            ArgumentNullException.ThrowIfNull(document);
 
             return BuildTreeRecursive(document.RootElement, "root", 1, null);
         }
@@ -31,7 +29,7 @@ namespace CrowsNestMqtt.Utils
         /// <param name="depth">Current depth (1-based)</param>
         /// <param name="parent">Parent node (null for root)</param>
         /// <returns>JsonTreeNode representing this element</returns>
-        private JsonTreeNode BuildTreeRecursive(JsonElement element, string key, int depth, JsonTreeNode? parent)
+        private static JsonTreeNode BuildTreeRecursive(JsonElement element, string key, int depth, JsonTreeNode? parent)
         {
             var node = new JsonTreeNode
             {

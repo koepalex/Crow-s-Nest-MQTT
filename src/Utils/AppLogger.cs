@@ -5,7 +5,9 @@ namespace CrowsNestMqtt.Utils;
 /// </summary>
 public static class AppLogger
 {
+#pragma warning disable CA1003 // Use generic event handler instances - intentional simple delegate for internal logging
     public static event Action<string, string>? OnLogMessage;
+#pragma warning restore CA1003
 
     /// <summary>
     /// Writes an informational log message.
