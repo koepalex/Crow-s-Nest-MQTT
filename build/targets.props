@@ -3,6 +3,6 @@
     <AppTargetFramework>net10.0</AppTargetFramework>
     <LibTargetFramework>net10.0</LibTargetFramework>
     <TestsTargetFramework>net10.0</TestsTargetFramework>
-    <TargetRuntimeIdentifiers>win-x64;linux-x64;osx-x64</TargetRuntimeIdentifiers>
+    <TargetRuntimeIdentifiers>win-x64;linux-x64;osx-x64;win-arm64;linux-arm64;osx-arm64</TargetRuntimeIdentifiers>
   </PropertyGroup>
 </Project>
