@@ -172,7 +172,7 @@ public class DeleteTopicServiceTests
         // Arrange
         var service = CreateService();
         var command = new DeleteTopicCommand { TopicPattern = "sensor/temperature" };
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
 
         // Setup topics
         _mockMqttService.GetBufferedTopics().Returns(new[] { "sensor/temperature" });

@@ -31,14 +31,14 @@ namespace CrowsNestMqtt.UnitTests
                 .Build();
             _mqttServer = mqttFactory.CreateMqttServer(options);
 
-            await _mqttServer.StartAsync();
+            await _mqttServer.StartAsync().ConfigureAwait(false);
         }
 
         public async Task DisposeAsync()
         {
             if (_mqttServer != null)
             {
-                await _mqttServer.StopAsync();
+                await _mqttServer.StopAsync().ConfigureAwait(false);
                 _mqttServer.Dispose();
                 _mqttServer = null;
             }

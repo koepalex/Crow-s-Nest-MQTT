@@ -24,7 +24,7 @@ public class MockMqttService : IMqttService
         static MockMqttService()
         {
             // Explicit dummy usage to suppress CS0067
-            var dummy = new MockMqttService();
+            using var dummy = new MockMqttService();
             EventHandler<IdentifiedMqttApplicationMessageReceivedEventArgs> handler1 = (_, __) => { };
             EventHandler<MqttConnectionStateChangedEventArgs> handler2 = (_, __) => { };
             EventHandler<string> handler3 = (_, __) => { };
@@ -123,7 +123,7 @@ public class MockMqttService : IMqttService
             var preview = "payload";
             var size = 10;
 
-            var mqttService = new MockMqttService();
+            using var mqttService = new MockMqttService();
             var statusBarService = Substitute.For<IStatusBarService>();
             var expectedMessage = new MqttApplicationMessage();
 
@@ -145,7 +145,7 @@ public class MockMqttService : IMqttService
             var preview = "payload";
             var size = 10;
 
-            var mqttService = new MockMqttService();
+            using var mqttService = new MockMqttService();
             var statusBarService = Substitute.For<IStatusBarService>();
 
             mqttService.TryGetMessageHandler = (t, g) => (false, null);
@@ -170,7 +170,7 @@ public class MockMqttService : IMqttService
         [Fact]
         public void Events_AreUsed_SuppressCS0067()
         {
-            var mqttService = new MockMqttService();
+            using var mqttService = new MockMqttService();
             EventHandler<IdentifiedMqttApplicationMessageReceivedEventArgs> handler1 = (_, __) => { };
             EventHandler<MqttConnectionStateChangedEventArgs> handler2 = (_, __) => { };
             EventHandler<string> handler3 = (_, __) => { };

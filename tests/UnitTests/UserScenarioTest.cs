@@ -22,7 +22,7 @@ public class UserScenarioTest
             }
         };
 
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Act & Assert: Verify that the user's buffer limits are respected
         
@@ -63,7 +63,7 @@ public class UserScenarioTest
             DefaultTopicBufferSizeBytes = 10 * 1024 * 1024 // 10MB custom default
         };
 
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Act & Assert
         

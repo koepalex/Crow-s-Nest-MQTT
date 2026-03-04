@@ -21,7 +21,7 @@ namespace CrowsNestMqtt.UnitTests
                 KeepAliveInterval = TimeSpan.FromSeconds(60)
             };
             
-            var mqttEngine = new MqttEngine(settings);
+            using var mqttEngine = new MqttEngine(settings);
             
             var newSettings = new MqttConnectionSettings
             {
@@ -68,7 +68,7 @@ namespace CrowsNestMqtt.UnitTests
                 ClientId = "test-client"
             };
             
-            var mqttEngine = new MqttEngine(settings);
+            using var mqttEngine = new MqttEngine(settings);
             
             var newSettings = new MqttConnectionSettings
             {
@@ -126,7 +126,7 @@ namespace CrowsNestMqtt.UnitTests
             };
             
             // Create MqttEngine
-            var mqttEngine = new MqttEngine(settings);
+            using var mqttEngine = new MqttEngine(settings);
             
             // Hook up event handler that will be called
             mqttEngine.ConnectionStateChanged += (s, e) => 
@@ -150,7 +150,7 @@ namespace CrowsNestMqtt.UnitTests
             };
             
             // Create MqttEngine
-            var mqttEngine = new MqttEngine(settings);
+            using var mqttEngine = new MqttEngine(settings);
             
             // Access the _isDisposing field using reflection
             var isDisposingField = typeof(MqttEngine).GetField("_isDisposing", 
@@ -180,7 +180,7 @@ namespace CrowsNestMqtt.UnitTests
             };
             
             // Create MqttEngine
-            var mqttEngine = new MqttEngine(settings);
+            using var mqttEngine = new MqttEngine(settings);
             
             // Act & Assert - Just verify it doesn't throw an exception
             // We can't properly mock the MQTTnet client without using internals
@@ -204,7 +204,7 @@ namespace CrowsNestMqtt.UnitTests
                 ClientId = "test-client"
             };
             
-            var mqttEngine = new MqttEngine(settings);
+            using var mqttEngine = new MqttEngine(settings);
             
             var subscriptions = new List<string>
             {

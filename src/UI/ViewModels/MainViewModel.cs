@@ -3288,7 +3288,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                     StatusBarText = "Export message failed - check logs";
                     Log.Warning("Export message failed: ExportToFile returned null.");
                 }
-            });
+            }).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -3416,11 +3416,11 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             // 4. Notifying the user of successful completion
 
             // Delay the UI refresh message to allow delete confirmation message to be visible first
-            await Task.Delay(3000); // Wait 3 seconds before showing less important UI refresh message
+            await Task.Delay(3000).ConfigureAwait(false); // Wait 3 seconds before showing less important UI refresh message
             StatusBarText = $"UI refresh completed for topic pattern: {topicPattern}";
             Log.Debug("Topic tree refreshed after delete operation for pattern: {Pattern}", topicPattern);
 
-            await Task.CompletedTask; // Placeholder for async operations
+            await Task.CompletedTask.ConfigureAwait(false); // Placeholder for async operations
         }
         catch (Exception ex)
         {
@@ -3861,7 +3861,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             try
             {
                 using var ms = new MemoryStream(msg.Payload.ToArray());
-                var bitmap = new Bitmap(ms);
+                using var bitmap = new Bitmap(ms);
                 var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"crowsnest_image_{Guid.NewGuid():N}.png");
                 using (var fs = System.IO.File.OpenWrite(tempPath))
                 {

@@ -92,7 +92,7 @@ namespace CrowsNestMqtt.UI.Services
                 ChangedAt = DateTime.UtcNow
             });
 
-            return await Task.FromResult(true);
+            return await Task.FromResult(true).ConfigureAwait(false);
         }
 
         public async Task<IconClickResult> HandleIconClickAsync(string requestMessageId)
@@ -149,7 +149,7 @@ namespace CrowsNestMqtt.UI.Services
                 };
             }
 
-            var navigationResult = await _navigationService.NavigateToResponseAsync(requestMessageId);
+            var navigationResult = await _navigationService.NavigateToResponseAsync(requestMessageId).ConfigureAwait(false);
 
             var navigationCommand = navigationResult.Success
                 ? $":gotoresponse {requestMessageId}"

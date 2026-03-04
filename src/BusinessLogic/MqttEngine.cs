@@ -40,6 +40,7 @@ public class MqttEngine : IMqttService // Implement the interface
 private bool _isDisposing;
 private MqttClientOptions? _currentOptions;
     private CancellationTokenSource? _connectionCts; // To control the entire connection/reconnection cycle
+    private CancellationTokenSource? _linkedConnectionCts; // Linked token for the current connection attempt
     private readonly object _reconnectLock = new object();
     private bool _isReconnectLoopRunning = false;
     private readonly ConcurrentDictionary<string, TopicRingBuffer> _topicBuffers;
@@ -125,7 +126,7 @@ private MqttClientOptions? _currentOptions;
                      .WithRetainAsPublished(true))
                 .Build();
 
-            var result = await _client.SubscribeAsync(subscribeOptions, cancellationToken);
+            var result = await _client.SubscribeAsync(subscribeOptions, cancellationToken).ConfigureAwait(false);
 
             foreach (var subResult in result.Items)
             {
@@ -141,7 +142,7 @@ private MqttClientOptions? _currentOptions;
                     _connectionCts?.Cancel();
                     if (_client.IsConnected)
                     {
-                        await _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build(), CancellationToken.None);
+                        await _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build(), CancellationToken.None).ConfigureAwait(false);
                     }
                     return;
                 }
@@ -163,7 +164,7 @@ private MqttClientOptions? _currentOptions;
             _connectionCts?.Cancel();
             if (_client.IsConnected)
             {
-                await _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build(), CancellationToken.None);
+                await _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build(), CancellationToken.None).ConfigureAwait(false);
             }
         }
     }
@@ -241,8 +242,10 @@ public async Task ConnectAsync(CancellationToken cancellationToken = default)
     // Cancel any previous attempts before starting a new one.
     _connectionCts?.Cancel();
     _connectionCts?.Dispose();
+    _linkedConnectionCts?.Dispose();
     _connectionCts = new CancellationTokenSource();
-    var combinedToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _connectionCts.Token).Token;
+    _linkedConnectionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _connectionCts.Token);
+    var combinedToken = _linkedConnectionCts.Token;
 
     try
     {
@@ -254,7 +257,7 @@ public async Task ConnectAsync(CancellationToken cancellationToken = default)
         
         // This call will either succeed and trigger OnClientConnected,
         // fail and trigger OnClientDisconnected, or be cancelled.
-        await _client.ConnectAsync(_currentOptions, combinedToken);
+        await _client.ConnectAsync(_currentOptions, combinedToken).ConfigureAwait(false);
     }
     catch (OperationCanceledException)
     {
@@ -280,7 +283,7 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     // The OnClientDisconnected handler will still fire, but this can speed up the process.
     if (_client.IsConnected)
     {
-        await _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build(), cancellationToken);
+        await _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build(), cancellationToken).ConfigureAwait(false);
     }
     else
     {
@@ -306,7 +309,7 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
 
         try
         {
-            var result = await _client.PublishAsync(message, cancellationToken);
+            var result = await _client.PublishAsync(message, cancellationToken).ConfigureAwait(false);
             if (result.ReasonCode != MqttClientPublishReasonCode.Success)
             {
                  LogMessage?.Invoke(this, $"Failed to publish to '{topic}'. Reason: {result.ReasonCode}");
@@ -340,7 +343,7 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
 
         try
         {
-            var result = await _client.PublishAsync(message, cancellationToken);
+            var result = await _client.PublishAsync(message, cancellationToken).ConfigureAwait(false);
             if (result.ReasonCode != MqttClientPublishReasonCode.Success)
             {
                  LogMessage?.Invoke(this, $"Failed to publish to '{topic}'. Reason: {result.ReasonCode}");
@@ -360,7 +363,7 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     public async Task ClearRetainedMessageAsync(string topic, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtLeastOnce, CancellationToken cancellationToken = default)
     {
         // To clear a retained message, publish an empty payload with retain flag set to true
-        await PublishAsync(topic, new byte[0], retain: true, qos: qos, cancellationToken);
+        await PublishAsync(topic, new byte[0], retain: true, qos: qos, cancellationToken).ConfigureAwait(false);
         LogMessage?.Invoke(this, $"Cleared retained message for topic: {topic}");
     }
 
@@ -378,7 +381,7 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
 
         try
         {
-            var result = await _client.SubscribeAsync(subscribeOptions, cancellationToken);
+            var result = await _client.SubscribeAsync(subscribeOptions, cancellationToken).ConfigureAwait(false);
             LogMessage?.Invoke(this, $"Subscription request sent for '{topicFilter}'.");
             return result;
         }
@@ -403,7 +406,7 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
 
         try
         {
-            var result = await _client.UnsubscribeAsync(unsubscribeOptions, cancellationToken);
+            var result = await _client.UnsubscribeAsync(unsubscribeOptions, cancellationToken).ConfigureAwait(false);
             LogMessage?.Invoke(this, $"Unsubscription request sent for '{topicFilter}'.");
             return result;
         }
@@ -744,7 +747,7 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
             ));
 
             // Initial delay before the first retry in the loop
-            await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+            await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken).ConfigureAwait(false);
 
             while (!cancellationToken.IsCancellationRequested && !_isDisposing && !_client.IsConnected)
             {
@@ -760,7 +763,7 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
                     // Use the existing options, don't call the public ConnectAsync
                     if (_currentOptions != null)
                     {
-                        await _client.ConnectAsync(_currentOptions, cancellationToken);
+                        await _client.ConnectAsync(_currentOptions, cancellationToken).ConfigureAwait(false);
                     }
                     else
                     {
@@ -799,7 +802,7 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
                     false, null, ConnectionStatusState.Connecting,
                     $"Waiting {delaySeconds}s before next reconnect (Attempt {reconnectCount})"
                 ));
-                await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken).ConfigureAwait(false);
             }
 
             // The loop has exited. Now, determine the final state.
@@ -994,6 +997,8 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
                 }
             }
 
+            _connectionCts?.Dispose();
+            _linkedConnectionCts?.Dispose();
             _client?.Dispose();
             LogMessage?.Invoke(this, "MqttEngine disposed.");
         }

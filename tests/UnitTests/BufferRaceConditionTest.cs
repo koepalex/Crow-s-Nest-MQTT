@@ -25,7 +25,7 @@ public class BufferRaceConditionTest
             }
         };
 
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
 
         // Simulate the scenario where a buffer gets created with default size
         // This could happen if there's a race condition or timing issue
@@ -74,7 +74,7 @@ public class BufferRaceConditionTest
             }
         };
 
-        var engine = new MqttEngine(settings);
+        using var engine = new MqttEngine(settings);
         
         // The logs show that GetMaxBufferSizeForTopic correctly returns 6117121
         var calculatedSize = engine.GetMaxBufferSizeForTopic("test/viewer/image");

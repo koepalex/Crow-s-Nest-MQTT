@@ -95,7 +95,7 @@ public static class DeleteTopicCommandExtensions
             };
 
             // Execute the actual deletion using the service
-            var result = await deleteTopicService.DeleteTopicAsync(deleteCommand, cancellationToken);
+            var result = await deleteTopicService.DeleteTopicAsync(deleteCommand, cancellationToken).ConfigureAwait(false);
             return new ICommandProcessor.CommandExecutionResult(
                 result.Status == DeleteOperationStatus.CompletedSuccessfully,
                 result.SummaryMessage ?? $"Delete operation completed with status: {result.Status}");

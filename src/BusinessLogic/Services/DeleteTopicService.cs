@@ -75,7 +75,7 @@ public class DeleteTopicService : IDeleteTopicService
             else
             {
                 // Find topics to delete using pattern matching
-                topicsToDelete = (await FindTopicsWithRetainedMessages(command.TopicPattern, cancellationToken)).ToList();
+                topicsToDelete = (await FindTopicsWithRetainedMessages(command.TopicPattern, cancellationToken).ConfigureAwait(false)).ToList();
 
                 if (topicsToDelete.Count == 0)
                 {
@@ -115,7 +115,7 @@ public class DeleteTopicService : IDeleteTopicService
             var parallelismDegree = command.ParallelismDegree ?? _defaultParallelismDegree;
             var timeout = command.Timeout ?? _defaultTimeout;
 
-            var result = await ExecuteParallelDeletion(topicsToDelete, parallelismDegree, timeout, cancellationToken);
+            var result = await ExecuteParallelDeletion(topicsToDelete, parallelismDegree, timeout, cancellationToken).ConfigureAwait(false);
 
             stopwatch.Stop();
             var endTime = DateTime.UtcNow;
@@ -196,7 +196,7 @@ public class DeleteTopicService : IDeleteTopicService
         }
 
         _logger.LogDebug("Found {Count} topics matching pattern {Pattern}", matchingTopics.Count, topicPattern);
-        await Task.CompletedTask; // Maintain async interface
+        await Task.CompletedTask.ConfigureAwait(false); // Maintain async interface
 
         return matchingTopics;
     }
@@ -260,7 +260,7 @@ public class DeleteTopicService : IDeleteTopicService
     /// <inheritdoc />
     public async Task<OperationMetrics> EstimatePerformanceImpact(int topicCount)
     {
-        await Task.CompletedTask; // Simulate async operation
+        await Task.CompletedTask.ConfigureAwait(false); // Simulate async operation
 
         // Rough performance estimates based on typical MQTT performance
         var estimatedDurationSeconds = Math.Max(topicCount / 200.0, 0.5); // ~200 topics/second baseline
@@ -288,10 +288,10 @@ public class DeleteTopicService : IDeleteTopicService
         using var semaphore = new SemaphoreSlim(parallelismDegree, parallelismDegree);
         var tasks = topics.Select(async topic =>
         {
-            await semaphore.WaitAsync(cancellationToken);
+            await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                await DeleteSingleTopic(topic, timeout, cancellationToken);
+                await DeleteSingleTopic(topic, timeout, cancellationToken).ConfigureAwait(false);
                 Interlocked.Increment(ref successCount);
             }
             catch (Exception ex)
@@ -318,7 +318,7 @@ public class DeleteTopicService : IDeleteTopicService
             }
         });
 
-        await Task.WhenAll(tasks);
+        await Task.WhenAll(tasks).ConfigureAwait(false);
 
         var status = failures.Count == 0 ? DeleteOperationStatus.CompletedSuccessfully :
                     successCount > 0 ? DeleteOperationStatus.CompletedWithWarnings :
@@ -342,7 +342,7 @@ public class DeleteTopicService : IDeleteTopicService
         await _mqttService.ClearRetainedMessageAsync(
             topic,
             qos: MqttQualityOfServiceLevel.AtLeastOnce, // Use QoS 1 for reliability
-            combinedCts.Token);
+            combinedCts.Token).ConfigureAwait(false);
 
         _logger.LogDebug("Cleared retained message for topic: {Topic}", topic);
     }

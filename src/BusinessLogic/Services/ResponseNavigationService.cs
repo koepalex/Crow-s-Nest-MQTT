@@ -48,7 +48,7 @@ namespace CrowsNestMqtt.BusinessLogic.Services
             try
             {
                 // Get correlation details
-                var responseTopic = await _correlationService.GetResponseTopicAsync(requestMessageId);
+                var responseTopic = await _correlationService.GetResponseTopicAsync(requestMessageId).ConfigureAwait(false);
                 if (string.IsNullOrEmpty(responseTopic))
                 {
                     var result = new NavigationResult
@@ -64,7 +64,7 @@ namespace CrowsNestMqtt.BusinessLogic.Services
                 }
 
                 // Check if topic is accessible
-                var isSubscribed = await _subscriptionService.IsTopicSubscribedAsync(responseTopic);
+                var isSubscribed = await _subscriptionService.IsTopicSubscribedAsync(responseTopic).ConfigureAwait(false);
                 if (!isSubscribed)
                 {
                     var result = new NavigationResult
@@ -81,20 +81,20 @@ namespace CrowsNestMqtt.BusinessLogic.Services
                 }
 
                 // Get response status
-                var status = await _correlationService.GetResponseStatusAsync(requestMessageId);
+                var status = await _correlationService.GetResponseStatusAsync(requestMessageId).ConfigureAwait(false);
 
                 NavigationResult navigationResult;
 
                 if (status == ResponseStatus.Received)
                 {
                     // Navigate to specific response messages
-                    var responseMessageIds = await _correlationService.GetResponseMessageIdsAsync(requestMessageId);
+                    var responseMessageIds = await _correlationService.GetResponseMessageIdsAsync(requestMessageId).ConfigureAwait(false);
                     if (responseMessageIds.Count > 0)
                     {
                         // Navigate to the latest response message
                         var latestResponseId = responseMessageIds[responseMessageIds.Count - 1];
-                        await _uiNavigationService.NavigateToTopicAsync(responseTopic);
-                        await _uiNavigationService.SelectMessageAsync(latestResponseId);
+                        await _uiNavigationService.NavigateToTopicAsync(responseTopic).ConfigureAwait(false);
+                        await _uiNavigationService.SelectMessageAsync(latestResponseId).ConfigureAwait(false);
 
                         navigationResult = new NavigationResult
                         {
@@ -108,7 +108,7 @@ namespace CrowsNestMqtt.BusinessLogic.Services
                     else
                     {
                         // Status says received but no response IDs found
-                        await _uiNavigationService.NavigateToTopicAsync(responseTopic);
+                        await _uiNavigationService.NavigateToTopicAsync(responseTopic).ConfigureAwait(false);
                         navigationResult = new NavigationResult
                         {
                             Success = true,
@@ -169,17 +169,17 @@ namespace CrowsNestMqtt.BusinessLogic.Services
             try
             {
                 // Check if correlation exists
-                var responseTopic = await _correlationService.GetResponseTopicAsync(requestMessageId);
+                var responseTopic = await _correlationService.GetResponseTopicAsync(requestMessageId).ConfigureAwait(false);
                 if (string.IsNullOrEmpty(responseTopic))
                     return false;
 
                 // Check if topic is accessible
-                var isSubscribed = await _subscriptionService.IsTopicSubscribedAsync(responseTopic);
+                var isSubscribed = await _subscriptionService.IsTopicSubscribedAsync(responseTopic).ConfigureAwait(false);
                 if (!isSubscribed)
                     return false;
 
                 // Check if status allows navigation
-                var status = await _correlationService.GetResponseStatusAsync(requestMessageId);
+                var status = await _correlationService.GetResponseStatusAsync(requestMessageId).ConfigureAwait(false);
                 return status == ResponseStatus.Received;
             }
             catch
@@ -230,7 +230,7 @@ namespace CrowsNestMqtt.BusinessLogic.Services
             }
 
             var requestMessageId = parts[1];
-            return await NavigateToResponseAsync(requestMessageId);
+            return await NavigateToResponseAsync(requestMessageId).ConfigureAwait(false);
         }
 
         /// <inheritdoc />
