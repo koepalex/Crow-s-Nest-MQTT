@@ -426,7 +426,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                 .RegisterHandler(async interaction => {
                     interactionTriggered = true;
                     Assert.Equal(textPayload, interaction.Input);
-                    await Task.CompletedTask; // Return a completed task
+                    await Task.CompletedTask.ConfigureAwait(false); // Return a completed task
                 });
             
             // Act - Execute the copy command with the message

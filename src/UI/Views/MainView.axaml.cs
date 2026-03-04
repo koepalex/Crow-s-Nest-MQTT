@@ -194,7 +194,9 @@ public partial class MainView : UserControl
                       var clipboard = TopLevel.GetTopLevel(this)?.Clipboard; // Use 'this' directly
                       if (clipboard != null)
                       {
+#pragma warning disable CA2007 // Consider calling ConfigureAwait on the awaited task
                           await clipboard.SetTextAsync(clipboardText);
+#pragma warning restore CA2007
                       }
                   }
               }); // Note: Consider adding DisposeWith for this subscription if view model can change
@@ -240,7 +242,9 @@ public partial class MainView : UserControl
                 {
                     try
                     {
+#pragma warning disable CA2007 // Consider calling ConfigureAwait on the awaited task
                         await clipboard.SetTextAsync(textToCopy);
+#pragma warning restore CA2007
                         interaction.SetOutput(Unit.Default); // Signal completion
                         CrowsNestMqtt.Utils.AppLogger.Debug("Successfully copied text to clipboard via interaction.");
                     }
@@ -281,7 +285,9 @@ public partial class MainView : UserControl
                     var clipboard = topLevel?.Clipboard;
                     if (clipboard != null)
                     {
+#pragma warning disable CA2007 // Consider calling ConfigureAwait on the awaited task
                         await clipboard.SetTextAsync(tempPath);
+#pragma warning restore CA2007
                         interaction.SetOutput(Unit.Default);
                         CrowsNestMqtt.Utils.AppLogger.Debug($"Image written to temp file and path copied to clipboard: {tempPath}");
                     }

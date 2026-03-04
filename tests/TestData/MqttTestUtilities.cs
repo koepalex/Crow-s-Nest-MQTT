@@ -30,7 +30,7 @@ public class MqttTestUtilities : IAsyncDisposable
     {
         if (_mqttServer != null)
         {
-            await _mqttServer.StopAsync();
+            await _mqttServer.StopAsync().ConfigureAwait(false);
             _mqttServer.Dispose();
         }
 
@@ -44,7 +44,7 @@ public class MqttTestUtilities : IAsyncDisposable
             .Build();
 
         _mqttServer = _mqttServerFactory.CreateMqttServer(options);
-        await _mqttServer.StartAsync();
+        await _mqttServer.StartAsync().ConfigureAwait(false);
 
         return Port;
     }
@@ -56,7 +56,7 @@ public class MqttTestUtilities : IAsyncDisposable
     {
         if (_mqttServer != null)
         {
-            await _mqttServer.StopAsync();
+            await _mqttServer.StopAsync().ConfigureAwait(false);
             _mqttServer.Dispose();
             _mqttServer = null;
         }
@@ -80,7 +80,7 @@ public class MqttTestUtilities : IAsyncDisposable
             .WithTimeout(TimeSpan.FromSeconds(5))
             .Build();
 
-        await client.ConnectAsync(options);
+        await client.ConnectAsync(options).ConfigureAwait(false);
         _testClients.Add(client);
         return client;
     }
@@ -112,10 +112,10 @@ public class MqttTestUtilities : IAsyncDisposable
                 }
             }
 
-            await client.PublishAsync(mqttMessage.Build());
+            await client.PublishAsync(mqttMessage.Build()).ConfigureAwait(false);
 
             // Small delay between messages to ensure proper ordering in tests
-            await Task.Delay(10);
+            await Task.Delay(10).ConfigureAwait(false);
         }
     }
 
@@ -124,9 +124,9 @@ public class MqttTestUtilities : IAsyncDisposable
     /// </summary>
     public async Task<TestMessageCollector> CreateMessageCollectorAsync(string topicPattern = "#")
     {
-        var client = await CreateConnectedTestClientAsync("Collector");
+        var client = await CreateConnectedTestClientAsync("Collector").ConfigureAwait(false);
         var collector = new TestMessageCollector(client);
-        await collector.SubscribeAsync(topicPattern);
+        await collector.SubscribeAsync(topicPattern).ConfigureAwait(false);
         return collector;
     }
 
@@ -140,7 +140,7 @@ public class MqttTestUtilities : IAsyncDisposable
         {
             if (condition())
                 return true;
-            await Task.Delay(checkIntervalMs);
+            await Task.Delay(checkIntervalMs).ConfigureAwait(false);
         }
         return false;
     }
@@ -161,14 +161,14 @@ public class MqttTestUtilities : IAsyncDisposable
         {
             if (client.IsConnected)
             {
-                await client.DisconnectAsync();
+                await client.DisconnectAsync().ConfigureAwait(false);
             }
             client.Dispose();
         }
         _testClients.Clear();
 
         // Stop and dispose server
-        await StopEmbeddedBrokerAsync();
+        await StopEmbeddedBrokerAsync().ConfigureAwait(false);
 
         GC.SuppressFinalize(this);
     }
@@ -213,7 +213,7 @@ public class TestMessageCollector : IAsyncDisposable
 
     public async Task SubscribeAsync(string topicPattern, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtLeastOnce)
     {
-        await _client.SubscribeAsync(topicPattern, qos);
+        await _client.SubscribeAsync(topicPattern, qos).ConfigureAwait(false);
     }
 
     public void ClearMessages()
@@ -229,7 +229,7 @@ public class TestMessageCollector : IAsyncDisposable
     /// </summary>
     public async Task<bool> WaitForMessagesAsync(int expectedCount, TimeSpan timeout)
     {
-        return await MqttTestUtilities.WaitForConditionAsync(() => MessageCount >= expectedCount, timeout);
+        return await MqttTestUtilities.WaitForConditionAsync(() => MessageCount >= expectedCount, timeout).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -280,7 +280,7 @@ public class TestMessageCollector : IAsyncDisposable
             _client.ApplicationMessageReceivedAsync -= OnMessageReceived;
             if (_client.IsConnected)
             {
-                await _client.DisconnectAsync();
+                await _client.DisconnectAsync().ConfigureAwait(false);
             }
         }
         GC.SuppressFinalize(this);
