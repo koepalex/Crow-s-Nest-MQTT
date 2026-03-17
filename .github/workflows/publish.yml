@@ -79,11 +79,26 @@ jobs:
     - name: Publish (${{ matrix.runtime }})
       run: |
         dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --runtime ${{ matrix.runtime }} --self-contained -p:PublishSingleFile=true -o ./publish/${{ matrix.runtime }}/ --no-restore -p:Version=${{ needs.determine_version.outputs.semVer }}
+
+    - name: Create macOS DMG (${{ matrix.runtime }})
+      if: matrix.runtime == 'osx-x64' || matrix.runtime == 'osx-arm64'
+      run: |
+        ./tools/create-macos-dmg.sh ./publish/${{ matrix.runtime }} ${{ matrix.runtime }} ${{ needs.determine_version.outputs.semVer }} CrowsNestMqtt.App
+
     - name: Upload Application (${{ matrix.runtime }})
+      if: matrix.runtime != 'osx-x64' && matrix.runtime != 'osx-arm64'
       uses: actions/upload-artifact@v4
       with:
         name: crows-nest-mqtt-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }} # Use version from needs context
         path: ./publish/${{ matrix.runtime }}
+        if-no-files-found: error
+
+    - name: Upload macOS DMG (${{ matrix.runtime }})
+      if: matrix.runtime == 'osx-x64' || matrix.runtime == 'osx-arm64'
+      uses: actions/upload-artifact@v4
+      with:
+        name: crows-nest-mqtt-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }} # Use version from needs context
+        path: ./publish/${{ matrix.runtime }}/*.dmg
         if-no-files-found: error
   
   release:
@@ -103,12 +118,15 @@ jobs:
     - name: Zip all subfolders
       run: |
         cd ./release/
+        mkdir -p ../zipped-releases
         for dir in */; do
-          zip -r "../${dir%/}.zip" "$dir"
+          if compgen -G "${dir}*.dmg" > /dev/null; then
+            cp "${dir}"*.dmg ../zipped-releases/
+          else
+            zip -r "../zipped-releases/${dir%/}.zip" "$dir"
+          fi
         done
         cd ..
-        mkdir -p ./zipped-releases
-        mv *.zip ./zipped-releases/
     
     - name: Create Release
       uses: softprops/action-gh-release@v2
@@ -119,3 +137,4 @@ jobs:
         append_body: true
         files: |
           ./zipped-releases/*.zip
+          ./zipped-releases/*.dmg
