@@ -11,7 +11,7 @@ jobs:
     outputs:
       semVer: ${{ steps.gitversion.outputs.semVer }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0 # Fetch all history for GitVersion
 
@@ -22,19 +22,19 @@ jobs:
         git fetch --prune origin
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         global-json-file: "./global.json"
 
     - name: Install GitVersion
-      uses: gittools/actions/gitversion/setup@v4.0.1
+      uses: gittools/actions/gitversion/setup@v4.4.2
       with:
         versionSpec: '6.3.x'
         includePrerelease: true
 
     - name: Determine Version
       id: gitversion
-      uses: gittools/actions/gitversion/execute@v4.0.1
+      uses: gittools/actions/gitversion/execute@v4.4.2
 
     - name: Display GitVersion outputs (for debugging)
       run: |
@@ -61,14 +61,14 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v4 # Checkout code again for this job
+    - uses: actions/checkout@v6 # Checkout code again for this job
       with:
         fetch-depth: 0 # Fetch all history for GitVersion
         ref: ${{ github.ref }} # Ensure the correct ref is checked out
         fetch-tags: true # Explicitly fetch all tags
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         global-json-file: "./global.json"
 
