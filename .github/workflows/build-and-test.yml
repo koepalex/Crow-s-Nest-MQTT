@@ -21,7 +21,7 @@ jobs:
       semVer: ${{ steps.gitversion.outputs.semVer }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0 # Fetch all history for GitVersion
 
@@ -32,19 +32,19 @@ jobs:
         git fetch --prune origin
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         global-json-file: "./global.json"
 
     - name: Install GitVersion
-      uses: gittools/actions/gitversion/setup@v4.0.1 # Use a specific stable version
+      uses: gittools/actions/gitversion/setup@v4.4.2 # Use a specific stable version
       with:
         versionSpec: '6.3.x'
         includePrerelease: true
 
     - name: Determine Version
       id: gitversion # Set an id to reference outputs like steps.gitversion.outputs.semVer
-      uses: gittools/actions/gitversion/execute@v4.0.1
+      uses: gittools/actions/gitversion/execute@v4.4.2
 
     - name: Display GitVersion outputs (optional debugging)
       run: |
