@@ -39,12 +39,11 @@ $mqttHost = $settings.Hostname
 $port = $settings.Port
 $useTls = $settings.UseTls
 $clientId = "pwsh-mqtt-$(Get-Random)"
-
-
+$publishTimeout = [TimeSpan]::FromSeconds(30)
 
 # Build MQTT client options (MQTTnet 5.x API)
 $optionsBuilder = [MQTTnet.MqttClientOptionsBuilder]::new()
-$optionsBuilder = $optionsBuilder.WithTcpServer($mqttHost, [int]$port)
+$optionsBuilder = $optionsBuilder.WithTcpServer($mqttHost, [int]$port).WithClientId($clientId)
 if ($useTls) { $optionsBuilder = $optionsBuilder.WithTls() }
 $options = $optionsBuilder.Build()
 
@@ -52,9 +51,35 @@ $options = $optionsBuilder.Build()
 $factory = [MQTTnet.MqttClientFactory]::new()
 $client = $factory.CreateMqttClient()
 
+$failedPublishes = [System.Collections.Generic.List[string]]::new()
+
+function Ensure-MqttConnected {
+    if (-not $client.IsConnected) {
+        Write-Host "Reconnecting to $mqttHost : $port ..."
+        $null = $client.ConnectAsync($options).WaitAsync($publishTimeout).GetAwaiter().GetResult()
+    }
+}
+
+function Send-MqttMessage {
+    param(
+        [object]$Message,
+        [string]$Description
+    )
+    try {
+        Ensure-MqttConnected
+        $null = $client.PublishAsync($Message).WaitAsync($publishTimeout).GetAwaiter().GetResult()
+        Write-Host $Description
+        return $true
+    } catch {
+        $failedPublishes.Add($Description)
+        Write-Warning "SKIPPED: $Description - $($_.Exception.InnerException.Message ?? $_.Exception.Message)"
+        return $false
+    }
+}
+
 # Connect
 Write-Host "Connecting to $mqttHost : $port with client id $clientId"
-$null = $client.ConnectAsync($options).GetAwaiter().GetResult()
+$null = $client.ConnectAsync($options).WaitAsync($publishTimeout).GetAwaiter().GetResult()
 
 # Read image as bytes
 $imageBytes = [System.IO.File]::ReadAllBytes($ImagePath)
@@ -68,8 +93,7 @@ $msgBuilder = $msgBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualit
 $message = $msgBuilder.Build()
 
 # Publish
-$null = $client.PublishAsync($message).GetAwaiter().GetResult()
-Write-Host "Image sent to topic 'test/viewer/image' with content-type 'image/png'."
+Send-MqttMessage -Message $message -Description "Image sent to topic 'test/viewer/image' with content-type 'image/png'."
 
 # --- Send video file ---
 $videoBytes = [System.IO.File]::ReadAllBytes($VideoPath)
@@ -81,8 +105,7 @@ $videoMsgBuilder = $videoMsgBuilder.WithContentType("video/mp4")
 $videoMsgBuilder = $videoMsgBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
 $videoMessage = $videoMsgBuilder.Build()
 
-$null = $client.PublishAsync($videoMessage).GetAwaiter().GetResult()
-Write-Host "Video sent to topic 'test/viewer/video' with content-type 'video/mp4'."
+Send-MqttMessage -Message $videoMessage -Description "Video sent to topic 'test/viewer/video' with content-type 'video/mp4'."
 
 # --- Send JSON file ---
 
@@ -95,8 +118,7 @@ $jsonMsgBuilder = $jsonMsgBuilder.WithContentType("application/json")
 $jsonMsgBuilder = $jsonMsgBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
 $jsonMessage = $jsonMsgBuilder.Build()
 
-$null = $client.PublishAsync($jsonMessage).GetAwaiter().GetResult()
-Write-Host "JSON sent to topic 'test/viewer/json' with content-type 'application/json'."
+Send-MqttMessage -Message $jsonMessage -Description "JSON sent to topic 'test/viewer/json' with content-type 'application/json'."
 
 # --- Send binary file ---
 
@@ -104,13 +126,12 @@ $binaryBytes = [System.IO.File]::ReadAllBytes($BinaryPath)
 Write-Host "Loaded JSON file: $BinaryPath ($($binaryBytes.Length) bytes)"
 
 $binaryMsgBuilder = [MQTTnet.MqttApplicationMessageBuilder]::new()
-$binaryMsgBuilder = $jsonMsgBuilder.WithTopic("test/viewer/hex").WithPayload($binaryBytes)
-$binaryMsgBuilder = $jsonMsgBuilder.WithContentType("application/octet-stream")
-$binaryMsgBuilder = $jsonMsgBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+$binaryMsgBuilder = $binaryMsgBuilder.WithTopic("test/viewer/hex").WithPayload($binaryBytes)
+$binaryMsgBuilder = $binaryMsgBuilder.WithContentType("application/octet-stream")
+$binaryMsgBuilder = $binaryMsgBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
 $binaryMessage = $binaryMsgBuilder.Build()
 
-$null = $client.PublishAsync($binaryMessage).GetAwaiter().GetResult()
-Write-Host "Binary sent to topic 'test/viewer/hex' with content-type 'application/octet-stream'."
+Send-MqttMessage -Message $binaryMessage -Description "Binary sent to topic 'test/viewer/hex' with content-type 'application/octet-stream'."
 
 # --- Send retained message for delete testing ---
 $retainedPayload = @{
@@ -133,8 +154,7 @@ $retainedMsgBuilder = $retainedMsgBuilder.WithQualityOfServiceLevel([MQTTnet.Pro
 $retainedMsgBuilder = $retainedMsgBuilder.WithRetainFlag($true)  # This makes it a retained message
 $retainedMessage = $retainedMsgBuilder.Build()
 
-$null = $client.PublishAsync($retainedMessage).GetAwaiter().GetResult()
-Write-Host "Retained message sent to topic 'test/retain' with content-type 'application/json'."
+Send-MqttMessage -Message $retainedMessage -Description "Retained message sent to topic 'test/retain' with content-type 'application/json'."
 
 # --- MQTT 5 Request-Response Pattern with Pirate Content ---
 
@@ -144,17 +164,22 @@ $responseTopic2 = "test/pirate/ship/response/crew-status"
 
 Write-Host "Subscribing to response topics..."
 
-$subscribeOptions1 = [MQTTnet.MqttClientSubscribeOptionsBuilder]::new()
-$subscribeOptions1 = $subscribeOptions1.WithTopicFilter($responseTopic1, [MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
-$subscribeResult1 = $subscribeOptions1.Build()
-$null = $client.SubscribeAsync($subscribeResult1).GetAwaiter().GetResult()
+try {
+    Ensure-MqttConnected
+    $subscribeOptions1 = [MQTTnet.MqttClientSubscribeOptionsBuilder]::new()
+    $subscribeOptions1 = $subscribeOptions1.WithTopicFilter($responseTopic1, [MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+    $subscribeResult1 = $subscribeOptions1.Build()
+    $null = $client.SubscribeAsync($subscribeResult1).WaitAsync($publishTimeout).GetAwaiter().GetResult()
 
-$subscribeOptions2 = [MQTTnet.MqttClientSubscribeOptionsBuilder]::new()
-$subscribeOptions2 = $subscribeOptions2.WithTopicFilter($responseTopic2, [MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
-$subscribeResult2 = $subscribeOptions2.Build()
-$null = $client.SubscribeAsync($subscribeResult2).GetAwaiter().GetResult()
+    $subscribeOptions2 = [MQTTnet.MqttClientSubscribeOptionsBuilder]::new()
+    $subscribeOptions2 = $subscribeOptions2.WithTopicFilter($responseTopic2, [MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+    $subscribeResult2 = $subscribeOptions2.Build()
+    $null = $client.SubscribeAsync($subscribeResult2).WaitAsync($publishTimeout).GetAwaiter().GetResult()
 
-Write-Host "Subscribed to response topics."
+    Write-Host "Subscribed to response topics."
+} catch {
+    Write-Warning "Failed to subscribe to response topics: $($_.Exception.InnerException.Message ?? $_.Exception.Message)"
+}
 
 # Generate correlation data for requests
 $correlationData1 = [System.Guid]::NewGuid().ToByteArray()
@@ -196,8 +221,7 @@ $treasureRequestBuilder = $treasureRequestBuilder.WithResponseTopic($responseTop
 $treasureRequestBuilder = $treasureRequestBuilder.WithCorrelationData($correlationData1)
 $treasureRequestMessage = $treasureRequestBuilder.Build()
 
-$null = $client.PublishAsync($treasureRequestMessage).GetAwaiter().GetResult()
-Write-Host "Treasure map request sent to topic 'test/pirate/ship/request/treasure-map' with response topic '$responseTopic1'."
+Send-MqttMessage -Message $treasureRequestMessage -Description "Treasure map request sent to topic 'test/pirate/ship/request/treasure-map' with response topic '$responseTopic1'."
 
 # --- Request Message 2: Crew Status Request ---
 $crewStatusRequestPayload = @{
@@ -231,8 +255,7 @@ $crewStatusRequestBuilder = $crewStatusRequestBuilder.WithResponseTopic($respons
 $crewStatusRequestBuilder = $crewStatusRequestBuilder.WithCorrelationData($correlationData2)
 $crewStatusRequestMessage = $crewStatusRequestBuilder.Build()
 
-$null = $client.PublishAsync($crewStatusRequestMessage).GetAwaiter().GetResult()
-Write-Host "Crew status request sent to topic 'test/pirate/ship/request/crew-status' with response topic '$responseTopic2'."
+Send-MqttMessage -Message $crewStatusRequestMessage -Description "Crew status request sent to topic 'test/pirate/ship/request/crew-status' with response topic '$responseTopic2'."
 
 # --- Response Message for Treasure Map Request ---
 # Simulate a response from the treasure map service
@@ -292,8 +315,7 @@ $treasureResponseBuilder = $treasureResponseBuilder.WithQualityOfServiceLevel([M
 $treasureResponseBuilder = $treasureResponseBuilder.WithCorrelationData($correlationData1)  # Same correlation data as request
 $treasureResponseMessage = $treasureResponseBuilder.Build()
 
-$null = $client.PublishAsync($treasureResponseMessage).GetAwaiter().GetResult()
-Write-Host "Treasure map response sent to topic '$responseTopic1' with matching correlation data."
+Send-MqttMessage -Message $treasureResponseMessage -Description "Treasure map response sent to topic '$responseTopic1' with matching correlation data."
 
 # Display correlation information for verification
 $correlationHex1 = [BitConverter]::ToString($correlationData1).Replace("-", "")
@@ -344,13 +366,29 @@ $versionSegment = [System.ArraySegment[byte]]::new($versionBytes)
 $userPropsMsgBuilder = $userPropsMsgBuilder.WithUserProperty("version", $versionSegment)
 $userPropsMessage = $userPropsMsgBuilder.Build()
 
-$null = $client.PublishAsync($userPropsMessage).GetAwaiter().GetResult()
-Write-Host "User properties test message sent to topic 'test/userprops/demo' with 3 user properties."
+Send-MqttMessage -Message $userPropsMessage -Description "User properties test message sent to topic 'test/userprops/demo' with 3 user properties."
 Write-Host "  - sent-at: $(Get-Date -Format 'o')"
 Write-Host "  - sender: SendTestData.ps1"
 Write-Host "  - version: 1.0.0"
 Write-Host ""
 
 # Disconnect
-$opts = [MQTTnet.MqttClientDisconnectOptions]::new()
-$null = $client.DisconnectAsync($opts).GetAwaiter().GetResult()
+if ($client.IsConnected) {
+    $opts = [MQTTnet.MqttClientDisconnectOptions]::new()
+    $null = $client.DisconnectAsync($opts).WaitAsync($publishTimeout).GetAwaiter().GetResult()
+}
+Write-Host "Disconnected."
+
+# --- Summary ---
+if ($failedPublishes.Count -gt 0) {
+    Write-Host ""
+    Write-Host "=== Failed Publishes ($($failedPublishes.Count)) ===" -ForegroundColor Yellow
+    foreach ($desc in $failedPublishes) {
+        Write-Host "  - $desc" -ForegroundColor Yellow
+    }
+    Write-Host ""
+    Write-Host "TIP: If failures are caused by 'PacketTooLarge', increase the broker's max message size:" -ForegroundColor Cyan
+    Write-Host "  Mosquitto : add 'message_size_limit 0' to mosquitto.conf (0 = unlimited)" -ForegroundColor Cyan
+    Write-Host "  EMQX      : set EMQX_MQTT__MAX_PACKET_SIZE=10485760 (10MB)" -ForegroundColor Cyan
+    Write-Host ""
+}

@@ -100,13 +100,75 @@ jobs:
         name: crows-nest-mqtt-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }} # Use version from needs context
         path: ./publish/${{ matrix.runtime }}/*.dmg
         if-no-files-found: error
+
+    # MSIX packaging for Windows runtimes
+    - name: Publish for MSIX (${{ matrix.runtime }})
+      if: matrix.runtime == 'win-x64' || matrix.runtime == 'win-arm64'
+      run: |
+        dotnet publish src/MainApp/CrowsNestMqtt.App.csproj --configuration Release --runtime ${{ matrix.runtime }} --self-contained -o ./publish/msix-${{ matrix.runtime }}/ --no-restore -p:Version=${{ needs.determine_version.outputs.semVer }}
+
+    - name: Create MSIX Package (${{ matrix.runtime }})
+      if: matrix.runtime == 'win-x64' || matrix.runtime == 'win-arm64'
+      shell: pwsh
+      run: |
+        $arch = '${{ matrix.runtime }}' -replace 'win-', ''
+        .\tools\Create-MsixPackage.ps1 `
+          -PublishDir "./publish/msix-${{ matrix.runtime }}" `
+          -Version "${{ needs.determine_version.outputs.semVer }}" `
+          -Architecture $arch `
+          -OutputPath "./publish/msix/CrowsNestMqtt-$arch-${{ needs.determine_version.outputs.semVer }}.msix"
+
+    - name: Upload MSIX (${{ matrix.runtime }})
+      if: matrix.runtime == 'win-x64' || matrix.runtime == 'win-arm64'
+      uses: actions/upload-artifact@v4
+      with:
+        name: crows-nest-mqtt-msix-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }}
+        path: ./publish/msix/*.msix
+        if-no-files-found: error
   
+  msix_bundle:
+    name: Create MSIX Bundle
+    runs-on: windows-latest
+    needs:
+      - determine_version
+      - publish
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Download win-x64 MSIX
+      uses: actions/download-artifact@v4
+      with:
+        name: crows-nest-mqtt-msix-win-x64-${{ needs.determine_version.outputs.semVer }}
+        path: ./msix-inputs/
+
+    - name: Download win-arm64 MSIX
+      uses: actions/download-artifact@v4
+      with:
+        name: crows-nest-mqtt-msix-win-arm64-${{ needs.determine_version.outputs.semVer }}
+        path: ./msix-inputs/
+
+    - name: Create MSIX Bundle
+      shell: pwsh
+      run: |
+        $msixFiles = Get-ChildItem -Path ./msix-inputs -Filter *.msix | Select-Object -ExpandProperty FullName
+        .\tools\Create-MsixBundle.ps1 `
+          -MsixFiles $msixFiles `
+          -OutputPath "./publish/bundle/CrowsNestMqtt-${{ needs.determine_version.outputs.semVer }}.msixbundle"
+
+    - name: Upload MSIX Bundle
+      uses: actions/upload-artifact@v4
+      with:
+        name: crows-nest-mqtt-msixbundle-${{ needs.determine_version.outputs.semVer }}
+        path: ./publish/bundle/*.msixbundle
+        if-no-files-found: error
+
   release:
     name: Create Release Notes
     runs-on: ubuntu-latest
     needs: 
      - determine_version
      - publish
+     - msix_bundle
     permissions:
       contents: write
     steps:
@@ -122,6 +184,8 @@ jobs:
         for dir in */; do
           if compgen -G "${dir}*.dmg" > /dev/null; then
             cp "${dir}"*.dmg ../zipped-releases/
+          elif compgen -G "${dir}*.msixbundle" > /dev/null; then
+            cp "${dir}"*.msixbundle ../zipped-releases/
           else
             zip -r "../zipped-releases/${dir%/}.zip" "$dir"
           fi
@@ -138,3 +202,4 @@ jobs:
         files: |
           ./zipped-releases/*.zip
           ./zipped-releases/*.dmg
+          ./zipped-releases/*.msixbundle
