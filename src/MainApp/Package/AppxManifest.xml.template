@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
+
+  <Identity
+    Name="AlexanderKpke.CrowsNestMQTT"
+    Version="{{VERSION}}"
+    Publisher="CN=9F811B09-E42F-4AF7-A5C7-D39D8E0B6EDC"
+    ProcessorArchitecture="{{ARCHITECTURE}}" />
+
+  <Properties>
+    <DisplayName>Crow's NestMQTT</DisplayName>
+    <PublisherDisplayName>Alexander Köpke</PublisherDisplayName>
+    <Description>A cross-platform MQTT client and visualizer for browsing MQTT topic hierarchies and message payloads</Description>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <Capability Name="internetClient" />
+  </Capabilities>
+
+  <Applications>
+    <Application
+      Id="CrowsNestMqtt"
+      Executable="CrowsNestMqtt.App.exe"
+      EntryPoint="Windows.FullTrustApplication">
+
+      <uap:VisualElements
+        DisplayName="Crow's NestMQTT"
+        Description="MQTT client and visualizer"
+        BackgroundColor="#1a535c"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+
+        <uap:DefaultTile
+          Wide310x150Logo="Assets\Wide310x150Logo.png"
+          Square310x310Logo="Assets\LargeTile.png"
+          Square71x71Logo="Assets\StoreLogo.png"
+          ShortName="CrowsNestMQTT" />
+      </uap:VisualElements>
+
+    </Application>
+  </Applications>
+
+</Package>
