@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# C# Dev Kit language service cache
+*.lscache
+
 # User-specific files
 *.rsuser
 *.suo
@@ -482,3 +485,4 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+publish/msix-win-x64/
