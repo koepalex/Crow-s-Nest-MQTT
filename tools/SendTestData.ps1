@@ -372,6 +372,26 @@ Write-Host "  - sender: SendTestData.ps1"
 Write-Host "  - version: 1.0.0"
 Write-Host ""
 
+# --- Messages with Message Expiry Interval ---
+
+$expiryIntervals = @(5, 30, 90)
+foreach ($interval in $expiryIntervals) {
+    $expiryMsgBuilder = [MQTTnet.MqttApplicationMessageBuilder]::new()
+    $expiryMsgBuilder = $expiryMsgBuilder.WithTopic("test/expiry/${interval}s")
+    $expiryMsgBuilder = $expiryMsgBuilder.WithPayload([byte[]]::new(0))
+    $expiryMsgBuilder = $expiryMsgBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+    $expiryMsgBuilder = $expiryMsgBuilder.WithMessageExpiryInterval($interval)
+    $expiryMessage = $expiryMsgBuilder.Build()
+
+    Send-MqttMessage -Message $expiryMessage -Description "Expiring message sent to topic 'test/expiry/${interval}s' with empty payload and ${interval}s expiry interval."
+}
+
+Write-Host ""
+Write-Host "=== Message Expiry Summary ==="
+Write-Host "Sent 3 messages with expiry intervals: 5s, 30s, 90s"
+Write-Host "These messages will visually expire in the Crow's NestMQTT UI with strikethrough and warning icons."
+Write-Host ""
+
 # Disconnect
 if ($client.IsConnected) {
     $opts = [MQTTnet.MqttClientDisconnectOptions]::new()

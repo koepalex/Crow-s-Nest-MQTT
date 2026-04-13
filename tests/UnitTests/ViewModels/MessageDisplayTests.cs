@@ -353,5 +353,109 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.Equal("temperature", temperatureNode.Name);
             Assert.Equal(2, temperatureNode.Children.Count); // living-room and kitchen
         }
+
+        [Fact]
+        public void UpdateMessageDetails_WithExpiredMessage_ShouldShowExpiredMetadata()
+        {
+            // Arrange
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+            var messageId = Guid.NewGuid();
+            var pastTimestamp = DateTime.Now.AddSeconds(-60);
+            var topic = "test/expiry";
+            var payload = "expiring payload";
+            var fullMessage = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(Encoding.UTF8.GetBytes(payload))
+                .WithMessageExpiryInterval(30) // 30s expiry, but message is 60s old
+                .Build();
+
+            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+                .Returns(x => {
+                    x[2] = fullMessage;
+                    return true;
+                });
+
+            var testMessage = new MessageViewModel(messageId, topic, pastTimestamp, payload,
+                Encoding.UTF8.GetBytes(payload).Length, _mqttServiceMock, _statusBarServiceMock, fullMessage,
+                messageExpiryInterval: 30);
+
+            // Act
+            viewModel.SelectedMessage = testMessage;
+
+            // Assert
+            var expiryItem = viewModel.MessageMetadata.FirstOrDefault(m => m.Key == "Expiry (s)");
+            Assert.NotNull(expiryItem);
+            Assert.Contains("EXPIRED", expiryItem.Value);
+            Assert.NotNull(expiryItem.WarningIconViewModel);
+            Assert.True(expiryItem.HasWarningIcon);
+        }
+
+        [Fact]
+        public void UpdateMessageDetails_WithActiveExpiryMessage_ShouldShowRemainingTime()
+        {
+            // Arrange
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+            var messageId = Guid.NewGuid();
+            var timestamp = DateTime.Now;
+            var topic = "test/expiry";
+            var payload = "active expiry payload";
+            var fullMessage = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(Encoding.UTF8.GetBytes(payload))
+                .WithMessageExpiryInterval(3600) // 1 hour expiry
+                .Build();
+
+            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+                .Returns(x => {
+                    x[2] = fullMessage;
+                    return true;
+                });
+
+            var testMessage = new MessageViewModel(messageId, topic, timestamp, payload,
+                Encoding.UTF8.GetBytes(payload).Length, _mqttServiceMock, _statusBarServiceMock, fullMessage,
+                messageExpiryInterval: 3600);
+
+            // Act
+            viewModel.SelectedMessage = testMessage;
+
+            // Assert
+            var expiryItem = viewModel.MessageMetadata.FirstOrDefault(m => m.Key == "Expiry (s)");
+            Assert.NotNull(expiryItem);
+            Assert.Contains("remaining", expiryItem.Value);
+            Assert.Null(expiryItem.WarningIconViewModel);
+        }
+
+        [Fact]
+        public void UpdateMessageDetails_WithZeroExpiry_ShouldShowZero()
+        {
+            // Arrange
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+            var messageId = Guid.NewGuid();
+            var timestamp = DateTime.Now;
+            var topic = "test/noexpiry";
+            var payload = "no expiry payload";
+            var fullMessage = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(Encoding.UTF8.GetBytes(payload))
+                .Build(); // No expiry interval set (defaults to 0)
+
+            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
+                .Returns(x => {
+                    x[2] = fullMessage;
+                    return true;
+                });
+
+            var testMessage = new MessageViewModel(messageId, topic, timestamp, payload,
+                Encoding.UTF8.GetBytes(payload).Length, _mqttServiceMock, _statusBarServiceMock, fullMessage);
+
+            // Act
+            viewModel.SelectedMessage = testMessage;
+
+            // Assert
+            var expiryItem = viewModel.MessageMetadata.FirstOrDefault(m => m.Key == "Expiry (s)");
+            Assert.NotNull(expiryItem);
+            Assert.Equal("0", expiryItem.Value);
+            Assert.Null(expiryItem.WarningIconViewModel);
+        }
     }
 }

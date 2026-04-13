@@ -7,6 +7,7 @@ namespace CrowsNestMqtt.UI.ViewModels;
 public class MetadataItem : ReactiveObject
 {
     private ResponseIconViewModel? _iconViewModel;
+    private WarningIconViewModel? _warningIconViewModel;
 
     public string Key { get; init; } = string.Empty;
     public string Value { get; init; } = string.Empty;
@@ -21,15 +22,30 @@ public class MetadataItem : ReactiveObject
     }
 
     /// <summary>
+    /// Optional warning icon view model for metadata items that need a warning indicator (e.g., expired messages)
+    /// </summary>
+    public WarningIconViewModel? WarningIconViewModel
+    {
+        get => _warningIconViewModel;
+        set => this.RaiseAndSetIfChanged(ref _warningIconViewModel, value);
+    }
+
+    /// <summary>
     /// Indicates if this metadata item should show an icon
     /// </summary>
     public bool HasIcon => IconViewModel != null && IconViewModel.IsVisible;
 
-    public MetadataItem(string key, string value, ResponseIconViewModel? iconViewModel = null)
+    /// <summary>
+    /// Indicates if this metadata item should show a warning icon
+    /// </summary>
+    public bool HasWarningIcon => WarningIconViewModel != null && WarningIconViewModel.IsVisible;
+
+    public MetadataItem(string key, string value, ResponseIconViewModel? iconViewModel = null, WarningIconViewModel? warningIconViewModel = null)
     {
         Key = key;
         Value = value;
         IconViewModel = iconViewModel;
+        WarningIconViewModel = warningIconViewModel;
     }
 
     public override bool Equals(object? obj)
@@ -106,4 +122,25 @@ public class ResponseIconViewModel : ReactiveObject
 
     public string? NavigationCommand { get; set; }
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// View model for warning icons in metadata items (e.g., expired message indicator)
+/// </summary>
+public class WarningIconViewModel : ReactiveObject
+{
+    private string _toolTip = string.Empty;
+    private bool _isVisible = true;
+
+    public string ToolTip
+    {
+        get => _toolTip;
+        set => this.RaiseAndSetIfChanged(ref _toolTip, value);
+    }
+
+    public bool IsVisible
+    {
+        get => _isVisible;
+        set => this.RaiseAndSetIfChanged(ref _isVisible, value);
+    }
 }

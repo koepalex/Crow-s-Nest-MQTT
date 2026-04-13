@@ -13,6 +13,7 @@ public class MessageViewModel : ReactiveObject
     private readonly IStatusBarService _statusBarService;
     private readonly bool _enableFallback;
     private MqttApplicationMessage? _cachedMessage;
+    private bool _isExpired;
 
     public Guid MessageId { get; }
     public string Topic { get; }
@@ -20,6 +21,41 @@ public class MessageViewModel : ReactiveObject
     public string PayloadPreview { get; } = string.Empty; // Store the generated preview (initialized for nullable safety)
     public int Size { get; }
     public bool IsEffectivelyRetained { get; } // Store the corrected retain status
+
+    /// <summary>
+    /// The MQTT 5 message expiry interval in seconds. 0 means no expiry.
+    /// </summary>
+    public uint MessageExpiryInterval { get; }
+
+    /// <summary>
+    /// Whether this message has expired based on its timestamp and expiry interval.
+    /// Updated by the shared expiry timer in MainViewModel.
+    /// </summary>
+    public bool IsExpired
+    {
+        get => _isExpired;
+        private set => this.RaiseAndSetIfChanged(ref _isExpired, value);
+    }
+
+    /// <summary>
+    /// True when the message has a non-zero expiry interval.
+    /// </summary>
+    public bool HasExpiry => MessageExpiryInterval > 0;
+
+    /// <summary>
+    /// Returns the remaining time before expiry, or null if no expiry is set.
+    /// Returns TimeSpan.Zero if already expired.
+    /// </summary>
+    public TimeSpan? TimeRemaining
+    {
+        get
+        {
+            if (!HasExpiry) return null;
+            var expiresAt = Timestamp.Add(TimeSpan.FromSeconds(MessageExpiryInterval));
+            var remaining = expiresAt - DateTime.Now;
+            return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+        }
+    }
 
     // Display text remains the same, based on stored preview
     public string DisplayText => $"{Timestamp:HH:mm:ss.fff} ({Size,10} B): {PayloadPreview}";
@@ -35,7 +71,8 @@ public class MessageViewModel : ReactiveObject
         IStatusBarService statusBarService,
         MqttApplicationMessage? fullMessage = null,
         bool enableFallbackFullMessage = true,
-        bool isEffectivelyRetained = false)
+        bool isEffectivelyRetained = false,
+        uint messageExpiryInterval = 0)
     {
         MessageId = messageId;
         Topic = topic ?? throw new ArgumentNullException(nameof(topic));
@@ -43,10 +80,26 @@ public class MessageViewModel : ReactiveObject
         PayloadPreview = payloadPreview ?? string.Empty;
         Size = size;
         IsEffectivelyRetained = isEffectivelyRetained;
+        MessageExpiryInterval = messageExpiryInterval;
         _mqttService = mqttService ?? throw new ArgumentNullException(nameof(mqttService));
         _statusBarService = statusBarService ?? throw new ArgumentNullException(nameof(statusBarService));
         _cachedMessage = fullMessage;
         _enableFallback = enableFallbackFullMessage;
+
+        // Compute initial expiry state
+        if (HasExpiry)
+        {
+            _isExpired = DateTime.Now > Timestamp.Add(TimeSpan.FromSeconds(MessageExpiryInterval));
+        }
+    }
+
+    /// <summary>
+    /// Re-evaluates the expiry state. Called by the shared timer in MainViewModel.
+    /// </summary>
+    public void RefreshExpiry()
+    {
+        if (!HasExpiry) return;
+        IsExpired = DateTime.Now > Timestamp.Add(TimeSpan.FromSeconds(MessageExpiryInterval));
     }
 
     // Method to be called when details are requested (e.g., on selection)

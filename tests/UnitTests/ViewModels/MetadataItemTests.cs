@@ -411,5 +411,46 @@ namespace UnitTests.ViewModels
             var vm = new ResponseIconViewModel { RequestMessageId = "msg-456" };
             Assert.Equal("msg-456", vm.RequestMessageId);
         }
+
+        [Fact]
+        public void Constructor_WithWarningIconViewModel_SetsWarningIcon()
+        {
+            var warningVm = new WarningIconViewModel
+            {
+                IsVisible = true,
+                ToolTip = "This message has expired"
+            };
+
+            var item = new MetadataItem("Expiry (s)", "30s (EXPIRED)", warningIconViewModel: warningVm);
+            Assert.True(item.HasWarningIcon);
+            Assert.NotNull(item.WarningIconViewModel);
+            Assert.Equal("This message has expired", item.WarningIconViewModel!.ToolTip);
+        }
+
+        [Fact]
+        public void HasWarningIcon_WhenNoWarningViewModel_ReturnsFalse()
+        {
+            var item = new MetadataItem("Key", "Value");
+            Assert.False(item.HasWarningIcon);
+            Assert.Null(item.WarningIconViewModel);
+        }
+
+        [Fact]
+        public void HasWarningIcon_WhenWarningViewModelNotVisible_ReturnsFalse()
+        {
+            var warningVm = new WarningIconViewModel { IsVisible = false };
+            var item = new MetadataItem("Key", "Value", warningIconViewModel: warningVm);
+            Assert.False(item.HasWarningIcon);
+        }
+
+        [Fact]
+        public void WarningIconViewModel_ToolTip_CanBeChanged()
+        {
+            var warningVm = new WarningIconViewModel { ToolTip = "Initial" };
+            Assert.Equal("Initial", warningVm.ToolTip);
+
+            warningVm.ToolTip = "Updated";
+            Assert.Equal("Updated", warningVm.ToolTip);
+        }
     }
 }

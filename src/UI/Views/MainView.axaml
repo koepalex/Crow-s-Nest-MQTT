@@ -24,6 +24,8 @@
     <!-- Response status icons -->
     <StreamGeometry x:Key="clock_icon">M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z</StreamGeometry>
     <StreamGeometry x:Key="arrow_icon">M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z</StreamGeometry>
+    <!-- Warning icon for expired messages -->
+    <StreamGeometry x:Key="warning_icon">M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2v-2zm0-6h2v4h-2v-4z</StreamGeometry>
   </UserControl.Resources>
 
  <Design.DataContext>
@@ -264,6 +266,19 @@
                                       </DataTemplate>
                                   </DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
+                              <!-- Warning icon column for expired messages -->
+                              <DataGridTemplateColumn Header="" Width="Auto">
+                                  <DataGridTemplateColumn.CellTemplate>
+                                      <DataTemplate DataType="{x:Type vm:MetadataItem}">
+                                          <Panel IsVisible="{Binding HasWarningIcon}">
+                                              <PathIcon Width="16" Height="16"
+                                                        Data="{StaticResource warning_icon}"
+                                                        Foreground="#DAA520"
+                                                        ToolTip.Tip="{Binding WarningIconViewModel.ToolTip}"/>
+                                          </Panel>
+                                      </DataTemplate>
+                                  </DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
                           </DataGrid.Columns>
                       </DataGrid>
 
@@ -392,7 +407,15 @@
                                 <!-- DisplayText (Fills remaining space) -->
                                 <TextBlock Text="{Binding DisplayText}"
                                            TextTrimming="CharacterEllipsis"
-                                           VerticalAlignment="Center"/>
+                                           VerticalAlignment="Center"
+                                           Classes.Expired="{Binding IsExpired}">
+                                    <TextBlock.Styles>
+                                        <Style Selector="TextBlock.Expired">
+                                            <Setter Property="TextDecorations" Value="Strikethrough"/>
+                                            <Setter Property="Foreground" Value="Gray"/>
+                                        </Style>
+                                    </TextBlock.Styles>
+                                </TextBlock>
                              </DockPanel>
                          </DataTemplate>
                      </ListBox.ItemTemplate>
