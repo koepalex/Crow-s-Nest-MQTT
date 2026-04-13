@@ -323,7 +323,9 @@
                                          SyntaxHighlighting="{Binding PayloadSyntaxHighlighting}"
                                          Document="{Binding RawPayloadDocument, Mode=OneWay}"
                                          Padding="5"
-                                         Background="LightBlue"/>
+                                         Background="Black"
+                                         Foreground="White"
+                                         LineNumbersForeground="Gray"/>
                       </Border>
 
                       <!-- Image Viewer (Conditionally Visible) -->

@@ -18,7 +18,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <CodeAnalysisTreatWarningsAsErrors>false</CodeAnalysisTreatWarningsAsErrors>
-    <!-- Suppress vulnerability warning for Tmds.DBus.Protocol (transitive via Avalonia.FreeDesktop) -->
     <NoWarn>$(NoWarn);NU1903</NoWarn>
   </PropertyGroup>
 
