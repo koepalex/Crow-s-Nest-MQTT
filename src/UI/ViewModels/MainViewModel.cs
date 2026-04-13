@@ -80,6 +80,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly Queue<IdentifiedMqttApplicationMessageReceivedEventArgs> _pendingMessages = new();
     private readonly object _batchLock = new object();
     private Timer? _batchProcessingTimer;
+    private Timer? _expiryRefreshTimer;
     private readonly IScheduler _uiScheduler;
     private readonly bool _testMode; // Added: detect test/CI mode to disable expensive background infra
     // Per-topic message storage (prevents cross-topic eviction)
@@ -1329,7 +1330,8 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             this,
             e.ApplicationMessage,
             true, // enableFallbackFullMessage
-            e.IsEffectivelyRetained);
+            e.IsEffectivelyRetained,
+            e.ApplicationMessage.MessageExpiryInterval);
 
         messageViewModels.Add(messageVm);
 
@@ -1402,6 +1404,12 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         if (addedVmList.Count > 0)
         {
             _messageHistorySource.AddRange(addedVmList);
+
+            // Start expiry timer if any added messages have expiry intervals
+            if (addedVmList.Any(m => m.HasExpiry))
+            {
+                EnsureExpiryTimerRunning();
+            }
 
             // In test mode, manually update the simple filtered collection
             if (_testMode)
@@ -1789,7 +1797,37 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         var retainStatus = messageVm?.IsEffectivelyRetained.ToString() ?? msg.Retain.ToString();
         MessageMetadata.Add(new MetadataItem("Retain", retainStatus));
         MessageMetadata.Add(new MetadataItem("Payload Format", msg.PayloadFormatIndicator.ToString()));
-        MessageMetadata.Add(new MetadataItem("Expiry (s)", msg.MessageExpiryInterval.ToString()));
+
+        // Show computed expiry status with warning icon if expired
+        if (msg.MessageExpiryInterval > 0 && messageVm != null)
+        {
+            var remaining = messageVm.TimeRemaining;
+            string expiryText;
+            WarningIconViewModel? warningIcon = null;
+            if (messageVm.IsExpired)
+            {
+                expiryText = $"{msg.MessageExpiryInterval}s (EXPIRED)";
+                warningIcon = new WarningIconViewModel
+                {
+                    IsVisible = true,
+                    ToolTip = "This message has expired"
+                };
+            }
+            else if (remaining.HasValue)
+            {
+                expiryText = $"{msg.MessageExpiryInterval}s ({remaining.Value.TotalSeconds:F0}s remaining)";
+            }
+            else
+            {
+                expiryText = msg.MessageExpiryInterval.ToString();
+            }
+            MessageMetadata.Add(new MetadataItem("Expiry (s)", expiryText, warningIconViewModel: warningIcon));
+        }
+        else
+        {
+            MessageMetadata.Add(new MetadataItem("Expiry (s)", msg.MessageExpiryInterval.ToString()));
+        }
+
         MessageMetadata.Add(new MetadataItem("ContentType", msg.ContentType));
 
         // Add Response Topic with icon if present
@@ -2263,6 +2301,62 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         Log.Debug("Stopping UI update timer.");
         _updateTimer?.Dispose();
         _updateTimer = null;
+    }
+
+    /// <summary>
+    /// Ensures the shared expiry refresh timer is running.
+    /// Called when messages with non-zero MessageExpiryInterval are added.
+    /// </summary>
+    private void EnsureExpiryTimerRunning()
+    {
+        if (_expiryRefreshTimer != null || _testMode) return;
+        _expiryRefreshTimer = new Timer(ExpiryRefreshTick, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    /// <summary>
+    /// Called every second to refresh expiry state on all messages that have an expiry interval.
+    /// </summary>
+    private void ExpiryRefreshTick(object? state)
+    {
+        if (_disposedValue) return;
+        try
+        {
+            var messagesWithExpiry = _messageHistorySource.Items
+                .Where(m => m.HasExpiry)
+                .ToList();
+
+            if (messagesWithExpiry.Count == 0)
+            {
+                // No messages with expiry, stop the timer
+                _expiryRefreshTimer?.Dispose();
+                _expiryRefreshTimer = null;
+                return;
+            }
+
+            var selectedMsg = SelectedMessage;
+            bool selectedWasExpired = selectedMsg?.IsExpired ?? false;
+
+            foreach (var msg in messagesWithExpiry)
+            {
+                msg.RefreshExpiry();
+            }
+
+            // If the selected message's expiry state changed, refresh the metadata table
+            if (selectedMsg != null && selectedMsg.HasExpiry && selectedMsg.IsExpired != selectedWasExpired)
+            {
+                _syncContext?.Post(_ =>
+                {
+                    if (SelectedMessage == selectedMsg)
+                    {
+                        UpdateMessageDetails(selectedMsg);
+                    }
+                }, null);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Error during expiry refresh tick");
+        }
     }
 
     /// <summary>
@@ -4042,6 +4136,8 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
                 _uiHeartbeatTimer?.Dispose();
                 _uiHeartbeatTimer = null;
+                _expiryRefreshTimer?.Dispose();
+                _expiryRefreshTimer = null;
                 // Dispose managed state (managed objects).
                 Log.Debug("Disposing MainViewModel resources...");
                 if (!_cts.IsCancellationRequested)

@@ -15,6 +15,9 @@ Whether you're a seasoned developer or a newcomer to IoT, Crow’s NestMQTT prov
     * metadata like `response-topic`, `correlation-data`, `content-type`  etc.
     * all user properties
   * Supports MQTT V5 enhanced authentication
+  * Visual indication of expired messages ⏰
+    * Strikethrough and dimmed text in message history for expired messages
+    * Yellow warning icon in metadata view for the expiry field
 * Supports TLS connection to MQTT Broker 🔐
 * Can handle huge amount of MQTT messages 
 * Allows filtering of MQTT topics by pattern 🗃️
@@ -52,7 +55,7 @@ Shows the history of received messages of the selected topic. Including the rece
 Shows the payload of the message selected in history view. Supports rendering of JSON payload or shows payload as text. The default viewer is depending on `content-type` of the selected Message. The viewer can be switched by using `:view raw`, `:view json` and `:view image` commands.
 
 **6. Metadata View**
-Shows all the metadata of the message selected in history view. Including standard metadata like `correlation-id`, `response-topic` but also custom metadata like `user-properties`. 
+Shows all the metadata of the message selected in history view. Including standard metadata like `correlation-id`, `response-topic` but also custom metadata like `user-properties`. When a message has a non-zero `message-expiry-interval`, the metadata view shows the remaining time or "EXPIRED" status. Expired messages display a yellow warning icon next to the expiry field.
 
 ### Settings
 **1. Connection Settings**  
@@ -112,6 +115,8 @@ Crow's NestMQTT understand MQTT V5 request/response, each request message shows 
 
 Once the response message is received (first message send to given response topic that has the same correlation data), and clickable arrow icon allows jumping direct to the response.
 ![](./doc/images/go-to-response.png)
+
+Messages with MQTT V5 `message-expiry-interval` are visually marked when they expire: the message history shows them with strikethrough text and dimmed foreground, while the metadata view displays a yellow warning triangle icon next to the expiry field with the "EXPIRED" status.
 
 ## Command Interface
 
