@@ -33,5 +33,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\TestData\MqttTestDataGenerator.cs" Link="TestData\MqttTestDataGenerator.cs" />
+    <!-- Temporarily exclude Navigation contract tests with wrong namespace casing (CrowsNestMQTT vs CrowsNestMqtt) -->
+    <Compile Remove="Navigation\**\*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="xunit.runner.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

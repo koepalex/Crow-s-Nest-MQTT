@@ -302,7 +302,7 @@ public class ExportAllMessagesIntegrationTests : IDisposable
             CorrelationData = Encoding.UTF8.GetBytes($"corr-{id}"),
             UserProperties = new List<MQTTnet.Packets.MqttUserProperty>
             {
-                new MQTTnet.Packets.MqttUserProperty("test-id", id.ToString())
+                new MQTTnet.Packets.MqttUserProperty("test-id", Encoding.UTF8.GetBytes(id.ToString()))
             }
         };
     }
