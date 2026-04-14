@@ -254,7 +254,7 @@ public class ExportPerformanceTests : IDisposable
             var userProperties = new List<MQTTnet.Packets.MqttUserProperty>();
             for (int j = 0; j < 20; j++) // 20 user properties per message
             {
-                userProperties.Add(new MQTTnet.Packets.MqttUserProperty($"prop-{j}", $"value-{j}-{i}"));
+                userProperties.Add(new MQTTnet.Packets.MqttUserProperty($"prop-{j}", Encoding.UTF8.GetBytes($"value-{j}-{i}")));
             }
 
             messages.Add(new MqttApplicationMessage
@@ -287,7 +287,7 @@ public class ExportPerformanceTests : IDisposable
             CorrelationData = Encoding.UTF8.GetBytes($"corr-{id}"),
             UserProperties = new List<MQTTnet.Packets.MqttUserProperty>
             {
-                new MQTTnet.Packets.MqttUserProperty("test-id", id.ToString())
+                new MQTTnet.Packets.MqttUserProperty("test-id", Encoding.UTF8.GetBytes(id.ToString()))
             }
         };
     }

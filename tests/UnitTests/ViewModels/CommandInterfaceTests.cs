@@ -48,32 +48,26 @@ public class CommandInterfaceTests
            _statusBarServiceMock = Substitute.For<IStatusBarService>(); // Initialize mock
        }
 
-        [Fact]
+        [Fact(Timeout = 10000)]
         public async Task ExecuteSubmitInput_WithCommandInput_ShouldExecuteCommand()
         {
-            // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            // Arrange - inject mock IMqttService via constructor to avoid creating a real MqttEngine
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             const string commandText = ":connect localhost:1883";
             viewModel.CommandText = commandText;
 
             // Set up the command parser mock to return a valid command result
             var parsedCommand = new ParsedCommand(CommandType.Connect, new List<string> { "localhost:1883" }.AsReadOnly());
             var commandResult = CommandResult.SuccessCommand(parsedCommand);
-            _commandParserService.ParseInput(commandText, Arg.Any<SettingsData>()).Returns(commandResult); // Revert to Arg.Any for now
-
-            // Use reflection to replace the engine for testing connect command execution
-            var engineField = typeof(MainViewModel).GetField("_mqttEngine", BindingFlags.NonPublic | BindingFlags.Instance);
-            engineField?.SetValue(viewModel, _mqttEngine);
+            _commandParserService.ParseInput(commandText, Arg.Any<SettingsData>()).Returns(commandResult);
 
             // Act - Call the ExecuteSubmitInput method via reflection
             var executeMethod = typeof(MainViewModel).GetMethod("ExecuteSubmitInput", BindingFlags.NonPublic | BindingFlags.Instance);
             executeMethod?.Invoke(viewModel, null);
 
             // Assert
-            _commandParserService.Received(1).ParseInput(commandText, Arg.Any<SettingsData>()); // Use Arg.Any for Received check too
-            // Should update settings and connect as a result of the :connect command
-            // _mqttEngine.Received(1).UpdateSettings(Arg.Is<MqttConnectionSettings>(s => s != null)); // Cannot verify non-virtual method on class substitute
-            await _mqttEngine.Received(1).ConnectAsync(Arg.Any<CancellationToken>());
+            _commandParserService.Received(1).ParseInput(commandText, Arg.Any<SettingsData>());
+            await _mqttServiceMock.Received(1).ConnectAsync(Arg.Any<CancellationToken>());
         }
 
         [Fact]
