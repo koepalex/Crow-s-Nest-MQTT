@@ -23,6 +23,7 @@ namespace CrowsNestMqtt.UI.Views;
 public partial class MainView : UserControl
 {
     private INotifyCollectionChanged? _observableHistory;
+    private PublishWindow? _publishWindow;
     private IDisposable? _focusCommandSubscription; // Added for focus command
    private IDisposable? _focusTopicTreeSubscription; // Added for topic tree focus command
    private IDisposable? _gotFocusSubscription; // Added for window focus tracking
@@ -304,6 +305,9 @@ public partial class MainView : UserControl
 
            // Focus tracking is now handled in OnAttachedToVisualTree
 
+           // Subscribe to ShowPublishWindowRequested to open the publish window
+           vm.ShowPublishWindowRequested += OnShowPublishWindowRequested;
+
            // Subscribe to RawPayloadDocument changes to clear selection when empty
            _rawPayloadDocumentSubscription = vm.WhenAnyValue(x => x.RawPayloadDocument)
                .ObserveOn(RxApp.MainThreadScheduler) // Ensure UI access is on the correct thread
@@ -326,7 +330,20 @@ public partial class MainView : UserControl
     /// </summary>
     private void OnWindowKeyDown(KeyEventArgs e)
     {
-        if (DataContext is not MainViewModel vm || vm.KeyboardNavigationService == null)
+        if (DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        // Ctrl+Shift+M: Toggle publish window (works regardless of focus)
+        if (e.Key == Key.M && e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift))
+        {
+            vm.TogglePublishWindowCommand.Execute().Subscribe();
+            e.Handled = true;
+            return;
+        }
+
+        if (vm.KeyboardNavigationService == null)
         {
             return;
         }
@@ -405,6 +422,19 @@ _clipboardInteractionSubscription = null;
 _rawPayloadDocumentSubscription?.Dispose(); // Dispose document subscription
 _rawPayloadDocumentSubscription = null;
 _parentWindow = null; // Clear window reference
+
+        // Unsubscribe from publish window event
+        if (DataContext is MainViewModel oldVm)
+        {
+            oldVm.ShowPublishWindowRequested -= OnShowPublishWindowRequested;
+        }
+
+        // Close any open publish window
+        if (_publishWindow != null)
+        {
+            _publishWindow.Close();
+            _publishWindow = null;
+        }
 // _rawPayloadEditor reference is cleared implicitly when view is destroyed
 // Optional: Unsubscribe from PropertyChanged if you subscribed
 // if (DataContext is MainViewModel oldVm)
@@ -444,4 +474,29 @@ _parentWindow = null; // Clear window reference
 
     // InitializeComponent is automatically generated from the XAML.
     // No need to define it manually unless customizing the build process.
+
+    private void OnShowPublishWindowRequested(object? sender, EventArgs e)
+    {
+        if (_publishWindow is { IsVisible: true })
+        {
+            _publishWindow.Activate();
+            return;
+        }
+
+        if (DataContext is not MainViewModel vm) return;
+
+        var publishVm = vm.PublishViewModel;
+        if (publishVm == null) return;
+
+        _publishWindow = new PublishWindow { DataContext = publishVm };
+
+        // Clear reference when window is closed
+        _publishWindow.Closed += (_, _) => _publishWindow = null;
+
+        var ownerWindow = TopLevel.GetTopLevel(this) as Window;
+        if (ownerWindow != null)
+            _publishWindow.Show(ownerWindow);
+        else
+            _publishWindow.Show();
+    }
 }

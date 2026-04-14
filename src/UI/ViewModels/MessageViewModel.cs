@@ -21,6 +21,7 @@ public class MessageViewModel : ReactiveObject
     public string PayloadPreview { get; } = string.Empty; // Store the generated preview (initialized for nullable safety)
     public int Size { get; }
     public bool IsEffectivelyRetained { get; } // Store the corrected retain status
+    public bool IsOwnMessage { get; } // Message was published by this client
 
     /// <summary>
     /// The MQTT 5 message expiry interval in seconds. 0 means no expiry.
@@ -58,7 +59,9 @@ public class MessageViewModel : ReactiveObject
     }
 
     // Display text remains the same, based on stored preview
-    public string DisplayText => $"{Timestamp:HH:mm:ss.fff} ({Size,10} B): {PayloadPreview}";
+    public string DisplayText => IsOwnMessage
+        ? $"↑ {Timestamp:HH:mm:ss.fff} ({Size,10} B): {PayloadPreview}"
+        : $"{Timestamp:HH:mm:ss.fff} ({Size,10} B): {PayloadPreview}";
 
     // Constructor accepting necessary data and injected services
     public MessageViewModel(
@@ -72,7 +75,8 @@ public class MessageViewModel : ReactiveObject
         MqttApplicationMessage? fullMessage = null,
         bool enableFallbackFullMessage = true,
         bool isEffectivelyRetained = false,
-        uint messageExpiryInterval = 0)
+        uint messageExpiryInterval = 0,
+        bool isOwnMessage = false)
     {
         MessageId = messageId;
         Topic = topic ?? throw new ArgumentNullException(nameof(topic));
@@ -80,6 +84,7 @@ public class MessageViewModel : ReactiveObject
         PayloadPreview = payloadPreview ?? string.Empty;
         Size = size;
         IsEffectivelyRetained = isEffectivelyRetained;
+        IsOwnMessage = isOwnMessage;
         MessageExpiryInterval = messageExpiryInterval;
         _mqttService = mqttService ?? throw new ArgumentNullException(nameof(mqttService));
         _statusBarService = statusBarService ?? throw new ArgumentNullException(nameof(statusBarService));

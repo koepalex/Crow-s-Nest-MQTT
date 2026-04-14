@@ -57,6 +57,7 @@ public class MockMqttService : IMqttService
         public Task PublishAsync(string topic, string payload, bool retain, MqttQualityOfServiceLevel qos, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task PublishAsync(string topic, byte[] payload, bool retain, MqttQualityOfServiceLevel qos, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task ClearRetainedMessageAsync(string topic, MqttQualityOfServiceLevel qos, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<CrowsNestMqtt.BusinessLogic.Models.MqttPublishResult> PublishAsync(CrowsNestMqtt.BusinessLogic.Models.MqttPublishRequest request, CancellationToken cancellationToken = default) => Task.FromResult(CrowsNestMqtt.BusinessLogic.Models.MqttPublishResult.Succeeded(request.Topic, MqttClientPublishReasonCode.Success));
         public IEnumerable<CrowsNestMqtt.Utils.BufferedMqttMessage>? GetBufferedMessagesForTopic(string topic) => null;
         public IEnumerable<CrowsNestMqtt.Utils.BufferedMqttMessage> GetMessagesForTopic(string topic) => Enumerable.Empty<CrowsNestMqtt.Utils.BufferedMqttMessage>();
         public void ClearAllBuffers() { }

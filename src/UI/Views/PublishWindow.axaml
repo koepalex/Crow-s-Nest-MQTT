@@ -1,0 +1,177 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:CrowsNestMqtt.UI.ViewModels"
+        xmlns:ae="using:AvaloniaEdit"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="700"
+        x:Class="CrowsNestMqtt.UI.Views.PublishWindow"
+        x:DataType="vm:PublishViewModel"
+        x:CompileBindings="False"
+        Title="Publish Message"
+        Width="600" Height="700"
+        MinWidth="450" MinHeight="500"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner">
+
+  <Window.KeyBindings>
+    <KeyBinding Gesture="Escape" Command="{Binding $parent[Window].CloseCommand}" />
+    <KeyBinding Gesture="Alt+P" Command="{Binding PublishCommand}" />
+    <KeyBinding Gesture="Ctrl+Return" Command="{Binding PublishCommand}" />
+  </Window.KeyBindings>
+
+  <DockPanel Margin="12">
+
+    <!-- Status bar at the bottom -->
+    <Border DockPanel.Dock="Bottom" Margin="0,8,0,0"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+            CornerRadius="4" Padding="8,4">
+      <TextBlock Text="{Binding StatusText}" FontSize="12" Opacity="0.8" />
+    </Border>
+
+    <!-- Action buttons at the bottom -->
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
+      <Button Content="📂 Load File" Command="{Binding LoadFileCommand}" />
+      <Button Content="Clear" Command="{Binding ClearCommand}" />
+      <Button Content="Publish" Command="{Binding PublishCommand}"
+              Classes="accent" FontWeight="Bold" />
+    </StackPanel>
+
+    <!-- Scrollable main content -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="10">
+
+        <!-- History -->
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Left" Text="History:" VerticalAlignment="Center"
+                     Width="110" />
+          <ComboBox ItemsSource="{Binding HistoryEntries}"
+                    SelectedItem="{Binding SelectedHistoryEntry, Mode=TwoWay}"
+                    HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding PayloadPreview}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </DockPanel>
+
+        <!-- Topic -->
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Left" Text="Topic:" VerticalAlignment="Center"
+                     Width="110" />
+          <TextBox Text="{Binding Topic, Mode=TwoWay}"
+                   Watermark="e.g. sensor/temperature" />
+        </DockPanel>
+
+        <!-- Payload Editor -->
+        <TextBlock Text="Payload:" Margin="0,4,0,2" />
+        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                BorderThickness="1" CornerRadius="4" MinHeight="180">
+          <ae:TextEditor Name="PayloadEditor"
+                         FontFamily="Consolas,Menlo,Monospace"
+                         FontSize="12"
+                         ShowLineNumbers="True"
+                         WordWrap="True"
+                         Document="{Binding PayloadDocument, Mode=TwoWay}"
+                         SyntaxHighlighting="{Binding SyntaxHighlighting}" />
+        </Border>
+
+        <!-- QoS and Retain row -->
+        <Grid ColumnDefinitions="110,*,Auto,Auto">
+          <TextBlock Text="QoS:" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding QoSLevels}"
+                    SelectedItem="{Binding SelectedQoS, Mode=TwoWay}"
+                    MinWidth="80" />
+          <TextBlock Grid.Column="2" Text="Retain:" VerticalAlignment="Center"
+                     Margin="16,0,8,0" />
+          <CheckBox Grid.Column="3" IsChecked="{Binding Retain, Mode=TwoWay}" />
+        </Grid>
+
+        <!-- V5 Properties Expander -->
+        <Button Command="{Binding ToggleV5PropertiesCommand}"
+                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                Padding="8,6">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="▶" FontSize="10" VerticalAlignment="Center">
+              <TextBlock.IsVisible>
+                <Binding Path="IsV5PropertiesExpanded"
+                         Converter="{x:Static BoolConverters.Not}" />
+              </TextBlock.IsVisible>
+            </TextBlock>
+            <TextBlock Text="▼" FontSize="10" VerticalAlignment="Center"
+                       IsVisible="{Binding IsV5PropertiesExpanded}" />
+            <TextBlock Text="MQTT V5 Properties" FontWeight="SemiBold" />
+          </StackPanel>
+        </Button>
+
+        <StackPanel IsVisible="{Binding IsV5PropertiesExpanded}" Spacing="8"
+                    Margin="12,0,0,0">
+
+          <!-- Content Type -->
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Left" Text="Content Type:" Width="150"
+                       VerticalAlignment="Center" />
+            <TextBox Text="{Binding ContentType, Mode=TwoWay}"
+                     Watermark="e.g. application/json" />
+          </DockPanel>
+
+          <!-- Payload Format Indicator -->
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Left" Text="Payload Format:" Width="150"
+                       VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding PayloadFormatOptions}"
+                      SelectedIndex="{Binding PayloadFormatIndicator, Mode=TwoWay}" />
+          </DockPanel>
+
+          <!-- Response Topic -->
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Left" Text="Response Topic:" Width="150"
+                       VerticalAlignment="Center" />
+            <TextBox Text="{Binding ResponseTopic, Mode=TwoWay}"
+                     Watermark="Optional response topic" />
+          </DockPanel>
+
+          <!-- Correlation Data -->
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Left" Text="Correlation Data:" Width="150"
+                       VerticalAlignment="Center" />
+            <TextBox Text="{Binding CorrelationData, Mode=TwoWay}"
+                     Watermark="Hex or UTF-8 string" />
+          </DockPanel>
+
+          <!-- Message Expiry Interval -->
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Left" Text="Expiry (seconds):" Width="150"
+                       VerticalAlignment="Center" />
+            <NumericUpDown Value="{Binding MessageExpiryInterval, Mode=TwoWay}"
+                           Minimum="0" Maximum="4294967295"
+                           FormatString="0" Watermark="0 = no expiry" />
+          </DockPanel>
+
+          <!-- User Properties -->
+          <TextBlock Text="User Properties:" FontWeight="SemiBold" Margin="0,4,0,2" />
+          <ItemsControl ItemsSource="{Binding UserProperties}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Grid ColumnDefinitions="*,*,Auto" Margin="0,2">
+                  <TextBox Grid.Column="0" Text="{Binding Name, Mode=TwoWay}"
+                           Watermark="Name" Margin="0,0,4,0" />
+                  <TextBox Grid.Column="1" Text="{Binding Value, Mode=TwoWay}"
+                           Watermark="Value" Margin="4,0,4,0" />
+                  <Button Grid.Column="2" Content="✕" Padding="6,4"
+                          Command="{Binding $parent[ItemsControl].((vm:PublishViewModel)DataContext).RemoveUserPropertyCommand}"
+                          CommandParameter="{Binding}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <Button Content="+ Add Property" Command="{Binding AddUserPropertyCommand}"
+                  HorizontalAlignment="Left" Padding="8,4" />
+        </StackPanel>
+
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

@@ -93,6 +93,11 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly SearchStatusViewModel _searchStatusViewModel;
     private readonly MessageNavigationState _messageNavigationState;
 
+    // Publish window support (Feature 007)
+    private readonly IPublishHistoryService? _publishHistoryService;
+    private readonly IFileAutoCompleteService? _fileAutoCompleteService;
+    private PublishViewModel? _publishViewModel;
+
     // Topic normalization helper (single place)
     private static string? NormalizeTopic(string? t) => string.IsNullOrWhiteSpace(t) ? null : t.Trim().TrimEnd('/');
 
@@ -707,11 +712,23 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     public ReactiveCommand<string?, Unit> NavigateToResponseCommand { get; } // Added command to navigate to response messages
     public ReactiveCommand<object?, Unit> ExportMessageCommand { get; } // T020: Added command to export single message from row button
     public ReactiveCommand<Unit, Unit> ExportAllCommand { get; } // T021: Added command to export all messages from selected topic
+    public ReactiveCommand<Unit, Unit> TogglePublishWindowCommand { get; } // Feature 007: Toggle publish window
 
     // Interaction for requesting clipboard copy from the View
     public Interaction<string, Unit> CopyTextToClipboardInteraction { get; }
     // Interaction for requesting image copy from the View
     public Interaction<Bitmap, Unit> CopyImageToClipboardInteraction { get; }
+
+    /// <summary>
+    /// Event raised when the publish window should be shown or focused.
+    /// The View subscribes to this to manage the window lifecycle.
+    /// </summary>
+    public event EventHandler? ShowPublishWindowRequested;
+
+    /// <summary>
+    /// Gets the PublishViewModel for the publish window.
+    /// </summary>
+    public PublishViewModel? PublishViewModel => _publishViewModel;
 
     /// <summary>
     /// Gets or sets a value indicating whether the main application window currently has focus.
@@ -728,12 +745,14 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     /// Sets up placeholder data and starts the UI update timer.
     /// </summary>
     // Constructor now requires ICommandParserService
-    public MainViewModel(ICommandParserService commandParserService, IMqttService? mqttService = null, IDeleteTopicService? deleteTopicService = null, IMessageCorrelationService? correlationService = null, IResponseIconService? iconService = null, string? aspireHostname = null, int? aspirePort = null, IScheduler? uiScheduler = null)
+    public MainViewModel(ICommandParserService commandParserService, IMqttService? mqttService = null, IDeleteTopicService? deleteTopicService = null, IMessageCorrelationService? correlationService = null, IResponseIconService? iconService = null, string? aspireHostname = null, int? aspirePort = null, IScheduler? uiScheduler = null, IPublishHistoryService? publishHistoryService = null, IFileAutoCompleteService? fileAutoCompleteService = null)
     {
         _commandParserService = commandParserService ?? throw new ArgumentNullException(nameof(commandParserService)); // Store injected service
         _deleteTopicService = deleteTopicService; // Store injected delete topic service (optional)
         _correlationService = correlationService; // Store injected correlation service (optional)
         _iconService = iconService; // Store injected icon service (optional)
+        _publishHistoryService = publishHistoryService; // Store injected publish history service (optional)
+        _fileAutoCompleteService = fileAutoCompleteService; // Store injected file autocomplete service (optional)
         _uiScheduler = uiScheduler 
             ?? (Application.Current == null ? Scheduler.Immediate : RxApp.MainThreadScheduler); // Use Immediate in non-Avalonia (plain unit test) context
         _testMode = Application.Current == null
@@ -1064,6 +1083,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         NavigateToResponseCommand = ReactiveCommand.Create<string?>(NavigateToResponse); // Initialize navigate to response command
         ExportMessageCommand = ReactiveCommand.CreateFromTask<object?>(ExecuteExportMessageAsync); // T020: Initialize export message command
         ExportAllCommand = ReactiveCommand.Create(ExecuteExportAllCommand); // T021: Initialize export all command
+        TogglePublishWindowCommand = ReactiveCommand.Create(TogglePublishWindow); // Feature 007: Initialize toggle publish window command
 
         // --- Property Change Reactions ---
 
@@ -1238,6 +1258,12 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             this.RaisePropertyChanged(nameof(IsDeleteButtonEnabled));
             this.RaisePropertyChanged(nameof(HasConnectionError));
 
+            // Sync connection state to publish window if open
+            if (_publishViewModel != null)
+            {
+                _publishViewModel.IsConnected = ConnectionStatus == ConnectionStatusState.Connected;
+            }
+
             if (ConnectionStatus == ConnectionStatusState.Connected)
             {
                 Log.Information("MQTT Client Connected. Starting UI Timer.");
@@ -1331,7 +1357,8 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             e.ApplicationMessage,
             true, // enableFallbackFullMessage
             e.IsEffectivelyRetained,
-            e.ApplicationMessage.MessageExpiryInterval);
+            e.ApplicationMessage.MessageExpiryInterval,
+            e.IsOwnMessage);
 
         messageViewModels.Add(messageVm);
 
@@ -2609,6 +2636,84 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         Log.Information("Settings Visible: {IsSettingsVisible}", IsSettingsVisible);
     }
 
+    /// <summary>
+    /// Gets or creates the PublishViewModel, ensuring it has the current MQTT service reference.
+    /// </summary>
+    internal PublishViewModel GetOrCreatePublishViewModel()
+    {
+        if (_publishViewModel == null)
+        {
+            _publishViewModel = new PublishViewModel(_mqttService, _publishHistoryService, _fileAutoCompleteService);
+            this.RaisePropertyChanged(nameof(PublishViewModel));
+        }
+        // Sync connection state
+        _publishViewModel.IsConnected = ConnectionStatus == ConnectionStatusState.Connected;
+        // Default to selected topic if set
+        if (!string.IsNullOrEmpty(_normalizedSelectedPath) && string.IsNullOrEmpty(_publishViewModel.Topic))
+        {
+            _publishViewModel.Topic = _normalizedSelectedPath;
+        }
+        return _publishViewModel;
+    }
+
+    private void TogglePublishWindow()
+    {
+        GetOrCreatePublishViewModel();
+        ShowPublishWindowRequested?.Invoke(this, EventArgs.Empty);
+        Log.Information("Publish window toggle requested.");
+    }
+
+    private void HandlePublishCommand(ParsedCommand command)
+    {
+        var vm = GetOrCreatePublishViewModel();
+
+        // If topic argument provided, set it on the VM
+        if (command.Arguments.Count > 0)
+        {
+            vm.Topic = command.Arguments[0];
+        }
+        else if (!string.IsNullOrEmpty(_normalizedSelectedPath))
+        {
+            vm.Topic = _normalizedSelectedPath;
+        }
+
+        // If there's inline payload (second argument or more), set it
+        if (command.Arguments.Count > 1)
+        {
+            var payload = string.Join(" ", command.Arguments.Skip(1));
+            // Check for @file reference
+            if (payload.StartsWith("@") && payload.Length > 1)
+            {
+                var filePath = payload.Substring(1);
+                if (System.IO.File.Exists(filePath))
+                {
+                    try
+                    {
+                        var fileContent = System.IO.File.ReadAllText(filePath);
+                        vm.PayloadDocument.Text = fileContent;
+                        StatusBarText = $"Loaded payload from file: {filePath}";
+                    }
+                    catch (Exception ex)
+                    {
+                        StatusBarText = $"Error reading file: {ex.Message}";
+                        Log.Warning(ex, "Failed to read file for publish: {FilePath}", filePath);
+                    }
+                }
+                else
+                {
+                    StatusBarText = $"File not found: {filePath}";
+                }
+            }
+            else
+            {
+                vm.PayloadDocument.Text = payload;
+            }
+        }
+
+        // Show the publish window
+        ShowPublishWindowRequested?.Invoke(this, EventArgs.Empty);
+    }
+
     private void ExecuteSubmitInput()
     {
         Log.Debug("ExecuteSubmitInput triggered. CommandText: '{CommandText}'", CommandText); // Add logging
@@ -2921,6 +3026,9 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                         Log.Warning("Invalid arguments for SetUseTls command.");
                     }
                     break;
+                case CommandType.Publish:
+                    HandlePublishCommand(command);
+                    break;
                 default:
                     StatusBarText = $"Error: Unknown command type '{command.Type}'.";
                     Log.Warning("Unknown command type encountered: {CommandType}", command.Type);
@@ -2958,7 +3066,8 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         { "setusetls", (":setusetls <true|false>", "Sets whether to use TLS for MQTT connections. true = enable TLS, false = disable TLS.") },
         { "deletetopic", (":deletetopic [topic-pattern] [--confirm]", "Deletes retained messages from a topic and its subtopics by publishing empty retained messages. Uses selected topic if no pattern specified.") },
         { "gotoresponse", (":gotoresponse", "Navigates to the response message for the currently selected MQTT v5 request message.") },
-        { "settings", (":settings", "Toggles the visibility of the settings pane.") }
+        { "settings", (":settings", "Toggles the visibility of the settings pane.") },
+        { "publish", (":publish [topic] [@file|text]", "Opens the publish window. Optionally pre-fills topic and payload from a file (@path) or inline text.") }
     };
 
     private void DisplayHelpInformation(string? commandName = null)

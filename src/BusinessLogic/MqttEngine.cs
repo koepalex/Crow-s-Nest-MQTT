@@ -31,6 +31,11 @@ public class IdentifiedMqttApplicationMessageReceivedEventArgs : EventArgs // No
     }
 
     public bool IsEffectivelyRetained { get; internal set; }
+
+    /// <summary>
+    /// Indicates whether this message was published by this client instance.
+    /// </summary>
+    public bool IsOwnMessage { get; internal set; }
 }
 
 public class MqttEngine : IMqttService // Implement the interface
@@ -47,6 +52,7 @@ private MqttClientOptions? _currentOptions;
     private IList<TopicBufferLimit> _topicSpecificBufferLimits = new List<TopicBufferLimit>();
     internal const long DefaultMaxTopicBufferSize = 1 * 1024 * 1024; // Changed to internal const
     private readonly object _bufferReconfigLock = new(); // Lock for reconfiguring existing topic buffers
+    private string? _ownClientId;
     
     // Track subscription error to preserve error message during disconnect
     private string? _pendingErrorMessage;
@@ -254,6 +260,7 @@ public async Task ConnectAsync(CancellationToken cancellationToken = default)
         ConnectionStateChanged?.Invoke(this, new MqttConnectionStateChangedEventArgs(false, null, ConnectionStatusState.Connecting));
         
         _currentOptions = BuildMqttOptions();
+        _ownClientId = _currentOptions.ClientId;
         LogMessage?.Invoke(this, $"Attempting to connect to {_currentOptions.ChannelOptions} with ClientId '{_currentOptions.ClientId ?? "<generated>"}'.");
         
         // This call will either succeed and trigger OnClientConnected,
@@ -366,6 +373,61 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
         // To clear a retained message, publish an empty payload with retain flag set to true
         await PublishAsync(topic, new byte[0], retain: true, qos: qos, cancellationToken).ConfigureAwait(false);
         LogMessage?.Invoke(this, $"Cleared retained message for topic: {topic}");
+    }
+
+    public async Task<Models.MqttPublishResult> PublishAsync(Models.MqttPublishRequest request, CancellationToken cancellationToken = default)
+    {
+        if (!_client.IsConnected)
+        {
+            LogMessage?.Invoke(this, "Cannot publish: Client is not connected.");
+            return Models.MqttPublishResult.Failed(request.Topic, "Client is not connected.");
+        }
+
+        var builder = new MqttApplicationMessageBuilder()
+            .WithTopic(request.Topic)
+            .WithPayload(request.GetEffectivePayload())
+            .WithQualityOfServiceLevel(request.QoS)
+            .WithRetainFlag(request.Retain);
+
+        if (!string.IsNullOrEmpty(request.ContentType))
+            builder.WithContentType(request.ContentType);
+
+        if (request.PayloadFormatIndicator != MQTTnet.Protocol.MqttPayloadFormatIndicator.Unspecified)
+            builder.WithPayloadFormatIndicator(request.PayloadFormatIndicator);
+
+        if (!string.IsNullOrEmpty(request.ResponseTopic))
+            builder.WithResponseTopic(request.ResponseTopic);
+
+        if (request.CorrelationData != null && request.CorrelationData.Length > 0)
+            builder.WithCorrelationData(request.CorrelationData);
+
+        if (request.MessageExpiryInterval > 0)
+            builder.WithMessageExpiryInterval(request.MessageExpiryInterval);
+
+        foreach (var prop in request.UserProperties)
+        {
+            builder.WithUserProperty(prop.Name, prop.ValueBuffer);
+        }
+
+        var message = builder.Build();
+
+        try
+        {
+            var result = await _client.PublishAsync(message, cancellationToken).ConfigureAwait(false);
+            if (result.ReasonCode != MqttClientPublishReasonCode.Success)
+            {
+                LogMessage?.Invoke(this, $"Failed to publish to '{request.Topic}'. Reason: {result.ReasonCode}");
+                return Models.MqttPublishResult.Failed(request.Topic, $"Broker rejected: {result.ReasonCode}", result.ReasonCode);
+            }
+
+            LogMessage?.Invoke(this, $"Successfully published to '{request.Topic}' with V5 properties.");
+            return Models.MqttPublishResult.Succeeded(request.Topic, result.ReasonCode);
+        }
+        catch (Exception ex)
+        {
+            LogMessage?.Invoke(this, $"Error publishing to '{request.Topic}': {ex.Message}");
+            return Models.MqttPublishResult.Failed(request.Topic, ex.Message);
+        }
     }
 
     public async Task<MqttClientSubscribeResult> SubscribeAsync(string topicFilter, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtLeastOnce, CancellationToken cancellationToken = default)
@@ -928,7 +990,8 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
                 e.ClientId
             )
             {
-                IsEffectivelyRetained = e.ApplicationMessage.Retain
+                IsEffectivelyRetained = e.ApplicationMessage.Retain,
+                IsOwnMessage = !string.IsNullOrEmpty(_ownClientId) && e.ClientId == _ownClientId
             };
 
             eventArgsToFire.Add(identifiedArgs);

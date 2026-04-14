@@ -70,6 +70,8 @@ class Program
                 {
                     // Create services for dependency injection
                     var commandParserService = new CommandParserService();
+                    var publishHistoryService = new PublishHistoryService();
+                    var fileAutoCompleteService = new FileAutoCompleteService();
 
                     // Services will be created in MainViewModel after MqttService is available
                     IDeleteTopicService? deleteTopicService = null;
@@ -82,7 +84,7 @@ class Program
 
                     desktop.MainWindow = new MainWindow
                     {
-                        DataContext = new MainViewModel(commandParserService, null, deleteTopicService, correlationService, iconService, aspireHostname, aspirePort)
+                        DataContext = new MainViewModel(commandParserService, null, deleteTopicService, correlationService, iconService, aspireHostname, aspirePort, publishHistoryService: publishHistoryService, fileAutoCompleteService: fileAutoCompleteService)
                     };
 
                     if (!string.IsNullOrEmpty(aspireHostname) && aspirePort.HasValue)
