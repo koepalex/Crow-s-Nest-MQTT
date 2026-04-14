@@ -6,7 +6,6 @@ using CrowsNestMqtt.BusinessLogic.Exporter;
 using MQTTnet;
 using MQTTnet.Protocol;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace CrowsNestMqtt.Integration.Tests;
 

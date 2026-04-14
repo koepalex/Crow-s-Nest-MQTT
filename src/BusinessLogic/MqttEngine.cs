@@ -177,7 +177,8 @@ private MqttClientOptions? _currentOptions;
             .WithProtocolVersion(MQTTnet.Formatter.MqttProtocolVersion.V500)
             .WithKeepAlivePeriod(_settings.KeepAliveInterval)
             .WithCleanSession(_settings.CleanSession)
-            .WithWillQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce);
+            .WithWillQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+            .WithTimeout(TimeSpan.FromSeconds(10));
 
         if (_settings.SessionExpiryInterval.HasValue)
         {

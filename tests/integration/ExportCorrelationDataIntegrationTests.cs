@@ -3,7 +3,6 @@ using CrowsNestMqtt.BusinessLogic.Exporter;
 using CrowsNestMqtt.Tests.TestData;
 using MQTTnet.Protocol;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace CrowsNestMqtt.Integration.Tests;
 
@@ -25,13 +24,13 @@ public class ExportCorrelationDataIntegrationTests : IAsyncLifetime
         Directory.CreateDirectory(_testDirectory);
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         var port = await _mqttUtils.StartEmbeddedBrokerAsync();
         _output.WriteLine($"Started embedded MQTT broker on port {port}");
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _mqttUtils.DisposeAsync();
 

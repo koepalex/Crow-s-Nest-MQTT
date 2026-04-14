@@ -5,6 +5,8 @@
   <PropertyGroup>
     <!-- Suppress CA1707 (Identifiers should not contain underscores) for test projects -->
     <!-- Underscore naming convention (e.g., Method_Scenario_Expected) is standard for test methods -->
-    <NoWarn>$(NoWarn);CA1707</NoWarn>
+    <!-- Suppress CA1014 (Mark assemblies with CLSCompliant) - not applicable for test assemblies -->
+    <!-- Suppress xUnit1051 (CancellationToken.None vs TestContext) - many existing tests use CancellationToken.None -->
+    <NoWarn>$(NoWarn);CA1707;CA1014;xUnit1051</NoWarn>
   </PropertyGroup>
 </Project>

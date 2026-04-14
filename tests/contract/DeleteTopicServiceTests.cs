@@ -63,8 +63,8 @@ public class DeleteTopicServiceTests
             RequireConfirmation = false,
             Timestamp = DateTime.UtcNow
         };
-        var cancellationToken = new CancellationTokenSource();
-        cancellationToken.Cancel();
+        using var cancellationToken = new CancellationTokenSource();
+        await cancellationToken.CancelAsync();
 
         // Act & Assert
         await Assert.ThrowsAsync<OperationCanceledException>(() =>

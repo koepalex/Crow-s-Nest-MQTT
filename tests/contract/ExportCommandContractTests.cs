@@ -14,9 +14,9 @@ namespace CrowsNestMqtt.Contract.Tests;
 /// export files must contain the same hexadecimal format, NOT base64 encoding.
 ///
 /// These tests will FAIL initially because current TextExporter uses Convert.ToBase64String()
-/// instead of the required BitConverter.ToString().Replace("-", "").ToUpper() format.
+/// instead of the required Convert.ToHexString() format.
 /// </summary>
-public class ExportCommandContractTests : IDisposable
+public sealed class ExportCommandContractTests : IDisposable
 {
     private readonly string _testDirectory;
 
@@ -51,7 +51,7 @@ public class ExportCommandContractTests : IDisposable
             .First(m => m.Message.Topic.Contains("simple"));
 
         var correlationBytes = testMessage.Message.CorrelationData!;
-        var expectedHexFormat = BitConverter.ToString(correlationBytes).Replace("-", "").ToUpper();
+        var expectedHexFormat = Convert.ToHexString(correlationBytes);
         var currentBase64Format = Convert.ToBase64String(correlationBytes);
 
         // Act
@@ -79,7 +79,7 @@ public class ExportCommandContractTests : IDisposable
 
         var correlationBytes = testMessage.Message.CorrelationData!;
         // UI displays as: BitConverter.ToString(data).Replace("-", "")
-        var expectedHexFormat = BitConverter.ToString(correlationBytes).Replace("-", "").ToUpper();
+        var expectedHexFormat = Convert.ToHexString(correlationBytes);
 
         // Act
         var result = exporter.ExportToFile(testMessage.Message, testMessage.ReceivedTimestamp, _testDirectory);
@@ -102,7 +102,7 @@ public class ExportCommandContractTests : IDisposable
             .First(m => m.Message.Topic.Contains("uuid"));
 
         var correlationBytes = testMessage.Message.CorrelationData!;
-        var expectedHexFormat = BitConverter.ToString(correlationBytes).Replace("-", "").ToUpper();
+        var expectedHexFormat = Convert.ToHexString(correlationBytes);
 
         // Act
         var result = exporter.ExportToFile(testMessage.Message, testMessage.ReceivedTimestamp, _testDirectory);
@@ -126,7 +126,7 @@ public class ExportCommandContractTests : IDisposable
             .First(m => m.Message.Topic.Contains("unicode"));
 
         var correlationBytes = testMessage.Message.CorrelationData!;
-        var expectedHexFormat = BitConverter.ToString(correlationBytes).Replace("-", "").ToUpper();
+        var expectedHexFormat = Convert.ToHexString(correlationBytes);
 
         // Act
         var result = exporter.ExportToFile(testMessage.Message, testMessage.ReceivedTimestamp, _testDirectory);
@@ -150,7 +150,7 @@ public class ExportCommandContractTests : IDisposable
             .First(m => m.Message.Topic.Contains("special"));
 
         var correlationBytes = testMessage.Message.CorrelationData!;
-        var expectedHexFormat = BitConverter.ToString(correlationBytes).Replace("-", "").ToUpper();
+        var expectedHexFormat = Convert.ToHexString(correlationBytes);
 
         // Act
         var result = exporter.ExportToFile(testMessage.Message, testMessage.ReceivedTimestamp, _testDirectory);
@@ -245,7 +245,7 @@ public class ExportCommandContractTests : IDisposable
         // Assert - Hex format length verification
         Assert.Contains("Correlation Data:", content);
 
-        var expectedHexFormat = BitConverter.ToString(correlationData).Replace("-", "").ToUpper();
+        var expectedHexFormat = Convert.ToHexString(correlationData);
         Assert.Contains(expectedHexFormat, content);
 
         if (expectedOutput is string expectedHex)
@@ -271,7 +271,7 @@ public class ExportCommandContractTests : IDisposable
             .First(m => m.Message.Topic.Contains("simple"));
 
         var correlationBytes = testMessage.Message.CorrelationData!;
-        var expectedHexFormat = BitConverter.ToString(correlationBytes).Replace("-", "").ToUpper();
+        var expectedHexFormat = Convert.ToHexString(correlationBytes);
 
         // Act
         var result = exporter.ExportToFile(testMessage.Message, testMessage.ReceivedTimestamp, _testDirectory);
@@ -300,7 +300,7 @@ public class ExportCommandContractTests : IDisposable
         var correlationBytes = testMessage.Message.CorrelationData!;
 
         // This is exactly how MainViewModel displays correlation data (line 1466)
-        var metadataTableDisplayFormat = BitConverter.ToString(correlationBytes).Replace("-", string.Empty);
+        var metadataTableDisplayFormat = Convert.ToHexString(correlationBytes);
 
         // Act
         var result = exporter.ExportToFile(testMessage.Message, testMessage.ReceivedTimestamp, _testDirectory);
@@ -360,7 +360,7 @@ public class ExportCommandContractTests : IDisposable
         var content = File.ReadAllText(result!);
 
         // Assert - Platform-independent hex format
-        var expectedHexFormat = BitConverter.ToString(correlationBytes).Replace("-", "").ToUpper();
+        var expectedHexFormat = Convert.ToHexString(correlationBytes);
         Assert.Contains(expectedHexFormat, content);
 
         // Verify consistent uppercase hex format (not lowercase)

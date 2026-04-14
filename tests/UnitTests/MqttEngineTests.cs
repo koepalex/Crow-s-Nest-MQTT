@@ -11,10 +11,26 @@ namespace CrowsNestMqtt.UnitTests;
 public class MqttEngineTests : IClassFixture<MqttBrokerFixture>
 {
     private readonly MqttBrokerFixture _brokerFixture;
+    private readonly ITestOutputHelper _output;
+    private static readonly TimeSpan TestConnectTimeout = TimeSpan.FromSeconds(10);
 
-    public MqttEngineTests(MqttBrokerFixture brokerFixture)
+    public MqttEngineTests(MqttBrokerFixture brokerFixture, ITestOutputHelper output)
     {
         _brokerFixture = brokerFixture;
+        _output = output;
+    }
+
+    private void LogBrokerState(string testName)
+    {
+        _output.WriteLine($"[{testName}] Broker fixture: IsRunning={_brokerFixture.IsRunning}, Port={_brokerFixture.Port}, Host={_brokerFixture.Hostname}");
+        if (_brokerFixture.StartupError != null)
+            _output.WriteLine($"[{testName}] Broker startup error: {_brokerFixture.StartupError}");
+    }
+
+    private void AttachEngineLogging(MqttEngine engine, string testName)
+    {
+        engine.LogMessage += (_, msg) => _output.WriteLine($"[{testName}] Engine: {msg}");
+        engine.ConnectionStateChanged += (_, args) => _output.WriteLine($"[{testName}] ConnectionState: IsConnected={args.IsConnected}, Status={args.ConnectionStatus}, Error={args.ErrorMessage}");
     }
     
     [Fact]
@@ -31,7 +47,12 @@ public class MqttEngineTests : IClassFixture<MqttBrokerFixture>
     [Trait("Category", "RequiresMqttBroker")]
     public async Task MqttEngine_Should_Receive_Published_Message()
     {
+        const string testName = nameof(MqttEngine_Should_Receive_Published_Message);
+        LogBrokerState(testName);
+        Assert.True(_brokerFixture.IsRunning, "Embedded MQTT broker is not running.");
+
         // Arrange
+        using var cts = new CancellationTokenSource(TestConnectTimeout);
         string brokerHost = _brokerFixture.Hostname;
         int brokerPort = _brokerFixture.Port;
         var connectionSettings = new MqttConnectionSettings
@@ -42,6 +63,7 @@ public class MqttEngineTests : IClassFixture<MqttBrokerFixture>
             CleanSession = true
         };
         using var engine = new MqttEngine(connectionSettings);
+        AttachEngineLogging(engine, testName);
 
         IdentifiedMqttApplicationMessageReceivedEventArgs? receivedArgs = null;
         using var messageReceivedEvent = new ManualResetEventSlim(false);
@@ -59,7 +81,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             }
         };
 
-        await engine.ConnectAsync(CancellationToken.None);
+        await engine.ConnectAsync(cts.Token);
 
         // Act: Publish a test message using a publisher client.
         var factory = new MqttClientFactory();
@@ -69,7 +91,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             .WithCleanSession(true)
             .Build();
 
-        await publisher.ConnectAsync(publisherOptions, CancellationToken.None);
+        await publisher.ConnectAsync(publisherOptions, cts.Token);
 
         var payload = "Test Message";
         var message = new MqttApplicationMessageBuilder()
@@ -78,10 +100,10 @@ engine.MessagesBatchReceived += (sender, batch) =>
             .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
             .Build();
 
-        await publisher.PublishAsync(message, CancellationToken.None);
+        await publisher.PublishAsync(message, cts.Token);
 
         // Wait for the message to be received
-        if (!messageReceivedEvent.Wait(TimeSpan.FromSeconds(10), CancellationToken.None))
+        if (!messageReceivedEvent.Wait(TimeSpan.FromSeconds(10), cts.Token))
         {
             Assert.Fail("Timeout waiting for message.");
         }
@@ -100,7 +122,12 @@ engine.MessagesBatchReceived += (sender, batch) =>
     [Trait("Category", "RequiresMqttBroker")]
     public async Task MqttEngine_Should_Handle_Empty_Payload_Message()
     {
+        const string testName = nameof(MqttEngine_Should_Handle_Empty_Payload_Message);
+        LogBrokerState(testName);
+        Assert.True(_brokerFixture.IsRunning, "Embedded MQTT broker is not running.");
+
         // Arrange
+        using var cts = new CancellationTokenSource(TestConnectTimeout);
         string brokerHost = _brokerFixture.Hostname;
         int brokerPort = _brokerFixture.Port;
         var connectionSettings = new MqttConnectionSettings
@@ -111,6 +138,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             CleanSession = true
         };
         using var engine = new MqttEngine(connectionSettings);
+        AttachEngineLogging(engine, testName);
 
         IdentifiedMqttApplicationMessageReceivedEventArgs? receivedArgs = null;
         using var messageReceivedEvent = new ManualResetEventSlim(false);
@@ -128,7 +156,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             }
         };
 
-        await engine.ConnectAsync(CancellationToken.None);
+        await engine.ConnectAsync(cts.Token);
 
         // Act: Publish a test message with an empty payload.
         var factory = new MqttClientFactory();
@@ -138,7 +166,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             .WithCleanSession(true)
             .Build();
 
-        await publisher.ConnectAsync(publisherOptions, CancellationToken.None);
+        await publisher.ConnectAsync(publisherOptions, cts.Token);
 
         var message = new MqttApplicationMessageBuilder()
             .WithTopic("test/empty_payload_topic")
@@ -146,10 +174,10 @@ engine.MessagesBatchReceived += (sender, batch) =>
             .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
             .Build();
 
-        await publisher.PublishAsync(message, CancellationToken.None);
+        await publisher.PublishAsync(message, cts.Token);
 
         // Wait for the message to be received
-        if (!messageReceivedEvent.Wait(TimeSpan.FromSeconds(10), CancellationToken.None))
+        if (!messageReceivedEvent.Wait(TimeSpan.FromSeconds(10), cts.Token))
         {
             Assert.Fail("Timeout waiting for message with empty payload.");
         }
@@ -283,7 +311,12 @@ engine.MessagesBatchReceived += (sender, batch) =>
     [Trait("Category", "RequiresMqttBroker")]
     public async Task SubscribeAsync_WhenConnected_ShouldSucceed()
     {
+        const string testName = nameof(SubscribeAsync_WhenConnected_ShouldSucceed);
+        LogBrokerState(testName);
+        Assert.True(_brokerFixture.IsRunning, "Embedded MQTT broker is not running.");
+
         // Arrange
+        using var cts = new CancellationTokenSource(TestConnectTimeout);
         var settings = new MqttConnectionSettings
         {
             Hostname = _brokerFixture.Hostname,
@@ -292,10 +325,11 @@ engine.MessagesBatchReceived += (sender, batch) =>
             CleanSession = true
         };
         using var engine = new MqttEngine(settings);
+        AttachEngineLogging(engine, testName);
 
         try
         {
-            await engine.ConnectAsync(CancellationToken.None);
+            await engine.ConnectAsync(cts.Token);
 
             // Act
             var result = await engine.SubscribeAsync("test/subscribe/topic", MqttQualityOfServiceLevel.AtLeastOnce);
@@ -333,7 +367,12 @@ engine.MessagesBatchReceived += (sender, batch) =>
     [Trait("Category", "RequiresMqttBroker")]
     public async Task UnsubscribeAsync_WhenConnected_ShouldSucceed()
     {
+        const string testName = nameof(UnsubscribeAsync_WhenConnected_ShouldSucceed);
+        LogBrokerState(testName);
+        Assert.True(_brokerFixture.IsRunning, "Embedded MQTT broker is not running.");
+
         // Arrange
+        using var cts = new CancellationTokenSource(TestConnectTimeout);
         var settings = new MqttConnectionSettings
         {
             Hostname = _brokerFixture.Hostname,
@@ -342,10 +381,11 @@ engine.MessagesBatchReceived += (sender, batch) =>
             CleanSession = true
         };
         using var engine = new MqttEngine(settings);
+        AttachEngineLogging(engine, testName);
 
         try
         {
-            await engine.ConnectAsync(CancellationToken.None);
+            await engine.ConnectAsync(cts.Token);
             
             // First subscribe to a topic
             await engine.SubscribeAsync("test/unsubscribe/topic");
@@ -368,6 +408,9 @@ engine.MessagesBatchReceived += (sender, batch) =>
     [Trait("Category", "RequiresMqttBroker")]
     public async Task PublishAsync_WhenNotConnected_ShouldLogWarningAndReturn()
     {
+        const string testName = nameof(PublishAsync_WhenNotConnected_ShouldLogWarningAndReturn);
+        LogBrokerState(testName);
+
         // Arrange
         var settings = new MqttConnectionSettings
         {
@@ -390,7 +433,12 @@ engine.MessagesBatchReceived += (sender, batch) =>
     [Trait("Category", "RequiresMqttBroker")]
     public async Task PublishAsync_WhenConnected_ShouldSucceed()
     {
+        const string testName = nameof(PublishAsync_WhenConnected_ShouldSucceed);
+        LogBrokerState(testName);
+        Assert.True(_brokerFixture.IsRunning, "Embedded MQTT broker is not running.");
+
         // Arrange
+        using var cts = new CancellationTokenSource(TestConnectTimeout);
         var settings = new MqttConnectionSettings
         {
             Hostname = _brokerFixture.Hostname,
@@ -399,13 +447,14 @@ engine.MessagesBatchReceived += (sender, batch) =>
             CleanSession = true
         };
         using var engine = new MqttEngine(settings);
+        AttachEngineLogging(engine, testName);
         
         string? logMessage = null;
         engine.LogMessage += (sender, message) => logMessage = message;
 
         try
         {
-            await engine.ConnectAsync(CancellationToken.None);
+            await engine.ConnectAsync(cts.Token);
 
             // Act
             await engine.PublishAsync("test/publish/topic", "test payload", 
@@ -442,7 +491,12 @@ engine.MessagesBatchReceived += (sender, batch) =>
     [Trait("Category", "RequiresMqttBroker")]
     public async Task GetMessagesForTopic_AfterReceivingMessage_ShouldReturnMessages()
     {
+        const string testName = nameof(GetMessagesForTopic_AfterReceivingMessage_ShouldReturnMessages);
+        LogBrokerState(testName);
+        Assert.True(_brokerFixture.IsRunning, "Embedded MQTT broker is not running.");
+
         // Arrange
+        using var cts = new CancellationTokenSource(TestConnectTimeout);
         var settings = new MqttConnectionSettings
         {
             Hostname = _brokerFixture.Hostname,
@@ -451,6 +505,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
             CleanSession = true
         };
         using var engine = new MqttEngine(settings);
+        AttachEngineLogging(engine, testName);
 
         using var messageReceived = new ManualResetEventSlim(false);
 engine.MessagesBatchReceived += (sender, batch) =>
@@ -467,7 +522,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
 
         try
         {
-            await engine.ConnectAsync(CancellationToken.None);
+            await engine.ConnectAsync(cts.Token);
 
             // Publish a message to create buffer content
             var factory = new MqttClientFactory();
@@ -477,7 +532,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
                 .WithCleanSession(true)
                 .Build();
 
-            await publisher.ConnectAsync(publisherOptions, CancellationToken.None);
+            await publisher.ConnectAsync(publisherOptions, cts.Token);
 
             var message = new MqttApplicationMessageBuilder()
                 .WithTopic("test/getmessages/topic")
@@ -485,7 +540,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
                 .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
                 .Build();
 
-            await publisher.PublishAsync(message, CancellationToken.None);
+            await publisher.PublishAsync(message, cts.Token);
 
             // Wait for message to be received and buffered
             Assert.True(messageReceived.Wait(TimeSpan.FromSeconds(10)), "Message was not received within timeout");
@@ -531,7 +586,12 @@ Assert.Equal("test message content", messagesList[0].Message.ConvertPayloadToStr
     [Trait("Category", "RequiresMqttBroker")]
     public async Task GetBufferedTopics_AfterReceivingMessages_ShouldReturnTopicList()
     {
+        const string testName = nameof(GetBufferedTopics_AfterReceivingMessages_ShouldReturnTopicList);
+        LogBrokerState(testName);
+        Assert.True(_brokerFixture.IsRunning, "Embedded MQTT broker is not running.");
+
         // Arrange
+        using var cts = new CancellationTokenSource(TestConnectTimeout);
         var settings = new MqttConnectionSettings
         {
             Hostname = _brokerFixture.Hostname,
@@ -540,6 +600,7 @@ Assert.Equal("test message content", messagesList[0].Message.ConvertPayloadToStr
             CleanSession = true
         };
         using var engine = new MqttEngine(settings);
+        AttachEngineLogging(engine, testName);
 
         var messagesReceived = 0;
         using var messageReceivedEvent = new ManualResetEventSlim(false);
@@ -562,7 +623,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
 
         try
         {
-            await engine.ConnectAsync(CancellationToken.None);
+            await engine.ConnectAsync(cts.Token);
 
             // The engine automatically subscribes to "#" so no explicit subscription needed
             // Give a small delay to ensure automatic subscription is active
@@ -576,7 +637,7 @@ engine.MessagesBatchReceived += (sender, batch) =>
                 .WithCleanSession(true)
                 .Build();
 
-            await publisher.ConnectAsync(publisherOptions, CancellationToken.None);
+            await publisher.ConnectAsync(publisherOptions, cts.Token);
 
             var message1 = new MqttApplicationMessageBuilder()
                 .WithTopic("test/buffered/topic1")
@@ -590,8 +651,8 @@ engine.MessagesBatchReceived += (sender, batch) =>
                 .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
                 .Build();
 
-            await publisher.PublishAsync(message1, CancellationToken.None);
-            await publisher.PublishAsync(message2, CancellationToken.None);
+            await publisher.PublishAsync(message1, cts.Token);
+            await publisher.PublishAsync(message2, cts.Token);
 
             // Wait for messages to be received and buffered
             Assert.True(messageReceivedEvent.Wait(TimeSpan.FromSeconds(15)), "Messages were not received within timeout");

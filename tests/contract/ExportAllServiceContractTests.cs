@@ -23,7 +23,7 @@ namespace CrowsNestMqtt.Contract.Tests;
 /// - IMessageExporter interface doesn't have ExportAllToFile method (T017)
 /// - JsonExporter/TextExporter don't implement ExportAllToFile (T015, T016)
 /// </summary>
-public class ExportAllServiceContractTests : IDisposable
+public sealed class ExportAllServiceContractTests : IDisposable
 {
     private readonly string _testDirectory;
 
@@ -171,7 +171,7 @@ public class ExportAllServiceContractTests : IDisposable
 
         // Check for delimiters: 3 messages = 2 delimiters
         var delimiterPattern = new string('=', 80);
-        int delimiterCount = Regex.Matches(content, Regex.Escape(delimiterPattern)).Count;
+        int delimiterCount = Regex.Count(content, Regex.Escape(delimiterPattern));
         Assert.Equal(2, delimiterCount);
 
         // Verify all topics present
@@ -264,7 +264,7 @@ public class ExportAllServiceContractTests : IDisposable
         Assert.NotNull(array);
     }
 
-    private MqttApplicationMessage CreateTestMessage(string topic, string payload)
+    private static MqttApplicationMessage CreateTestMessage(string topic, string payload)
     {
         return new MqttApplicationMessage
         {

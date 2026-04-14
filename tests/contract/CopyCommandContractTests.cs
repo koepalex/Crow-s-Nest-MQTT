@@ -17,7 +17,7 @@ namespace CrowsNestMqtt.Contract.Tests;
 /// These tests define expected behavior for the copy command and will fail initially until
 /// the base64 encoding issue is fixed to use hex format instead.
 /// </summary>
-public class CopyCommandContractTests : IDisposable
+public sealed class CopyCommandContractTests : IDisposable
 {
     private readonly IClipboardService _mockClipboardService;
     private readonly string _testDirectory;
@@ -433,7 +433,7 @@ public class CopyCommandContractTests : IDisposable
 /// Mock clipboard service interface for testing clipboard operations safely.
 /// This interface follows the contract specification for platform clipboard integration.
 /// </summary>
-public interface IClipboardService
+internal interface IClipboardService
 {
     Task SetTextAsync(string text);
     Task<string> GetTextAsync();
