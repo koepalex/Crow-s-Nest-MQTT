@@ -1,6 +1,5 @@
 using Xunit;
 using Avalonia.Controls;
-using Avalonia.Headless.XUnit;
 using CrowsNestMqtt.UI.Views;
 using CrowsNestMqtt.UI.ViewModels;
 

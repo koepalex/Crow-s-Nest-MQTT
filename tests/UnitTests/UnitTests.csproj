@@ -3,6 +3,7 @@
     <RootNamespace>CrowsNestMqtt.UnitTests</RootNamespace>
     <AssemblyName>CrowsNestMqtt.UnitTests</AssemblyName>
     <TargetFramework>$(TestsTargetFramework)</TargetFramework>
+    <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <DebugType>portable</DebugType>
     <DebugSymbols>true</DebugSymbols>
@@ -11,7 +12,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="MQTTnet.Server" />
     <PackageReference Include="NSubstitute" />
-    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
@@ -22,7 +23,6 @@
     </PackageReference>
     <PackageReference Include="ReportGenerator" />
     <PackageReference Include="Avalonia.Headless" />
-    <PackageReference Include="Avalonia.Headless.XUnit" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="MQTTnet" />

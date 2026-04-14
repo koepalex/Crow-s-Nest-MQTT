@@ -4,7 +4,6 @@ using CrowsNestMqtt.BusinessLogic.Exporter;
 using CrowsNestMqtt.Tests.TestData;
 using MQTTnet;
 using Xunit;
-using Xunit.Abstractions;
 using System.Runtime.InteropServices;
 
 namespace CrowsNestMqtt.Integration.Tests;
@@ -47,13 +46,13 @@ public class ExportErrorHandlingTests : IAsyncLifetime
         }
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         var port = await _mqttUtils.StartEmbeddedBrokerAsync();
         _output.WriteLine($"Started embedded MQTT broker on port {port}");
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _mqttUtils.DisposeAsync();
 

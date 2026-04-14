@@ -5,7 +5,6 @@ using CrowsNestMqtt.Utils;
 using MQTTnet;
 using MQTTnet.Protocol;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace CrowsNestMqtt.Integration.Tests;
 
@@ -30,13 +29,13 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
         Directory.CreateDirectory(_testDirectory);
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         var port = await _mqttUtils.StartEmbeddedBrokerAsync();
         _output.WriteLine($"Started embedded MQTT broker on port {port}");
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _mqttUtils.DisposeAsync();
 

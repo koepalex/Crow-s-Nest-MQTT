@@ -9,7 +9,7 @@ namespace CrowsNestMqtt.Contract.Tests;
 /// Contract tests for correlation data export functionality.
 /// Verifies that the export interface contract is maintained for correlation data scenarios.
 /// </summary>
-public class CorrelationDataExportContractTests : IDisposable
+public sealed class CorrelationDataExportContractTests : IDisposable
 {
     private readonly string _testDirectory;
 

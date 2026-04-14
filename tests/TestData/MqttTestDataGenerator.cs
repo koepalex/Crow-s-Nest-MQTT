@@ -9,7 +9,7 @@ namespace CrowsNestMqtt.Tests.TestData;
 /// <summary>
 /// Generates test MQTT messages with various correlation data formats for testing export/copy functionality.
 /// </summary>
-public static class MqttTestDataGenerator
+internal static class MqttTestDataGenerator
 {
     /// <summary>
     /// Helper method to create MqttUserProperty with UTF-8 encoded value.

@@ -89,8 +89,8 @@ public class CommandProcessorExtensionTests
         // Arrange
         var processor = CreateCommandProcessor();
         var arguments = new[] { "test/cancellation" };
-        var cancellationTokenSource = new CancellationTokenSource();
-        cancellationTokenSource.Cancel();
+        using var cancellationTokenSource = new CancellationTokenSource();
+        await cancellationTokenSource.CancelAsync();
 
         // Act & Assert
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
@@ -123,7 +123,7 @@ public class CommandProcessorExtensionTests
 
         var testCases = new[]
         {
-            new string[] { },
+            Array.Empty<string>(),
             new[] { "single/topic" },
             new[] { "topic/with/slashes", "--confirm" }
         };
