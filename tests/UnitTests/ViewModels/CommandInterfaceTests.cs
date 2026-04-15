@@ -200,7 +200,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithViewRawCommand_ShouldSwitchToRawView()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             
            // Create a message with JSON payload
            var messageIdViewRaw = Guid.NewGuid();
@@ -241,7 +241,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithViewJsonCommand_ShouldSwitchToJsonView()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             
            // Create a message with JSON payload (same as above for simplicity, could reuse)
            var messageIdViewJson = Guid.NewGuid();
@@ -295,7 +295,7 @@ public class CommandInterfaceTests
         public void UpdateCommandSuggestions_ShouldFilterSuggestionsByCommandText()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             
             // Get the private method via reflection
             var updateSuggestionsMethod = typeof(MainViewModel).GetMethod("UpdateCommandSuggestions", 

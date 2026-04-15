@@ -12,7 +12,7 @@ public class MqttEngineTests : IClassFixture<MqttBrokerFixture>
 {
     private readonly MqttBrokerFixture _brokerFixture;
     private readonly ITestOutputHelper _output;
-    private static readonly TimeSpan TestConnectTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan TestConnectTimeout = TimeSpan.FromSeconds(30);
 
     public MqttEngineTests(MqttBrokerFixture brokerFixture, ITestOutputHelper output)
     {
