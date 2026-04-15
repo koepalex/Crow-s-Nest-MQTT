@@ -74,7 +74,7 @@ public class CommandInterfaceTests
         public void ExecuteSubmitInput_WithSearchTerm_ShouldApplyFilter()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             const string searchTerm = "test search";
             viewModel.CommandText = searchTerm;
 
@@ -95,7 +95,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithHelpCommand_ShouldDisplayHelp()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             var parsedCommand = new ParsedCommand(CommandType.Help, new List<string>().AsReadOnly());
 
             // Act - Call the DispatchCommand method via reflection
@@ -110,7 +110,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithSpecificHelpCommand_ShouldDisplaySpecificHelp()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             var parsedCommand = new ParsedCommand(CommandType.Help, new List<string> { "connect" }.AsReadOnly());
 
             // Act - Call the DispatchCommand method via reflection
@@ -125,7 +125,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithFilterCommand_ShouldApplyTopicFilter()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             var parsedCommand = new ParsedCommand(CommandType.Filter, new List<string> { "sensor" }.AsReadOnly());
 
             // Act - Call the DispatchCommand method via reflection
@@ -141,7 +141,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithClearFilterCommand_ShouldClearTopicFilter()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             
             // First apply a filter
             var applyFilterCommand = new ParsedCommand(CommandType.Filter, new List<string> { "sensor" }.AsReadOnly());
@@ -163,7 +163,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithExportCommand_ShouldExportSelectedMessage()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             
            // Create a message to export
            var messageIdExport = Guid.NewGuid();
@@ -341,7 +341,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService(); // Use real parser
-            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous; // Start as anonymous
 
             // Act
@@ -357,7 +357,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword; // Start as userpass
             viewModel.Settings.AuthUsername = "test"; // Ensure it's not empty for full switch effect
 
@@ -374,7 +374,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
             viewModel.Settings.AuthUsername = ""; // Ensure username is empty
 
@@ -392,7 +392,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
             viewModel.Settings.AuthUsername = "";
             viewModel.Settings.AuthPassword = "";
@@ -412,7 +412,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
             viewModel.Settings.AuthUsername = "";
             viewModel.Settings.AuthPassword = "";
@@ -432,7 +432,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword;
             viewModel.Settings.AuthUsername = "olduser";
             viewModel.Settings.AuthPassword = "oldpass";
@@ -453,7 +453,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            using var viewModel = new MainViewModel(commandParser);
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword;
             viewModel.Settings.AuthUsername = "olduser";
             viewModel.Settings.AuthPassword = "oldpass";

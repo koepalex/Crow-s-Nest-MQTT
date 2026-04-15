@@ -243,6 +243,8 @@ public class PublishViewModel : ReactiveObject, IDisposable
             {
                 StatusText = $"Published to '{result.Topic}' successfully.";
                 _publishHistoryService?.AddEntry(request);
+                if (_publishHistoryService != null)
+                    await _publishHistoryService.SaveAsync();
                 await RefreshHistoryAsync();
             }
             else

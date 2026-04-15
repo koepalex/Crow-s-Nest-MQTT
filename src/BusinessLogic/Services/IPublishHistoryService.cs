@@ -110,4 +110,9 @@ public interface IPublishHistoryService
     /// Saves history to the persistent store.
     /// </summary>
     Task SaveAsync();
+
+    /// <summary>
+    /// Waits for any pending background saves to complete.
+    /// </summary>
+    Task FlushAsync();
 }

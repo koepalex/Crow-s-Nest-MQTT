@@ -1,8 +1,8 @@
+using CrowsNestMqtt.BusinessLogic;
 using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.UI.ViewModels;
 
 using NSubstitute;
-
 using Xunit;
 
 namespace CrowsNestMqtt.UnitTests.ViewModels
@@ -10,17 +10,19 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
     public class TopicTreeManagementTests
     {
         private readonly ICommandParserService _commandParserService;
+        private readonly IMqttService _mqttServiceMock;
 
         public TopicTreeManagementTests()
         {
             _commandParserService = Substitute.For<ICommandParserService>();
+            _mqttServiceMock = Substitute.For<IMqttService>();
         }
 
         [Fact]
         public void UpdateOrCreateNode_ShouldCreateNewNodes()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock);
             string topic = "sensors/temperature/living-room";
 
             // Act - Use reflection to call the private method
@@ -41,7 +43,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void UpdateOrCreateNode_ShouldUpdateExistingNodes()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock);
             string firstTopic = "sensors/temperature/living-room";
             string secondTopic = "sensors/temperature/living-room";
 
@@ -68,7 +70,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void UpdateOrCreateNode_WithoutIncrementCount_ShouldNotUpdateCount()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock);
             string firstTopic = "sensors/humidity/bathroom";
 
             // Act
@@ -91,7 +93,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void UpdateOrCreateNode_WithMultipleNodes_ShouldMaintainAlphabeticalOrder()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock);
             string[] topics = new[] 
             {
                 "devices/zwave/switch1",
@@ -136,7 +138,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void ExpandAllNodes_ShouldExpandAllNodes()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock);
             string[] topics = new[] 
             {
                 "home/livingroom/temperature",
@@ -179,7 +181,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void CollapseAllNodes_ShouldCollapseAllNodes()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock);
             string[] topics = new[] 
             {
                 "office/desk1/humidity",
@@ -222,7 +224,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void ApplyTopicFilter_ShouldFilterTopicTree()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock);
             string[] topics = new[] 
             {
                 "sensors/temperature/kitchen",
@@ -293,7 +295,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void ApplyTopicFilter_WithEmptyFilter_ShouldClearFilter()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock);
             string[] topics = new[] 
             {
                 "sensors/temperature/outside",

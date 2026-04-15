@@ -19,6 +19,11 @@ public class PublishHistoryServiceTests : IDisposable
         _historyFilePath = Path.Combine(_testDir, "test-history.json");
     }
 
+    private PublishHistoryService CreateService()
+    {
+        return new PublishHistoryService(_historyFilePath);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_testDir))
@@ -39,7 +44,7 @@ public class PublishHistoryServiceTests : IDisposable
     [Fact]
     public void AddEntry_SingleEntry_AppearsInHistory()
     {
-        var service = new PublishHistoryService(_historyFilePath);
+        var service = CreateService();
 
         service.AddEntry(CreateTestRequest());
 
@@ -52,7 +57,7 @@ public class PublishHistoryServiceTests : IDisposable
     [Fact]
     public void AddEntry_MultipleEntries_MostRecentFirst()
     {
-        var service = new PublishHistoryService(_historyFilePath);
+        var service = CreateService();
 
         service.AddEntry(CreateTestRequest("topic/first", "first"));
         service.AddEntry(CreateTestRequest("topic/second", "second"));
@@ -68,7 +73,7 @@ public class PublishHistoryServiceTests : IDisposable
     [Fact]
     public void AddEntry_ExceedsMaxEntries_OldestRemoved()
     {
-        var service = new PublishHistoryService(_historyFilePath);
+        var service = CreateService();
 
         for (int i = 0; i < 51; i++)
         {
@@ -86,7 +91,7 @@ public class PublishHistoryServiceTests : IDisposable
     [Fact]
     public void GetHistory_EmptyHistory_ReturnsEmptyList()
     {
-        var service = new PublishHistoryService(_historyFilePath);
+        var service = CreateService();
 
         var history = service.GetHistory();
 
@@ -97,7 +102,7 @@ public class PublishHistoryServiceTests : IDisposable
     [Fact]
     public void ClearHistory_ClearsAllEntries()
     {
-        var service = new PublishHistoryService(_historyFilePath);
+        var service = CreateService();
         service.AddEntry(CreateTestRequest("a", "1"));
         service.AddEntry(CreateTestRequest("b", "2"));
 
@@ -110,11 +115,11 @@ public class PublishHistoryServiceTests : IDisposable
     [Fact]
     public async Task SaveAndLoad_RoundTrip_PreservesEntries()
     {
-        var service = new PublishHistoryService(_historyFilePath);
+        var service = CreateService();
         service.AddEntry(CreateTestRequest("round/trip", "test-payload"));
         await service.SaveAsync();
 
-        var loadedService = new PublishHistoryService(_historyFilePath);
+        var loadedService = CreateService();
         await loadedService.LoadAsync();
 
         var history = loadedService.GetHistory();
@@ -126,7 +131,7 @@ public class PublishHistoryServiceTests : IDisposable
     [Fact]
     public void AddEntry_PreservesAllV5Properties()
     {
-        var service = new PublishHistoryService(_historyFilePath);
+        var service = CreateService();
         var correlationData = new byte[] { 0x01, 0x02, 0x03 };
 
         var request = new MqttPublishRequest

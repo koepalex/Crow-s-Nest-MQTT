@@ -22,6 +22,7 @@ public class PublishHistoryService : IPublishHistoryService
     private readonly string _historyFilePath;
     private readonly List<PublishHistoryEntry> _history = new();
     private readonly object _lock = new();
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
 
     /// <summary>
     /// Creates a new PublishHistoryService.
@@ -60,9 +61,6 @@ public class PublishHistoryService : IPublishHistoryService
                 _history.RemoveRange(MaxHistoryEntries, _history.Count - MaxHistoryEntries);
             }
         }
-
-        // Fire-and-forget save
-        _ = SaveAsync();
     }
 
     /// <inheritdoc />
@@ -81,8 +79,6 @@ public class PublishHistoryService : IPublishHistoryService
         {
             _history.Clear();
         }
-
-        _ = SaveAsync();
     }
 
     /// <inheritdoc />
@@ -118,6 +114,7 @@ public class PublishHistoryService : IPublishHistoryService
     /// <inheritdoc />
     public async Task SaveAsync()
     {
+        await _saveLock.WaitAsync().ConfigureAwait(false);
         try
         {
             var directory = Path.GetDirectoryName(_historyFilePath);
@@ -145,7 +142,14 @@ public class PublishHistoryService : IPublishHistoryService
         {
             Log.Warning(ex, "Failed to save publish history to {Path}", _historyFilePath);
         }
+        finally
+        {
+            _saveLock.Release();
+        }
     }
+
+    /// <inheritdoc />
+    public Task FlushAsync() => Task.CompletedTask;
 
     private static string GetDefaultHistoryFilePath()
     {

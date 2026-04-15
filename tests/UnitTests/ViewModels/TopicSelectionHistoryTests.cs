@@ -20,17 +20,19 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
     public class TopicSelectionHistoryTests
     {
         private readonly ICommandParserService _commandParserService;
+        private readonly IMqttService _mqttServiceMock;
 
         public TopicSelectionHistoryTests()
         {
             _commandParserService = Substitute.For<ICommandParserService>();
+            _mqttServiceMock = Substitute.For<IMqttService>();
         }
 
         [Fact]
         public void SelectingTopic_PopulatesFilteredMessageHistory_ForThatTopic()
         {
             // Arrange
-            using var vm = new MainViewModel(_commandParserService, uiScheduler: ImmediateScheduler.Instance);
+            using var vm = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: ImmediateScheduler.Instance);
 
             // Add messages for two topics
             AddTestMessage(vm, "sensors/temp", "temperature: 21.5C");
@@ -61,7 +63,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void SelectingParentTopic_IncludesSubTopics()
         {
             // Arrange
-            using var vm = new MainViewModel(_commandParserService, uiScheduler: ImmediateScheduler.Instance);
+            using var vm = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: ImmediateScheduler.Instance);
 
             AddTestMessage(vm, "devices/door/front", "open");
             AddTestMessage(vm, "devices/door/back", "closed");
