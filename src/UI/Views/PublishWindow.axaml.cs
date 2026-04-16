@@ -34,30 +34,41 @@ public partial class PublishWindow : Window
             // Wire the LoadFileCommand to open a file picker then load content
             vm.LoadFileCommand.Subscribe(async _ =>
             {
-                var topLevel = GetTopLevel(this);
-                if (topLevel == null) return;
-
-                var files = await topLevel.StorageProvider.OpenFilePickerAsync(
-                    new FilePickerOpenOptions
-                    {
-                        Title = "Select payload file",
-                        AllowMultiple = false,
-                        FileTypeFilter =
-                        [
-                            new FilePickerFileType("All Files") { Patterns = ["*"] },
-                            new FilePickerFileType("JSON") { Patterns = ["*.json"] },
-                            new FilePickerFileType("XML") { Patterns = ["*.xml"] },
-                            new FilePickerFileType("Text") { Patterns = ["*.txt"] }
-                        ]
-                    });
-
-                if (files.Count > 0)
+                try
                 {
-                    var path = files[0].TryGetLocalPath();
-                    if (path != null)
+                    var topLevel = GetTopLevel(this);
+                    if (topLevel == null) return;
+
+                    var files = await topLevel.StorageProvider.OpenFilePickerAsync(
+                        new FilePickerOpenOptions
+                        {
+                            Title = "Select payload file",
+                            AllowMultiple = false,
+                            FileTypeFilter =
+                            [
+                                new FilePickerFileType("All Files") { Patterns = ["*"] },
+                                new FilePickerFileType("JSON") { Patterns = ["*.json"] },
+                                new FilePickerFileType("XML") { Patterns = ["*.xml"] },
+                                new FilePickerFileType("Text") { Patterns = ["*.txt"] }
+                            ]
+                        });
+
+                    if (files.Count > 0)
                     {
-                        await vm.LoadFileContentAsync(path);
+                        var path = files[0].TryGetLocalPath();
+                        if (path != null)
+                        {
+                            await vm.LoadFileContentAsync(path);
+                        }
+                        else
+                        {
+                            vm.StatusText = "Could not resolve local file path.";
+                        }
                     }
+                }
+                catch (Exception ex)
+                {
+                    vm.StatusText = $"Error loading file: {ex.Message}";
                 }
             });
         }

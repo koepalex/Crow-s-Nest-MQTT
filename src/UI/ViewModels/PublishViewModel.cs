@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Reactive;
+using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Text;
+using Avalonia.Threading;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Highlighting;
 using CrowsNestMqtt.BusinessLogic;
@@ -70,7 +72,7 @@ public class PublishViewModel : ReactiveObject, IDisposable
         set => this.RaiseAndSetIfChanged(ref _selectedQoS, value);
     }
 
-    public static int[] QoSLevels => [0, 1, 2];
+    public static readonly int[] QoSLevels = [0, 1, 2];
 
     // --- Retain ---
     private bool _retain;
@@ -210,8 +212,8 @@ public class PublishViewModel : ReactiveObject, IDisposable
         PublishCommand = ReactiveCommand.CreateFromTask(ExecutePublishAsync, canPublish);
         ClearCommand = ReactiveCommand.Create(ExecuteClear);
         LoadFileCommand = ReactiveCommand.CreateFromTask(ExecuteLoadFileAsync);
-        AddUserPropertyCommand = ReactiveCommand.Create(ExecuteAddUserProperty);
-        RemoveUserPropertyCommand = ReactiveCommand.Create<UserPropertyViewModel>(ExecuteRemoveUserProperty);
+        AddUserPropertyCommand = ReactiveCommand.Create(ExecuteAddUserProperty, outputScheduler: ImmediateScheduler.Instance);
+        RemoveUserPropertyCommand = ReactiveCommand.Create<UserPropertyViewModel>(ExecuteRemoveUserProperty, outputScheduler: ImmediateScheduler.Instance);
         ToggleV5PropertiesCommand = ReactiveCommand.Create(() => { IsV5PropertiesExpanded = !IsV5PropertiesExpanded; });
 
         // Update syntax highlighting when ContentType changes
@@ -343,22 +345,27 @@ public class PublishViewModel : ReactiveObject, IDisposable
             }
 
             var content = await File.ReadAllTextAsync(filePath);
-            PayloadDocument.Text = content;
 
-            // Auto-detect content type from extension
-            var ext = Path.GetExtension(filePath).ToLowerInvariant();
-            ContentType = ext switch
+            // Dispatch UI updates to main thread (ReadAllTextAsync may resume on thread pool)
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                ".json" => "application/json",
-                ".xml" => "application/xml",
-                ".html" or ".htm" => "text/html",
-                ".txt" => "text/plain",
-                ".csv" => "text/csv",
-                ".yaml" or ".yml" => "application/yaml",
-                _ => ContentType // Keep existing
-            };
+                PayloadDocument.Text = content;
 
-            StatusText = $"Loaded: {Path.GetFileName(filePath)} ({fileInfo.Length} bytes)";
+                // Auto-detect content type from extension
+                var ext = Path.GetExtension(filePath).ToLowerInvariant();
+                ContentType = ext switch
+                {
+                    ".json" => "application/json",
+                    ".xml" => "application/xml",
+                    ".html" or ".htm" => "text/html",
+                    ".txt" => "text/plain",
+                    ".csv" => "text/csv",
+                    ".yaml" or ".yml" => "application/yaml",
+                    _ => ContentType // Keep existing
+                };
+
+                StatusText = $"Loaded: {Path.GetFileName(filePath)} ({fileInfo.Length} bytes)";
+            });
         }
         catch (Exception ex)
         {

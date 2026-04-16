@@ -82,7 +82,7 @@
         <Grid ColumnDefinitions="110,*,Auto,Auto">
           <TextBlock Text="QoS:" VerticalAlignment="Center" />
           <ComboBox Grid.Column="1" ItemsSource="{Binding QoSLevels}"
-                    SelectedItem="{Binding SelectedQoS, Mode=TwoWay}"
+                    SelectedIndex="{Binding SelectedQoS, Mode=TwoWay}"
                     MinWidth="80" />
           <TextBlock Grid.Column="2" Text="Retain:" VerticalAlignment="Center"
                      Margin="16,0,8,0" />
