@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Reactive;
-using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Text;
 using Avalonia.Threading;
@@ -72,7 +71,8 @@ public class PublishViewModel : ReactiveObject, IDisposable
         set => this.RaiseAndSetIfChanged(ref _selectedQoS, value);
     }
 
-    public static readonly int[] QoSLevels = [0, 1, 2];
+    private static readonly int[] _qosLevels = [0, 1, 2];
+    public static int[] QoSLevels => _qosLevels;
 
     // --- Retain ---
     private bool _retain;
@@ -212,8 +212,8 @@ public class PublishViewModel : ReactiveObject, IDisposable
         PublishCommand = ReactiveCommand.CreateFromTask(ExecutePublishAsync, canPublish);
         ClearCommand = ReactiveCommand.Create(ExecuteClear);
         LoadFileCommand = ReactiveCommand.CreateFromTask(ExecuteLoadFileAsync);
-        AddUserPropertyCommand = ReactiveCommand.Create(ExecuteAddUserProperty, outputScheduler: ImmediateScheduler.Instance);
-        RemoveUserPropertyCommand = ReactiveCommand.Create<UserPropertyViewModel>(ExecuteRemoveUserProperty, outputScheduler: ImmediateScheduler.Instance);
+        AddUserPropertyCommand = ReactiveCommand.Create(ExecuteAddUserProperty);
+        RemoveUserPropertyCommand = ReactiveCommand.Create<UserPropertyViewModel>(ExecuteRemoveUserProperty);
         ToggleV5PropertiesCommand = ReactiveCommand.Create(() => { IsV5PropertiesExpanded = !IsV5PropertiesExpanded; });
 
         // Update syntax highlighting when ContentType changes

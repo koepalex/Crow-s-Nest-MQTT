@@ -79,6 +79,21 @@ public record PublishHistoryEntry
         PayloadText != null
             ? (PayloadText.Length > 100 ? PayloadText[..100] + "..." : PayloadText)
             : (PayloadBase64 != null ? $"[Binary: {PayloadBase64.Length * 3 / 4} bytes]" : "[Empty]");
+
+    /// <summary>
+    /// Combined display for history list: topic, QoS, retain flag, and payload preview.
+    /// </summary>
+    public string DisplaySummary
+    {
+        get
+        {
+            var retain = Retain ? " [R]" : "";
+            var payload = PayloadText != null
+                ? (PayloadText.Length > 50 ? PayloadText[..50] + "…" : PayloadText)
+                : (PayloadBase64 != null ? $"[Binary]" : "[Empty]");
+            return $"{Topic} | QoS {QoS}{retain} | {payload}";
+        }
+    }
 }
 
 /// <summary>

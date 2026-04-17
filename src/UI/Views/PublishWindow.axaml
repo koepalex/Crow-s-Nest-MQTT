@@ -51,7 +51,7 @@
                     HorizontalAlignment="Stretch">
             <ComboBox.ItemTemplate>
               <DataTemplate>
-                <TextBlock Text="{Binding PayloadPreview}" />
+                <TextBlock Text="{Binding DisplaySummary}" />
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
@@ -161,7 +161,7 @@
                   <TextBox Grid.Column="1" Text="{Binding Value, Mode=TwoWay}"
                            Watermark="Value" Margin="4,0,4,0" />
                   <Button Grid.Column="2" Content="✕" Padding="6,4"
-                          Command="{Binding $parent[ItemsControl].((vm:PublishViewModel)DataContext).RemoveUserPropertyCommand}"
+                          Command="{Binding DataContext.RemoveUserPropertyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                           CommandParameter="{Binding}" />
                 </Grid>
               </DataTemplate>
