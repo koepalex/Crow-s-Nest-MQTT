@@ -179,6 +179,38 @@ public class PublishViewModel : ReactiveObject, IDisposable
         set => this.RaiseAndSetIfChanged(ref _statusText, value);
     }
 
+    // --- File reference ---
+    private string? _loadedFilePath;
+    /// <summary>
+    /// When set, the publish will send raw file bytes instead of editor text.
+    /// </summary>
+    public string? LoadedFilePath
+    {
+        get => _loadedFilePath;
+        set => this.RaiseAndSetIfChanged(ref _loadedFilePath, value);
+    }
+
+    private bool _isPayloadReadOnly;
+    /// <summary>
+    /// True when a file is loaded — editor shows file info overlay and is read-only.
+    /// </summary>
+    public bool IsPayloadReadOnly
+    {
+        get => _isPayloadReadOnly;
+        set => this.RaiseAndSetIfChanged(ref _isPayloadReadOnly, value);
+    }
+
+    private string _fileInfoDisplay = string.Empty;
+    /// <summary>
+    /// Summary text shown when a file is loaded (e.g., "Sending file: path\nSize: 1.2 MB").
+    /// Displayed instead of the text editor when IsPayloadReadOnly is true.
+    /// </summary>
+    public string FileInfoDisplay
+    {
+        get => _fileInfoDisplay;
+        set => this.RaiseAndSetIfChanged(ref _fileInfoDisplay, value);
+    }
+
     private bool _isConnected;
     public bool IsConnected
     {
@@ -236,7 +268,21 @@ public class PublishViewModel : ReactiveObject, IDisposable
 
         try
         {
-            var request = BuildPublishRequest();
+            // If a file is loaded, read its bytes asynchronously (off UI thread)
+            byte[]? filePayload = null;
+            if (!string.IsNullOrEmpty(LoadedFilePath))
+            {
+                if (!File.Exists(LoadedFilePath))
+                {
+                    StatusText = $"File no longer exists: {LoadedFilePath}";
+                    return;
+                }
+
+                StatusText = $"Reading file '{Path.GetFileName(LoadedFilePath)}'...";
+                filePayload = await File.ReadAllBytesAsync(LoadedFilePath);
+            }
+
+            var request = BuildPublishRequest(filePayload);
             StatusText = $"Publishing to '{request.Topic}'...";
 
             var result = await _mqttService.PublishAsync(request);
@@ -244,7 +290,7 @@ public class PublishViewModel : ReactiveObject, IDisposable
             if (result.Success)
             {
                 StatusText = $"Published to '{result.Topic}' successfully.";
-                _publishHistoryService?.AddEntry(request);
+                _publishHistoryService?.AddEntry(request, LoadedFilePath);
                 if (_publishHistoryService != null)
                     await _publishHistoryService.SaveAsync();
                 await RefreshHistoryAsync();
@@ -261,7 +307,7 @@ public class PublishViewModel : ReactiveObject, IDisposable
         }
     }
 
-    internal MqttPublishRequest BuildPublishRequest()
+    internal MqttPublishRequest BuildPublishRequest(byte[]? filePayload = null)
     {
         var userProps = UserProperties
             .Where(p => !string.IsNullOrWhiteSpace(p.Name))
@@ -281,10 +327,15 @@ public class PublishViewModel : ReactiveObject, IDisposable
             }
         }
 
+        // When file payload is provided, use it directly (binary-safe)
+        byte[]? payload = filePayload;
+        string? payloadText = filePayload == null ? PayloadDocument.Text : null;
+
         return new MqttPublishRequest
         {
             Topic = Topic.Trim(),
-            PayloadText = PayloadDocument.Text,
+            Payload = payload,
+            PayloadText = payloadText,
             QoS = (MqttQualityOfServiceLevel)SelectedQoS,
             Retain = Retain,
             ContentType = string.IsNullOrWhiteSpace(ContentType) ? null : ContentType.Trim(),
@@ -298,8 +349,11 @@ public class PublishViewModel : ReactiveObject, IDisposable
 
     private void ExecuteClear()
     {
+        LoadedFilePath = null;
+        IsPayloadReadOnly = false;
+        FileInfoDisplay = string.Empty;
         Topic = string.Empty;
-        PayloadDocument.Text = string.Empty;
+        PayloadDocument = new TextDocument();
         SelectedQoS = 1;
         Retain = false;
         ContentType = string.Empty;
@@ -319,17 +373,18 @@ public class PublishViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>
-    /// Loads content from a file path into the payload editor.
-    /// Called by the View after file dialog selection or by @ autocomplete.
+    /// Loads a file reference for publishing. Does NOT load content into the editor.
+    /// Sets the editor to read-only with a summary, and auto-detects content-type
+    /// and payload-format-indicator from the file extension.
     /// </summary>
-    public async Task LoadFileContentAsync(string filePath)
+    public Task LoadFileContentAsync(string filePath)
     {
         try
         {
             if (!File.Exists(filePath))
             {
                 StatusText = $"File not found: {filePath}";
-                return;
+                return Task.CompletedTask;
             }
 
             var fileInfo = new FileInfo(filePath);
@@ -337,43 +392,119 @@ public class PublishViewModel : ReactiveObject, IDisposable
             if (fileInfo.Length > mqttMaxPayloadBytes)
             {
                 StatusText = $"File too large ({fileInfo.Length / (1024 * 1024)}MB). MQTT maximum payload is 256MB.";
-                return;
+                return Task.CompletedTask;
             }
 
-            if (fileInfo.Length > 10 * 1024 * 1024) // 10MB warning
-            {
-                StatusText = $"Warning: Large file ({fileInfo.Length / (1024 * 1024)}MB). Loading...";
-            }
+            var ext = Path.GetExtension(filePath).ToLowerInvariant();
+            var (detectedContentType, isBinary) = DetectContentType(ext);
 
-            var content = await File.ReadAllTextAsync(filePath);
+            LoadedFilePath = filePath;
+            IsPayloadReadOnly = true;
 
-            // Dispatch UI updates to main thread (ReadAllTextAsync may resume on thread pool)
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                PayloadDocument.Text = content;
+            var sizeDisplay = fileInfo.Length < 1024
+                ? $"{fileInfo.Length} bytes"
+                : fileInfo.Length < 1024 * 1024
+                    ? $"{fileInfo.Length / 1024.0:F1} KB"
+                    : $"{fileInfo.Length / (1024.0 * 1024.0):F1} MB";
 
-                // Auto-detect content type from extension
-                var ext = Path.GetExtension(filePath).ToLowerInvariant();
-                ContentType = ext switch
-                {
-                    ".json" => "application/json",
-                    ".xml" => "application/xml",
-                    ".html" or ".htm" => "text/html",
-                    ".txt" => "text/plain",
-                    ".csv" => "text/csv",
-                    ".yaml" or ".yml" => "application/yaml",
-                    _ => ContentType // Keep existing
-                };
+            FileInfoDisplay = $"Sending file: {filePath}\nSize: {sizeDisplay}\nType: {(isBinary ? "Binary" : "Text")}";
 
-                StatusText = $"Loaded: {Path.GetFileName(filePath)} ({fileInfo.Length} bytes)";
-            });
+            ContentType = detectedContentType;
+            PayloadFormatIndicator = 0;
+
+            StatusText = $"File selected: {Path.GetFileName(filePath)} ({sizeDisplay})";
         }
         catch (Exception ex)
         {
             StatusText = $"Error loading file: {ex.Message}";
             Log.Warning(ex, "Failed to load file {FilePath}", filePath);
         }
+
+        return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Clears the loaded file reference and restores editor editability.
+    /// </summary>
+    public void ClearFileReference()
+    {
+        LoadedFilePath = null;
+        IsPayloadReadOnly = false;
+        FileInfoDisplay = string.Empty;
+    }
+
+    /// <summary>
+    /// Detects MIME content-type and whether the file is binary based on extension.
+    /// Returns (contentType, isBinary).
+    /// </summary>
+    internal static (string ContentType, bool IsBinary) DetectContentType(string extension) => extension switch
+    {
+        // Text formats
+        ".json" => ("application/json", false),
+        ".xml" => ("application/xml", false),
+        ".html" or ".htm" => ("text/html", false),
+        ".txt" or ".log" or ".md" or ".rst" => ("text/plain", false),
+        ".csv" => ("text/csv", false),
+        ".yaml" or ".yml" => ("application/yaml", false),
+        ".toml" => ("application/toml", false),
+        ".ini" or ".cfg" or ".conf" => ("text/plain", false),
+        ".js" => ("application/javascript", false),
+        ".ts" => ("application/typescript", false),
+        ".css" => ("text/css", false),
+        ".sql" => ("application/sql", false),
+        ".graphql" or ".gql" => ("application/graphql", false),
+
+        // Image formats (binary)
+        ".png" => ("image/png", true),
+        ".jpg" or ".jpeg" => ("image/jpeg", true),
+        ".gif" => ("image/gif", true),
+        ".bmp" => ("image/bmp", true),
+        ".webp" => ("image/webp", true),
+        ".svg" => ("image/svg+xml", false), // SVG is text-based
+        ".ico" => ("image/x-icon", true),
+        ".tiff" or ".tif" => ("image/tiff", true),
+
+        // Audio formats (binary)
+        ".mp3" => ("audio/mpeg", true),
+        ".wav" => ("audio/wav", true),
+        ".ogg" => ("audio/ogg", true),
+        ".flac" => ("audio/flac", true),
+        ".aac" => ("audio/aac", true),
+
+        // Video formats (binary)
+        ".mp4" => ("video/mp4", true),
+        ".webm" => ("video/webm", true),
+        ".avi" => ("video/x-msvideo", true),
+        ".mkv" => ("video/x-matroska", true),
+        ".mov" => ("video/quicktime", true),
+
+        // Serialization formats (binary)
+        ".protobuf" or ".proto" or ".pb" => ("application/protobuf", true),
+        ".msgpack" or ".mp" => ("application/msgpack", true),
+        ".avro" => ("application/avro", true),
+        ".cbor" => ("application/cbor", true),
+        ".bson" => ("application/bson", true),
+        ".thrift" => ("application/x-thrift", true),
+
+        // Archive/compressed (binary)
+        ".zip" => ("application/zip", true),
+        ".gz" or ".gzip" => ("application/gzip", true),
+        ".tar" => ("application/x-tar", true),
+        ".7z" => ("application/x-7z-compressed", true),
+
+        // Document formats (binary)
+        ".pdf" => ("application/pdf", true),
+        ".doc" or ".docx" => ("application/msword", true),
+        ".xls" or ".xlsx" => ("application/vnd.ms-excel", true),
+
+        // Executable/binary
+        ".bin" or ".dat" or ".raw" => ("application/octet-stream", true),
+        ".exe" or ".dll" => ("application/octet-stream", true),
+        ".wasm" => ("application/wasm", true),
+
+        // Default: unknown binary
+        _ => ("application/octet-stream", true),
+    };
 
     /// <summary>
     /// Gets file autocomplete suggestions for the @ syntax.
@@ -421,7 +552,6 @@ public class PublishViewModel : ReactiveObject, IDisposable
     private void LoadFromHistoryEntry(PublishHistoryEntry entry)
     {
         Topic = entry.Topic;
-        PayloadDocument.Text = entry.PayloadText ?? string.Empty;
         SelectedQoS = entry.QoS;
         Retain = entry.Retain;
         ContentType = entry.ContentType ?? string.Empty;
@@ -436,7 +566,28 @@ public class PublishViewModel : ReactiveObject, IDisposable
             UserProperties.Add(new UserPropertyViewModel { Name = prop.Key, Value = prop.Value });
         }
 
-        StatusText = $"Loaded from history: {entry.Topic} ({entry.Timestamp:g})";
+        // If history entry was a file publish, re-load the file reference if it still exists
+        if (!string.IsNullOrEmpty(entry.FilePath) && File.Exists(entry.FilePath))
+        {
+            LoadedFilePath = entry.FilePath;
+            IsPayloadReadOnly = true;
+            var fileInfo = new FileInfo(entry.FilePath);
+            var sizeDisplay = fileInfo.Length < 1024
+                ? $"{fileInfo.Length} bytes"
+                : fileInfo.Length < 1024 * 1024
+                    ? $"{fileInfo.Length / 1024.0:F1} KB"
+                    : $"{fileInfo.Length / (1024.0 * 1024.0):F1} MB";
+            FileInfoDisplay = $"Sending file: {entry.FilePath}\nSize: {sizeDisplay}";
+            StatusText = $"Loaded from history (file): {Path.GetFileName(entry.FilePath)}";
+        }
+        else
+        {
+            LoadedFilePath = null;
+            IsPayloadReadOnly = false;
+            FileInfoDisplay = string.Empty;
+            PayloadDocument = new TextDocument(entry.PayloadText ?? string.Empty);
+            StatusText = $"Loaded from history: {entry.Topic} ({entry.Timestamp:g})";
+        }
     }
 
     private async Task LoadHistoryAsync()

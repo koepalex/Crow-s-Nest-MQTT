@@ -69,13 +69,22 @@
         <TextBlock Text="Payload:" Margin="0,4,0,2" />
         <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
                 BorderThickness="1" CornerRadius="4" MinHeight="180">
-          <ae:TextEditor Name="PayloadEditor"
-                         FontFamily="Consolas,Menlo,Monospace"
-                         FontSize="12"
-                         ShowLineNumbers="True"
-                         WordWrap="True"
-                         Document="{Binding PayloadDocument, Mode=TwoWay}"
-                         SyntaxHighlighting="{Binding SyntaxHighlighting}" />
+          <Panel>
+            <ae:TextEditor Name="PayloadEditor"
+                           FontFamily="Consolas,Menlo,Monospace"
+                           FontSize="12"
+                           ShowLineNumbers="True"
+                           WordWrap="True"
+                           IsVisible="{Binding !IsPayloadReadOnly}"
+                           Document="{Binding PayloadDocument, Mode=TwoWay}"
+                           SyntaxHighlighting="{Binding SyntaxHighlighting}" />
+            <TextBlock Text="{Binding FileInfoDisplay}"
+                       IsVisible="{Binding IsPayloadReadOnly}"
+                       FontFamily="Consolas,Menlo,Monospace"
+                       FontSize="12"
+                       Margin="8"
+                       VerticalAlignment="Center" />
+          </Panel>
         </Border>
 
         <!-- QoS and Retain row -->

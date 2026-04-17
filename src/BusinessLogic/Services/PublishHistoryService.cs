@@ -34,13 +34,22 @@ public class PublishHistoryService : IPublishHistoryService
     }
 
     /// <inheritdoc />
-    public void AddEntry(MqttPublishRequest request)
+    public void AddEntry(MqttPublishRequest request, string? filePath = null)
     {
+        // Don't store large binary payloads in history — cap at 64KB for Base64
+        const int maxPayloadBytesForHistory = 64 * 1024;
+        string? payloadBase64 = null;
+        if (request.Payload != null && filePath == null && request.Payload.Length <= maxPayloadBytesForHistory)
+        {
+            payloadBase64 = Convert.ToBase64String(request.Payload);
+        }
+
         var entry = new PublishHistoryEntry
         {
             Topic = request.Topic,
-            PayloadText = request.PayloadText,
-            PayloadBase64 = request.Payload != null ? Convert.ToBase64String(request.Payload) : null,
+            PayloadText = filePath == null ? request.PayloadText : null,
+            PayloadBase64 = payloadBase64,
+            FilePath = filePath,
             QoS = (int)request.QoS,
             Retain = request.Retain,
             ContentType = request.ContentType,

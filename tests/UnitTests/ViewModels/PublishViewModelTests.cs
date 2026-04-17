@@ -594,6 +594,169 @@ public class PublishViewModelTests : IDisposable
     }
 
     // ──────────────────────────────────────────────
+    // File Loading (reference model)
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task LoadFileContentAsync_SetsFileReferenceAndReadOnly()
+    {
+        using var vm = CreateViewModel();
+        var tempFile = Path.GetTempFileName();
+        try
+        {
+            await File.WriteAllTextAsync(tempFile, "hello world");
+            await vm.LoadFileContentAsync(tempFile);
+
+            Assert.Equal(tempFile, vm.LoadedFilePath);
+            Assert.True(vm.IsPayloadReadOnly);
+            Assert.Contains("File selected:", vm.StatusText);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public async Task LoadFileContentAsync_AutoDetectsJsonContentType()
+    {
+        using var vm = CreateViewModel();
+        var tempFile = Path.Combine(Path.GetTempPath(), $"test-{Guid.NewGuid():N}.json");
+        try
+        {
+            await File.WriteAllTextAsync(tempFile, """{"key":"value"}""");
+            await vm.LoadFileContentAsync(tempFile);
+
+            Assert.Equal("application/json", vm.ContentType);
+            Assert.Equal(0, vm.PayloadFormatIndicator); // PFI stays 0 for file-based
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public async Task LoadFileContentAsync_AutoDetectsBinaryContentType()
+    {
+        using var vm = CreateViewModel();
+        var tempFile = Path.Combine(Path.GetTempPath(), $"test-{Guid.NewGuid():N}.png");
+        try
+        {
+            await File.WriteAllBytesAsync(tempFile, new byte[] { 0x89, 0x50, 0x4E, 0x47 });
+            await vm.LoadFileContentAsync(tempFile);
+
+            Assert.Equal("image/png", vm.ContentType);
+            Assert.Equal(0, vm.PayloadFormatIndicator);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public async Task LoadFileContentAsync_FileNotFound_SetsErrorStatus()
+    {
+        using var vm = CreateViewModel();
+        await vm.LoadFileContentAsync(@"C:\nonexistent\file.json");
+
+        Assert.Null(vm.LoadedFilePath);
+        Assert.False(vm.IsPayloadReadOnly);
+        Assert.Contains("File not found", vm.StatusText);
+    }
+
+    [Fact]
+    public void BuildPublishRequest_WithFilePayload_UsesPayloadNotPayloadText()
+    {
+        using var vm = CreateViewModel();
+        vm.Topic = "test/topic";
+        vm.LoadedFilePath = null; // no file
+        vm.PayloadDocument.Text = "editor text";
+
+        var request = vm.BuildPublishRequest(null);
+        Assert.Null(request.Payload);
+        Assert.Equal("editor text", request.PayloadText);
+
+        // With file payload
+        var fileBytes = new byte[] { 0x01, 0x02, 0x03 };
+        var request2 = vm.BuildPublishRequest(fileBytes);
+        Assert.Equal(fileBytes, request2.Payload);
+        Assert.Null(request2.PayloadText);
+    }
+
+    [Fact]
+    public async Task ClearCommand_ClearsFileReference()
+    {
+        using var vm = CreateViewModel();
+        var tempFile = Path.GetTempFileName();
+        try
+        {
+            await File.WriteAllTextAsync(tempFile, "test content");
+            await vm.LoadFileContentAsync(tempFile);
+
+            Assert.NotNull(vm.LoadedFilePath);
+            Assert.True(vm.IsPayloadReadOnly);
+
+            await vm.ClearCommand.Execute();
+
+            Assert.Null(vm.LoadedFilePath);
+            Assert.False(vm.IsPayloadReadOnly);
+            Assert.Equal("Cleared.", vm.StatusText);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    // ──────────────────────────────────────────────
+    // DetectContentType
+    // ──────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(".json", "application/json", false)]
+    [InlineData(".xml", "application/xml", false)]
+    [InlineData(".txt", "text/plain", false)]
+    [InlineData(".csv", "text/csv", false)]
+    [InlineData(".yaml", "application/yaml", false)]
+    [InlineData(".html", "text/html", false)]
+    [InlineData(".svg", "image/svg+xml", false)]
+    public void DetectContentType_TextExtensions_ReturnsCorrectTypeAndNotBinary(string ext, string expectedType, bool expectedBinary)
+    {
+        var (contentType, isBinary) = PublishViewModel.DetectContentType(ext);
+        Assert.Equal(expectedType, contentType);
+        Assert.Equal(expectedBinary, isBinary);
+    }
+
+    [Theory]
+    [InlineData(".png", "image/png")]
+    [InlineData(".jpg", "image/jpeg")]
+    [InlineData(".gif", "image/gif")]
+    [InlineData(".mp4", "video/mp4")]
+    [InlineData(".mp3", "audio/mpeg")]
+    [InlineData(".protobuf", "application/protobuf")]
+    [InlineData(".msgpack", "application/msgpack")]
+    [InlineData(".cbor", "application/cbor")]
+    [InlineData(".zip", "application/zip")]
+    [InlineData(".pdf", "application/pdf")]
+    [InlineData(".bin", "application/octet-stream")]
+    public void DetectContentType_BinaryExtensions_ReturnsBinary(string ext, string expectedType)
+    {
+        var (contentType, isBinary) = PublishViewModel.DetectContentType(ext);
+        Assert.Equal(expectedType, contentType);
+        Assert.True(isBinary);
+    }
+
+    [Fact]
+    public void DetectContentType_UnknownExtension_DefaultsToBinary()
+    {
+        var (contentType, isBinary) = PublishViewModel.DetectContentType(".xyz123");
+        Assert.Equal("application/octet-stream", contentType);
+        Assert.True(isBinary);
+    }
+
+    // ──────────────────────────────────────────────
     // Dispose
     // ──────────────────────────────────────────────
 
