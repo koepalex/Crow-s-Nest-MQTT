@@ -436,7 +436,7 @@
           </Grid> <!-- End of Main Content Grid -->
 
           <Panel Grid.Row="0" Grid.Column="1" IsVisible="{Binding IsSettingsVisible}" Background="{DynamicResource ApplicationBackgroundBrush}">
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto, Auto" Margin="5"> <!-- Increased to 19 rows for Application Settings -->
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="5"> <!-- 21 rows (0-20) for Application Settings -->
                 <Grid.Styles>
                     <Style Selector="TextBlock">
                         <Setter Property="VerticalAlignment" Value="Center"/>
@@ -556,14 +556,14 @@
 
                 <!-- Subscription QoS -->
                 <TextBlock Grid.Row="18" Grid.Column="0" Text="Subscription QoS:"/>
-                <StackPanel Grid.Row="18" Grid.Column="1" Orientation="Vertical" Spacing="2">
-                    <ComboBox SelectedIndex="{Binding Settings.SubscriptionQoS, Mode=TwoWay}" MinWidth="120">
+                <Grid Grid.Row="18" Grid.Column="1" RowDefinitions="Auto,Auto">
+                    <ComboBox Grid.Row="0" SelectedIndex="{Binding Settings.SubscriptionQoS, Mode=TwoWay}" MinWidth="120">
                         <ComboBoxItem Content="0 - At Most Once"/>
                         <ComboBoxItem Content="1 - At Least Once (Default)"/>
                         <ComboBoxItem Content="2 - Exactly Once"/>
                     </ComboBox>
-                    <TextBlock Text="Higher QoS preserves message delivery guarantees but reduces throughput" FontSize="10"/>
-                </StackPanel>
+                    <TextBlock Grid.Row="1" Text="Higher QoS preserves message delivery guarantees but reduces throughput" FontSize="10" Margin="0,2,0,0"/>
+                </Grid>
 
                 <!-- Topic Buffer Limits List -->
                 <ItemsControl Grid.Row="19" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding Settings.TopicSpecificLimits}" Margin="0,0,0,5">
