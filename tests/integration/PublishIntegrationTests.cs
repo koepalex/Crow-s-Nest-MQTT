@@ -227,6 +227,77 @@ public class PublishIntegrationTests : IClassFixture<MqttBrokerFixture>, IDispos
 
     [Fact]
     [Trait("Category", "RequiresMqttBroker")]
+    public async Task Publish_WithQoS2_AndSubscriptionQoS2_ReceivesExactlyOnce()
+    {
+        // Arrange — create a separate engine with SubscriptionQoS = 2
+        var settings = new MqttConnectionSettings
+        {
+            Hostname = _broker.Hostname,
+            Port = _broker.Port,
+            ClientId = $"qos2-sub-test-{Guid.NewGuid():N}",
+            CleanSession = true,
+            SubscriptionQoS = 2
+        };
+
+        using var engine = new MqttEngine(settings);
+        engine.LogMessage += (_, msg) => _output.WriteLine($"[QoS2Engine] {msg}");
+
+        Assert.True(_broker.IsRunning, "Embedded MQTT broker is not running.");
+        using var connectCts = new CancellationTokenSource(MessageTimeout);
+        await engine.ConnectAsync(connectCts.Token);
+        await Task.Delay(500); // wait for subscription
+
+        var topic = $"publish-test/qos2-sub/{Guid.NewGuid():N}";
+        var payload = "QoS 2 exactly-once message";
+
+        var tcs = new TaskCompletionSource<IdentifiedMqttApplicationMessageReceivedEventArgs>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void Handler(object? sender, IReadOnlyList<IdentifiedMqttApplicationMessageReceivedEventArgs> batch)
+        {
+            foreach (var msg in batch)
+            {
+                if (msg.ApplicationMessage.Topic == topic)
+                {
+                    tcs.TrySetResult(msg);
+                    return;
+                }
+            }
+        }
+
+        engine.MessagesBatchReceived += Handler;
+
+        try
+        {
+            var request = new MqttPublishRequest
+            {
+                Topic = topic,
+                PayloadText = payload,
+                QoS = MqttQualityOfServiceLevel.ExactlyOnce
+            };
+
+            // Act
+            var result = await engine.PublishAsync(request);
+            Assert.True(result.Success, $"Publish failed: {result.ErrorMessage}");
+
+            using var receiveCts = new CancellationTokenSource(MessageTimeout);
+            receiveCts.Token.Register(() => tcs.TrySetCanceled());
+            var received = await tcs.Task;
+
+            // Assert — QoS should be ExactlyOnce (2), not downgraded
+            Assert.Equal(topic, received.ApplicationMessage.Topic);
+            Assert.Equal(payload, Encoding.UTF8.GetString(received.ApplicationMessage.Payload));
+            Assert.Equal(MqttQualityOfServiceLevel.ExactlyOnce, received.ApplicationMessage.QualityOfServiceLevel);
+        }
+        finally
+        {
+            engine.MessagesBatchReceived -= Handler;
+            try { await engine.DisconnectAsync(CancellationToken.None); } catch { }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "RequiresMqttBroker")]
     public async Task Publish_WithRetain_RetainedMessageIsStored()
     {
         // Arrange

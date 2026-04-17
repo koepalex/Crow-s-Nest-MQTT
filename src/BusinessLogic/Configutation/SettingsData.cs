@@ -16,7 +16,8 @@ public record SettingsData(
     bool UseTls = false,
     int MaxTopicLimit = 500,
     int ParallelismDegree = 4,
-    int TimeoutPeriodSeconds = 5)
+    int TimeoutPeriodSeconds = 5,
+    int SubscriptionQoS = 1)
 {
     public IList<TopicBufferLimit> TopicSpecificBufferLimits { get; init; } = new List<TopicBufferLimit>();
     /// <summary>

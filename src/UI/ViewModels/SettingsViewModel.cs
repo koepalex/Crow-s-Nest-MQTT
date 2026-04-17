@@ -80,6 +80,17 @@ public class SettingsViewModel : ReactiveObject
         set => this.RaiseAndSetIfChanged(ref _useTls, value);
     }
 
+    private int _subscriptionQoS = 1;
+    /// <summary>
+    /// QoS level for the wildcard subscription (0, 1, or 2). Default: 1 (AtLeastOnce).
+    /// Set to 2 to receive QoS 2 messages without downgrade. Higher QoS reduces throughput.
+    /// </summary>
+    public int SubscriptionQoS
+    {
+        get => _subscriptionQoS;
+        set => this.RaiseAndSetIfChanged(ref _subscriptionQoS, Math.Clamp(value, 0, 2));
+    }
+
     public SettingsViewModel()
     {
         ExportPath = _exportFolderPath; // Set default before loading
@@ -118,7 +129,8 @@ public class SettingsViewModel : ReactiveObject
             this.WhenAnyValue(x => x.AuthenticationMethod),
             this.WhenAnyValue(x => x.AuthenticationData),
             this.WhenAnyValue(x => x.UseTls),
-            (_, _, _, _, _, _, _, _, _, _, _, _, _, _) => Unit.Default);
+            this.WhenAnyValue(x => x.SubscriptionQoS),
+            (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => Unit.Default);
 
         // Observable for changes within the TopicSpecificLimits collection (add/remove)
         var collectionChanged = Observable.FromEventPattern<System.Collections.Specialized.NotifyCollectionChangedEventHandler, System.Collections.Specialized.NotifyCollectionChangedEventArgs>(
@@ -318,7 +330,8 @@ public class SettingsViewModel : ReactiveObject
             authModeSetting,
             ExportFormat,
             ExportPath,
-            UseTls
+            UseTls,
+            SubscriptionQoS: SubscriptionQoS
         )
         {
             TopicSpecificBufferLimits = topicLimits
@@ -336,6 +349,7 @@ public class SettingsViewModel : ReactiveObject
         ExportFormat = settingsData.ExportFormat;
         ExportPath = settingsData.ExportPath;
         UseTls = settingsData.UseTls;
+        SubscriptionQoS = settingsData.SubscriptionQoS;
         TopicSpecificLimits.Clear();
         
         // Ensure we always have the default '#' limit

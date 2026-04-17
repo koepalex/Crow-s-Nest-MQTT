@@ -128,7 +128,7 @@ private MqttClientOptions? _currentOptions;
             var subscribeOptions = new MqttClientSubscribeOptionsBuilder()
                 .WithTopicFilter(f =>
                     f.WithTopic("#")
-                     .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                     .WithQualityOfServiceLevel((MqttQualityOfServiceLevel)_settings.SubscriptionQoS)
                      .WithRetainAsPublished(true))
                 .Build();
 

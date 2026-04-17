@@ -554,8 +554,19 @@
                 <!-- Application Settings Header -->
                 <TextBlock Grid.Row="17" Grid.Column="0" Grid.ColumnSpan="2" Text="Application Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
 
+                <!-- Subscription QoS -->
+                <TextBlock Grid.Row="18" Grid.Column="0" Text="Subscription QoS:"/>
+                <StackPanel Grid.Row="18" Grid.Column="1" Orientation="Vertical" Spacing="2">
+                    <ComboBox SelectedIndex="{Binding Settings.SubscriptionQoS, Mode=TwoWay}" MinWidth="120">
+                        <ComboBoxItem Content="0 - At Most Once"/>
+                        <ComboBoxItem Content="1 - At Least Once (Default)"/>
+                        <ComboBoxItem Content="2 - Exactly Once"/>
+                    </ComboBox>
+                    <TextBlock Text="Higher QoS preserves message delivery guarantees but reduces throughput" FontSize="10"/>
+                </StackPanel>
+
                 <!-- Topic Buffer Limits List -->
-                <ItemsControl Grid.Row="18" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding Settings.TopicSpecificLimits}" Margin="0,0,0,5">
+                <ItemsControl Grid.Row="19" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding Settings.TopicSpecificLimits}" Margin="0,0,0,5">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:TopicBufferLimitViewModel}">
                             <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto" Margin="0,2">
@@ -568,7 +579,7 @@
                 </ItemsControl>
                 
                 <!-- Add New Limit Button -->
-                <Button Grid.Row="19" Grid.Column="0" Grid.ColumnSpan="2" Content="Add New Limit" Command="{Binding Settings.AddTopicLimitCommand}" HorizontalAlignment="Left" Margin="0,5,0,0"/>
+                <Button Grid.Row="20" Grid.Column="0" Grid.ColumnSpan="2" Content="Add New Limit" Command="{Binding Settings.AddTopicLimitCommand}" HorizontalAlignment="Left" Margin="0,5,0,0"/>
 
             </Grid>
         </Panel>

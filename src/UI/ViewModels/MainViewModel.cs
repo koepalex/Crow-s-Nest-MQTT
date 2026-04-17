@@ -1045,7 +1045,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits,
             DefaultTopicBufferSizeBytes = Settings.Into().DefaultTopicBufferSizeBytes,
             AuthMode = Settings.Into().AuthMode,
-            UseTls = Settings.UseTls
+            UseTls = Settings.UseTls,
+            SubscriptionQoS = Settings.SubscriptionQoS
         });
 
         _mqttService.ConnectionStateChanged += OnConnectionStateChanged;
@@ -2418,7 +2419,8 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             TopicSpecificBufferLimits = Settings.Into().TopicSpecificBufferLimits,
             DefaultTopicBufferSizeBytes = Settings.Into().DefaultTopicBufferSizeBytes,
             AuthMode = Settings.Into().AuthMode,
-            UseTls = Settings.UseTls
+            UseTls = Settings.UseTls,
+            SubscriptionQoS = Settings.SubscriptionQoS
         };
         
         _mqttService.UpdateSettings(connectionSettings);

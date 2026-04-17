@@ -24,4 +24,10 @@ public class MqttConnectionSettings
     public long? DefaultTopicBufferSizeBytes { get; set; }
     public AuthenticationMode AuthMode { get; set; } = new AnonymousAuthenticationMode();
     public bool UseTls { get; set; } = false;
+    /// <summary>
+    /// QoS level for the wildcard subscription. Default is 1 (AtLeastOnce).
+    /// Set to 2 (ExactlyOnce) if you need to receive QoS 2 messages without downgrade.
+    /// Higher QoS reduces maximum message throughput.
+    /// </summary>
+    public int SubscriptionQoS { get; set; } = 1;
 }
