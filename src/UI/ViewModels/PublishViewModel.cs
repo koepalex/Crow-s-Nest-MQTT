@@ -529,7 +529,7 @@ public class PublishViewModel : ReactiveObject, IDisposable
         UserProperties.Remove(property);
     }
 
-    private void UpdateSyntaxHighlighting(string? contentType)
+    internal void UpdateSyntaxHighlighting(string? contentType)
     {
         if (string.IsNullOrWhiteSpace(contentType))
         {
