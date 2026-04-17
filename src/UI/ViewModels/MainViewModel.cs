@@ -2424,6 +2424,25 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         };
         
         _mqttService.UpdateSettings(connectionSettings);
+
+        // Also update the UI-side message store limits to match
+        try
+        {
+            var limits = connectionSettings.TopicSpecificBufferLimits?
+                .ToDictionary(l => l.TopicFilter.Trim().TrimEnd('/'),
+                              l => l.MaxSizeBytes)
+                ?? new Dictionary<string, long>();
+            // Use the '#' wildcard limit as the default, falling back to 1MB
+            long defaultLimit = limits.TryGetValue("#", out var hashLimit)
+                ? hashLimit
+                : connectionSettings.DefaultTopicBufferSizeBytes ?? 1 * 1024 * 1024;
+            _messageStore.UpdateLimits(defaultLimit, limits);
+            Log.Information("Updated TopicMessageStore limits with {Count} specific limits.", limits.Count);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to update TopicMessageStore limits.");
+        }
         
         // The MqttEngine now manages its own cancellation token.
         // We just need to call the method.

@@ -56,7 +56,58 @@ public class TopicRingBuffer
 
             var bufferedMessage = new InternalBufferedMqttMessage(message, messageId);
 
-            // Evict until space (or empty)
+            // If the message can never fit (larger than entire buffer), skip eviction
+            // and go straight to proxy creation to preserve existing messages.
+            if (bufferedMessage.Size > _maxSizeInBytes)
+            {
+                AppLogger.Warning("Message for topic '{Topic}' (ID: {MessageId}, Size: {Size} bytes) exceeds buffer limit ({Limit} bytes). Creating proxy without evicting existing messages.",
+                    message.Topic, messageId, bufferedMessage.Size, _maxSizeInBytes);
+
+                var builder = new MqttApplicationMessageBuilder()
+                    .WithTopic(message.Topic)
+                    .WithPayload("Payload too large for buffer")
+                    .WithUserProperty("CrowProxy", Encoding.UTF8.GetBytes("PayloadTooLarge"))
+                    .WithUserProperty("OriginalPayloadSize", Encoding.UTF8.GetBytes(bufferedMessage.Size.ToString()))
+                    .WithUserProperty("ReceivedTime", Encoding.UTF8.GetBytes(DateTime.UtcNow.ToString("o")))
+                    .WithUserProperty("Preview", Encoding.UTF8.GetBytes(GetPreview(message)));
+
+                if (message.UserProperties != null)
+                {
+                    foreach (var prop in message.UserProperties)
+                    {
+                        builder.WithUserProperty(prop.Name, prop.ValueBuffer);
+                    }
+                }
+
+                var proxy = builder.Build();
+                var proxyIdLocal = Guid.NewGuid();
+                var proxyBuffered = new InternalBufferedMqttMessage(proxy, proxyIdLocal);
+
+                // Only evict enough to fit the (small) proxy, not the original
+                while (_currentSizeInBytes + proxyBuffered.Size > _maxSizeInBytes && _messages.Count > 0)
+                {
+                    var oldest = _messages.First!.Value;
+                    evicted.Add(oldest.MessageId);
+                    RemoveOldestMessage();
+                }
+
+                if (_currentSizeInBytes + proxyBuffered.Size <= _maxSizeInBytes)
+                {
+                    var node = _messages.AddLast(proxyBuffered);
+                    _messageIndex.Add(proxyIdLocal, node);
+                    _currentSizeInBytes += proxyBuffered.Size;
+                    proxyId = proxyIdLocal;
+                }
+                else
+                {
+                    AppLogger.Warning("Proxy message for topic '{Topic}' could not be added; still exceeds limit ({Limit} bytes).",
+                        message.Topic, _maxSizeInBytes);
+                }
+
+                return evicted;
+            }
+
+            // Normal path: message can fit if we free enough space
             while (_currentSizeInBytes + bufferedMessage.Size > _maxSizeInBytes && _messages.Count > 0)
             {
                 var oldest = _messages.First!.Value;

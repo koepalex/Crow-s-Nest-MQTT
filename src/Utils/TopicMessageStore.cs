@@ -27,6 +27,14 @@ public interface ITopicMessageStore
     /// Attempts to get a specific buffered message by its id (searches all topics).
     /// </summary>
     bool TryGetMessage(Guid messageId, out MqttApplicationMessage? message, out string? topic);
+
+    /// <summary>
+    /// Updates buffer limits dynamically. Existing buffers are rebuilt with new sizes;
+    /// messages that no longer fit are evicted (oldest first).
+    /// </summary>
+    /// <param name="defaultPerTopicLimitBytes">New default per-topic size limit.</param>
+    /// <param name="specificTopicLimits">New topic-specific overrides.</param>
+    void UpdateLimits(long defaultPerTopicLimitBytes, IReadOnlyDictionary<string, long>? specificTopicLimits = null);
 }
 
 /// <summary>
@@ -44,11 +52,12 @@ public readonly record struct EvictedMessage(Guid MessageId, string Topic);
 /// </summary>
 public class TopicMessageStore : ITopicMessageStore
 {
-    private readonly long _defaultPerTopicLimitBytes;
-    private readonly IReadOnlyDictionary<string, long> _specificTopicLimits;
+    private long _defaultPerTopicLimitBytes;
+    private IReadOnlyDictionary<string, long> _specificTopicLimits;
     private readonly ConcurrentDictionary<string, TopicRingBuffer> _buffers = new();
     // Reverse index for fast Guid->Topic lookup (eviction/removal coordination)
     private readonly ConcurrentDictionary<Guid, string> _idToTopic = new();
+    private readonly object _limitsLock = new();
 
     public TopicMessageStore(
         long defaultPerTopicLimitBytes,
@@ -156,6 +165,39 @@ public class TopicMessageStore : ITopicMessageStore
             return true;
         }
         return false;
+    }
+
+    /// <inheritdoc/>
+    public void UpdateLimits(long defaultPerTopicLimitBytes, IReadOnlyDictionary<string, long>? specificTopicLimits = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(defaultPerTopicLimitBytes);
+
+        lock (_limitsLock)
+        {
+            _defaultPerTopicLimitBytes = defaultPerTopicLimitBytes;
+            _specificTopicLimits = specificTopicLimits ?? new Dictionary<string, long>();
+
+            // Rebuild existing buffers with new limits
+            foreach (var topic in _buffers.Keys.ToList())
+            {
+                if (!_buffers.TryGetValue(topic, out var existingBuffer))
+                    continue;
+
+                var newLimit = ResolveLimitForTopic(topic);
+                if (newLimit == existingBuffer.MaxSizeInBytes)
+                    continue;
+
+                var messages = existingBuffer.GetBufferedMessages().ToList();
+                var newBuffer = new TopicRingBuffer(newLimit);
+
+                foreach (var bm in messages)
+                {
+                    newBuffer.AddMessage(bm.Message, bm.MessageId);
+                }
+
+                _buffers[topic] = newBuffer;
+            }
+        }
     }
 
     // --- Helpers ---
