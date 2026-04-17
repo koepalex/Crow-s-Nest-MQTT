@@ -333,15 +333,16 @@ public class PublishViewModel : ReactiveObject, IDisposable
             }
 
             var fileInfo = new FileInfo(filePath);
-            if (fileInfo.Length > 1024 * 1024) // 1MB limit
+            const long mqttMaxPayloadBytes = 268_435_455; // MQTT 5.0 max: 256MB - 1
+            if (fileInfo.Length > mqttMaxPayloadBytes)
             {
-                StatusText = $"File too large ({fileInfo.Length / 1024}KB). Maximum is 1MB.";
+                StatusText = $"File too large ({fileInfo.Length / (1024 * 1024)}MB). MQTT maximum payload is 256MB.";
                 return;
             }
 
-            if (fileInfo.Length > 256 * 1024) // 256KB warning
+            if (fileInfo.Length > 10 * 1024 * 1024) // 10MB warning
             {
-                StatusText = $"Warning: Large file ({fileInfo.Length / 1024}KB). Loading...";
+                StatusText = $"Warning: Large file ({fileInfo.Length / (1024 * 1024)}MB). Loading...";
             }
 
             var content = await File.ReadAllTextAsync(filePath);

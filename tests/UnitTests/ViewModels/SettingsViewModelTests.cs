@@ -129,10 +129,11 @@ public class SettingsViewModelTests
     }
 
     [Fact]
-    public void SubscriptionQoS_DefaultsToOne()
+    public void SettingsData_SubscriptionQoS_DefaultsToOne()
     {
-        var vm = new SettingsViewModel();
-        Assert.Equal(1, vm.SubscriptionQoS);
+        // SettingsData record default (not SettingsViewModel which loads persisted settings)
+        var data = new SettingsData("host", 1, "client", 60, true, 0, new AnonymousAuthenticationMode(), null, null);
+        Assert.Equal(1, data.SubscriptionQoS);
     }
 
     [Theory]
