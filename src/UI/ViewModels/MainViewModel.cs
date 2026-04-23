@@ -726,6 +726,12 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     public event EventHandler? ShowPublishWindowRequested;
 
     /// <summary>
+    /// Event raised when the publish window should be toggled (closed if open, opened otherwise).
+    /// The View subscribes to this to manage the window lifecycle.
+    /// </summary>
+    public event EventHandler? TogglePublishWindowRequested;
+
+    /// <summary>
     /// Gets the PublishViewModel for the publish window.
     /// </summary>
     public PublishViewModel? PublishViewModel => _publishViewModel;
@@ -2697,7 +2703,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     private void TogglePublishWindow()
     {
         GetOrCreatePublishViewModel();
-        ShowPublishWindowRequested?.Invoke(this, EventArgs.Empty);
+        TogglePublishWindowRequested?.Invoke(this, EventArgs.Empty);
         Log.Information("Publish window toggle requested.");
     }
 

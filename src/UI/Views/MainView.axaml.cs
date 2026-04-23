@@ -307,6 +307,7 @@ public partial class MainView : UserControl
 
            // Subscribe to ShowPublishWindowRequested to open the publish window
            vm.ShowPublishWindowRequested += OnShowPublishWindowRequested;
+           vm.TogglePublishWindowRequested += OnTogglePublishWindowRequested;
 
            // Subscribe to RawPayloadDocument changes to clear selection when empty
            _rawPayloadDocumentSubscription = vm.WhenAnyValue(x => x.RawPayloadDocument)
@@ -427,6 +428,7 @@ _parentWindow = null; // Clear window reference
         if (DataContext is MainViewModel oldVm)
         {
             oldVm.ShowPublishWindowRequested -= OnShowPublishWindowRequested;
+            oldVm.TogglePublishWindowRequested -= OnTogglePublishWindowRequested;
         }
 
         // Close any open publish window
@@ -483,6 +485,22 @@ _parentWindow = null; // Clear window reference
             return;
         }
 
+        ShowPublishWindowInternal();
+    }
+
+    private void OnTogglePublishWindowRequested(object? sender, EventArgs e)
+    {
+        if (_publishWindow is { IsVisible: true })
+        {
+            _publishWindow.Close();
+            return;
+        }
+
+        ShowPublishWindowInternal();
+    }
+
+    private void ShowPublishWindowInternal()
+    {
         if (DataContext is not MainViewModel vm) return;
 
         var publishVm = vm.PublishViewModel;

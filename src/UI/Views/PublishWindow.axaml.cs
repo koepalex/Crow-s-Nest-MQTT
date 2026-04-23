@@ -25,6 +25,21 @@ public partial class PublishWindow : Window
     }
 
     /// <inheritdoc />
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+
+        // Defensive fallback: ensure Escape always closes the window, even if
+        // a focused control (e.g. AvaloniaEdit TextEditor) swallows the
+        // Window.KeyBinding.
+        if (!e.Handled && e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            Close();
+        }
+    }
+
+    /// <inheritdoc />
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);

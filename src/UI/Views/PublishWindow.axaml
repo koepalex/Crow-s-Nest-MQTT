@@ -15,7 +15,7 @@
         WindowStartupLocation="CenterOwner">
 
   <Window.KeyBindings>
-    <KeyBinding Gesture="Escape" Command="{Binding $parent[Window].CloseCommand}" />
+    <KeyBinding Gesture="Escape" Command="{Binding CloseCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
     <KeyBinding Gesture="Alt+P" Command="{Binding PublishCommand}" />
     <KeyBinding Gesture="Ctrl+Return" Command="{Binding PublishCommand}" />
   </Window.KeyBindings>

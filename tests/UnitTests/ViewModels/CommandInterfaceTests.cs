@@ -468,5 +468,46 @@ public class CommandInterfaceTests
             Assert.Contains("Password set. Settings will be saved.", viewModel.StatusBarText);
             Assert.DoesNotContain("Auth mode switched", viewModel.StatusBarText);
         }
+
+        [Fact]
+        public void TogglePublishWindowCommand_ShouldRaiseToggleEvent_NotShowEvent()
+        {
+            // Arrange
+            var commandParser = new CommandParserService();
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+
+            bool toggleRaised = false;
+            bool showRaised = false;
+            viewModel.TogglePublishWindowRequested += (_, _) => toggleRaised = true;
+            viewModel.ShowPublishWindowRequested += (_, _) => showRaised = true;
+
+            // Act
+            viewModel.TogglePublishWindowCommand.Execute().Subscribe();
+
+            // Assert: toggle path must raise the toggle event exclusively so the
+            // view can close an already-open window instead of re-activating it.
+            Assert.True(toggleRaised, "TogglePublishWindowRequested should be raised.");
+            Assert.False(showRaised, "ShowPublishWindowRequested must not be raised by the toggle command.");
+        }
+
+        [Fact]
+        public void DispatchCommand_Publish_ShouldRaiseShowEvent_NotToggleEvent()
+        {
+            // Arrange
+            var commandParser = new CommandParserService();
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+
+            bool toggleRaised = false;
+            bool showRaised = false;
+            viewModel.TogglePublishWindowRequested += (_, _) => toggleRaised = true;
+            viewModel.ShowPublishWindowRequested += (_, _) => showRaised = true;
+
+            // Act
+            DispatchCommand(viewModel, CommandType.Publish);
+
+            // Assert: :publish always shows, never toggles closed.
+            Assert.True(showRaised, "ShowPublishWindowRequested should be raised by :publish.");
+            Assert.False(toggleRaised, "TogglePublishWindowRequested must not be raised by :publish.");
+        }
     }
 }
