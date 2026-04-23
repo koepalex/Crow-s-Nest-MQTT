@@ -11,6 +11,20 @@ namespace CrowsNestMqtt.UI.ViewModels;
 /// </summary>
 public class JsonViewerViewModel : ReactiveObject
 {
+    /// <summary>
+    /// Maximum depth at which nodes are auto-expanded (1-based).
+    /// </summary>
+    public const int AutoExpandMaxDepth = 5;
+
+    /// <summary>
+    /// Maximum total descendant node count for a subtree to be auto-expanded.
+    /// Subtrees whose descendant count exceeds this budget remain collapsed on load,
+    /// preventing the TreeView from materializing thousands of visuals synchronously
+    /// when a large / deeply-nested JSON payload is displayed.
+    /// The user can still click to expand these subtrees manually.
+    /// </summary>
+    public const int AutoExpandNodeBudget = 500;
+
     private string _jsonParseError = string.Empty;
     public string JsonParseError
     {
@@ -63,11 +77,13 @@ public JsonNodeViewModel? SelectedNode
             {
                 // Create a single root node for the array itself
                 var arrayRootNode = new JsonNodeViewModel("$", jsonDoc.RootElement, "$") { Depth = 0 };
-                // Set expansion based on depth (depth 0, so always expanded)
-                arrayRootNode.IsExpanded = true;
                 RootNodes.Add(arrayRootNode);
                 // Populate the children of this array node (depth 1)
-                PopulateNodes(jsonDoc.RootElement, arrayRootNode.Children, arrayRootNode.JsonPath, 1);
+                var arraySubtreeCount = PopulateNodes(jsonDoc.RootElement, arrayRootNode.Children, arrayRootNode.JsonPath, 1);
+                // The array-root itself is at depth 0 (always within AutoExpandMaxDepth),
+                // but still guard against auto-expanding huge arrays that would force the
+                // TreeView to materialize thousands of items synchronously.
+                arrayRootNode.IsExpanded = arraySubtreeCount <= AutoExpandNodeBudget;
             }
             else
             {
@@ -89,26 +105,52 @@ public JsonNodeViewModel? SelectedNode
         }
     }
 
-    private void PopulateNodes(JsonElement element, ObservableCollection<JsonNodeViewModel> children, string currentPath, int depth)
+    /// <summary>
+    /// Recursively materializes JsonNodeViewModels for the given element and returns
+    /// the total count of descendant nodes produced (excluding the elements added
+    /// into <paramref name="children"/> themselves? -- see remarks).
+    /// </summary>
+    /// <remarks>
+    /// Returned value is the total number of JsonNodeViewModel instances appended
+    /// to <paramref name="children"/> (including transitive grandchildren). It is
+    /// used to decide whether a container node is cheap enough to auto-expand
+    /// (see <see cref="AutoExpandNodeBudget"/>). The rule applied to each container
+    /// child is: expand when <c>depth &lt;= AutoExpandMaxDepth</c> AND the container's
+    /// own descendant count fits the budget. This keeps the familiar depth-based UX
+    /// for small JSON payloads while preventing the TreeView from synchronously
+    /// materializing thousands of TreeViewItems for large / deeply-nested payloads.
+    /// </remarks>
+    private int PopulateNodes(JsonElement element, ObservableCollection<JsonNodeViewModel> children, string currentPath, int depth)
     {
+        int totalAdded = 0;
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
                 foreach (var property in element.EnumerateObject())
                 {
-                    // Use property name escaping if needed for complex keys
-                    string safeName = property.Name; // Basic for now
-                    string childPath = $"{currentPath}.{safeName}"; // Basic path construction
+                    string safeName = property.Name;
+                    string childPath = $"{currentPath}.{safeName}";
                     var node = new JsonNodeViewModel(property.Name, property.Value, childPath) { Depth = depth };
 
-                    // FR-008: Auto-expand up to depth 5
-                    node.IsExpanded = depth <= 5 && (property.Value.ValueKind == JsonValueKind.Object || property.Value.ValueKind == JsonValueKind.Array);
-
                     children.Add(node);
-                    // Recursively populate children if it's an object or array
-                    if (property.Value.ValueKind == JsonValueKind.Object || property.Value.ValueKind == JsonValueKind.Array)
+                    totalAdded++;
+
+                    bool isContainer = property.Value.ValueKind == JsonValueKind.Object
+                                       || property.Value.ValueKind == JsonValueKind.Array;
+                    if (isContainer)
                     {
-                        PopulateNodes(property.Value, node.Children, node.JsonPath, depth + 1);
+                        int descendantCount = PopulateNodes(property.Value, node.Children, node.JsonPath, depth + 1);
+                        totalAdded += descendantCount;
+
+                        // FR-008: Auto-expand up to depth 5, but only if the subtree
+                        // is small enough to render cheaply. Larger subtrees stay
+                        // collapsed on load and the user can expand them manually.
+                        node.IsExpanded = depth <= AutoExpandMaxDepth
+                                          && descendantCount <= AutoExpandNodeBudget;
+                    }
+                    else
+                    {
+                        node.IsExpanded = false;
                     }
                 }
                 break;
@@ -120,14 +162,22 @@ public JsonNodeViewModel? SelectedNode
                     string childPath = $"{currentPath}[{index}]";
                     var node = new JsonNodeViewModel($"[{index}]", item, childPath) { Depth = depth };
 
-                    // FR-008: Auto-expand up to depth 5
-                    node.IsExpanded = depth <= 5 && (item.ValueKind == JsonValueKind.Object || item.ValueKind == JsonValueKind.Array);
-
                     children.Add(node);
-                    // Recursively populate children if it's an object or array
-                    if (item.ValueKind == JsonValueKind.Object || item.ValueKind == JsonValueKind.Array)
+                    totalAdded++;
+
+                    bool isContainer = item.ValueKind == JsonValueKind.Object
+                                       || item.ValueKind == JsonValueKind.Array;
+                    if (isContainer)
                     {
-                        PopulateNodes(item, node.Children, node.JsonPath, depth + 1);
+                        int descendantCount = PopulateNodes(item, node.Children, node.JsonPath, depth + 1);
+                        totalAdded += descendantCount;
+
+                        node.IsExpanded = depth <= AutoExpandMaxDepth
+                                          && descendantCount <= AutoExpandNodeBudget;
+                    }
+                    else
+                    {
+                        node.IsExpanded = false;
                     }
                     index++;
                 }
@@ -138,6 +188,7 @@ public JsonNodeViewModel? SelectedNode
                  AppLogger.Warning("Unexpected JsonValueKind encountered directly in PopulateNodes: {ValueKind}", element.ValueKind);
                  break;
         }
+        return totalAdded;
     }
 
     // Helper to get string representation consistent with JsonNodeViewModel display

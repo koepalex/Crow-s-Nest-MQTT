@@ -320,6 +320,11 @@
                       <!-- JSON Viewer (Conditionally Visible) -->
                       <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsJsonViewerVisible}">
                           <TreeView ItemsSource="{Binding JsonViewer.RootNodes}" MinWidth="200">
+                              <TreeView.ItemsPanel>
+                                  <ItemsPanelTemplate>
+                                      <VirtualizingStackPanel />
+                                  </ItemsPanelTemplate>
+                              </TreeView.ItemsPanel>
                               <TreeView.Styles>
                                   <Style Selector="TreeViewItem">
                                       <Setter Property="HorizontalAlignment" Value="Stretch"/>
