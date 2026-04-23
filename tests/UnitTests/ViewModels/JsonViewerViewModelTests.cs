@@ -467,5 +467,86 @@ namespace UnitTests.ViewModels
             Assert.Contains("🌍", vm.RootNodes[0].ValueDisplay);
             Assert.Contains("世界", vm.RootNodes[1].ValueDisplay);
         }
+
+        [Fact]
+        public void LoadJson_LargeSubtree_IsNotAutoExpanded()
+        {
+            // Root object has one property 'big' whose value is a flat object with many leaves.
+            // With AutoExpandNodeBudget=500 the 'big' subtree (>500 children) must stay collapsed
+            // so the TreeView doesn't need to materialize thousands of items synchronously.
+            int childCount = JsonViewerViewModel.AutoExpandNodeBudget + 50;
+            var sb = new System.Text.StringBuilder();
+            sb.Append("{\"big\":{");
+            for (int i = 0; i < childCount; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append('"').Append("k").Append(i).Append("\":").Append(i);
+            }
+            sb.Append("}}");
+
+            var vm = new JsonViewerViewModel();
+            vm.LoadJson(sb.ToString());
+
+            Assert.False(vm.HasParseError);
+            Assert.Single(vm.RootNodes);
+            var bigNode = vm.RootNodes[0];
+            Assert.Equal("big", bigNode.Name);
+            Assert.Equal(childCount, bigNode.Children.Count);
+            // Budget exceeded -> must not be auto-expanded
+            Assert.False(bigNode.IsExpanded);
+        }
+
+        [Fact]
+        public void LoadJson_SmallSubtree_IsStillAutoExpanded()
+        {
+            // Small nested object well under the budget should keep the existing
+            // depth-5 auto-expand UX.
+            var vm = new JsonViewerViewModel();
+            vm.LoadJson("{\"outer\":{\"inner\":{\"leaf\":42}}}");
+
+            Assert.False(vm.HasParseError);
+            var outer = vm.RootNodes[0];
+            Assert.True(outer.IsExpanded);
+            var inner = outer.Children[0];
+            Assert.True(inner.IsExpanded);
+        }
+
+        [Fact]
+        public void LoadJson_LargeArrayRoot_IsNotAutoExpanded()
+        {
+            // A top-level array larger than the budget should also stay collapsed
+            // on load to avoid the TreeView materializing thousands of value nodes.
+            int n = JsonViewerViewModel.AutoExpandNodeBudget + 10;
+            var json = "[" + string.Join(",", Enumerable.Range(0, n).Select(i => i.ToString())) + "]";
+
+            var vm = new JsonViewerViewModel();
+            vm.LoadJson(json);
+
+            Assert.False(vm.HasParseError);
+            Assert.Single(vm.RootNodes);
+            var arrayRoot = vm.RootNodes[0];
+            Assert.Equal(n, arrayRoot.Children.Count);
+            Assert.False(arrayRoot.IsExpanded);
+        }
+
+        [Fact]
+        public void LoadJson_TruncatesVeryLongStringValue()
+        {
+            // Embedded long string inside JSON (simulates base64 blob) should be
+            // truncated in ValueDisplay to keep per-item rendering cheap.
+            int len = JsonNodeViewModel.MaxValueDisplayLength + 250;
+            string big = new string('a', len);
+            string json = "{\"blob\":\"" + big + "\"}";
+
+            var vm = new JsonViewerViewModel();
+            vm.LoadJson(json);
+
+            Assert.False(vm.HasParseError);
+            var node = vm.RootNodes[0];
+            Assert.True(node.ValueDisplay.Length < len + 2,
+                $"ValueDisplay length {node.ValueDisplay.Length} should be much smaller than raw length {len}");
+            Assert.Contains("…", node.ValueDisplay);
+            Assert.Contains($"{len} chars", node.ValueDisplay);
+        }
     }
 }

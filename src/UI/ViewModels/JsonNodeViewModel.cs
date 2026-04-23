@@ -10,6 +10,15 @@ namespace CrowsNestMqtt.UI.ViewModels;
 /// </summary>
 public class JsonNodeViewModel : ReactiveObject
 {
+    /// <summary>
+    /// Maximum number of characters to display for string / fallback values in
+    /// the TreeView. Long strings (e.g. embedded base64 blobs or multi-KB text
+    /// inside JSON payloads) are truncated with an ellipsis suffix to keep the
+    /// TreeView responsive; the original value is still available via the
+    /// underlying raw payload views.
+    /// </summary>
+    public const int MaxValueDisplayLength = 500;
+
     public string Name { get; }
     public string ValueDisplay { get; }
     public JsonValueKind ValueKind { get; }
@@ -50,13 +59,34 @@ public class JsonNodeViewModel : ReactiveObject
         {
             JsonValueKind.Object => "{...}", // Placeholder for objects
             JsonValueKind.Array => $"[...] ({element.GetArrayLength()})", // Placeholder for arrays showing count
-            JsonValueKind.String => $"\"{element.GetString()}\"", // Add quotes for strings
+            JsonValueKind.String => FormatString(element.GetString()),
             JsonValueKind.Number => element.GetRawText(),
             JsonValueKind.True => "true",
             JsonValueKind.False => "false",
             JsonValueKind.Null => "null",
-            _ => element.ToString() // Fallback
+            _ => Truncate(element.ToString()) // Fallback
         };
+    }
+
+    private static string FormatString(string? value)
+    {
+        if (value == null) return "\"\"";
+        if (value.Length <= MaxValueDisplayLength)
+        {
+            return $"\"{value}\"";
+        }
+        // Truncate + ellipsis marker + original length hint. Keep quoting to
+        // match the non-truncated rendering convention.
+        return $"\"{value.Substring(0, MaxValueDisplayLength)}…\" ({value.Length} chars)";
+    }
+
+    private static string Truncate(string value)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length <= MaxValueDisplayLength)
+        {
+            return value;
+        }
+        return value.Substring(0, MaxValueDisplayLength) + "…";
     }
 
     private IBrush GetValueBrush(JsonValueKind kind)
