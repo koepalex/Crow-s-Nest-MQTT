@@ -157,6 +157,10 @@ engine.MessagesBatchReceived += (sender, batch) =>
         };
 
         await engine.ConnectAsync(cts.Token);
+        // Wait briefly so the engine's automatic subscription to "#" is registered
+        // with the broker before we publish. Without this, the publish can race
+        // ahead of the SUBSCRIBE and the message is never routed to the engine.
+        await Task.Delay(500, cts.Token);
 
         // Act: Publish a test message with an empty payload.
         var factory = new MqttClientFactory();
@@ -330,6 +334,10 @@ engine.MessagesBatchReceived += (sender, batch) =>
         try
         {
             await engine.ConnectAsync(cts.Token);
+            // Wait briefly so the engine's automatic subscription to "#" completes
+            // before our explicit SubscribeAsync call, avoiding a race where the
+            // background subscribe's timeout tears down the connection mid-test.
+            await Task.Delay(500, cts.Token);
 
             // Act
             var result = await engine.SubscribeAsync("test/subscribe/topic", MqttQualityOfServiceLevel.AtLeastOnce);

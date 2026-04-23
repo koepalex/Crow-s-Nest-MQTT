@@ -2077,6 +2077,23 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         }
         if (isPayloadValidUtf8)
         {
+            // Safety guard: very large payloads without an explicit application/json
+            // content-type are unlikely to be JSON and can freeze the UI while the
+            // TreeView attempts to render thousands of nodes. Fall back to the raw
+            // viewer and let the user request the JSON tree explicitly via :view json.
+            const int JsonAutoViewMaxLength = 2 * 1024 * 1024; // 2 MB of UTF-16 chars
+            bool isExplicitJsonContentType = msg.ContentType != null
+                && msg.ContentType.Contains("json", StringComparison.OrdinalIgnoreCase);
+            if (payloadAsString.Length > JsonAutoViewMaxLength && !isExplicitJsonContentType)
+            {
+                ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
+                StatusBarText = $"Payload too large ({payloadAsString.Length:N0} chars) for automatic JSON tree view. Showing raw. Use :view json to force.";
+                Log.Information("Skipped automatic JSON tree view for oversized payload ({Length} chars, content-type={ContentType}).", payloadAsString.Length, msg.ContentType);
+                this.RaisePropertyChanged(nameof(ShowJsonParseError));
+                this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+                return;
+            }
+
             JsonViewer.LoadJson(payloadAsString);
             if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
             {
