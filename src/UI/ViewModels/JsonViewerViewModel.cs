@@ -120,7 +120,7 @@ public JsonNodeViewModel? SelectedNode
     /// for small JSON payloads while preventing the TreeView from synchronously
     /// materializing thousands of TreeViewItems for large / deeply-nested payloads.
     /// </remarks>
-    private int PopulateNodes(JsonElement element, ObservableCollection<JsonNodeViewModel> children, string currentPath, int depth)
+    private static int PopulateNodes(JsonElement element, ObservableCollection<JsonNodeViewModel> children, string currentPath, int depth)
     {
         int totalAdded = 0;
         switch (element.ValueKind)
@@ -192,7 +192,7 @@ public JsonNodeViewModel? SelectedNode
     }
 
     // Helper to get string representation consistent with JsonNodeViewModel display
-    private string GetValueString(JsonElement element)
+    private static string GetValueString(JsonElement element)
     {
         return element.ValueKind switch
         {

@@ -7,7 +7,7 @@ namespace CrowsNestMqtt.UnitTests
 {
     public class TopicRingBufferTests
     {
-        private MqttApplicationMessage CreateTestMessage(string topic, int payloadSize, string? content = null)
+        private static MqttApplicationMessage CreateTestMessage(string topic, int payloadSize, string? content = null)
         {
             byte[] payload;
             if (content != null)

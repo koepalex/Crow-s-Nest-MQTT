@@ -33,7 +33,7 @@ public class CommandParserServiceTests
     [InlineData(":help", CommandType.Help)]
     public void ParseCommand_ValidSimpleCommands_ReturnsSuccess(string input, CommandType expectedType)
     {
-        var result = _parser.ParseCommand(input, _settings);
+        var result = CommandParserService.ParseCommand(input, _settings);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(expectedType, result.ParsedCommand?.Type);
@@ -47,7 +47,7 @@ public class CommandParserServiceTests
     [InlineData(":connect broker.hivemq.com:1883", CommandType.Connect, new[] { "broker.hivemq.com:1883" })]
     public void ParseCommand_ValidCommandsWithArgs_ReturnsSuccessAndCorrectArgs(string input, CommandType expectedType, string[] expectedArgs)
     {
-        var result = _parser.ParseCommand(input, _settings);
+        var result = CommandParserService.ParseCommand(input, _settings);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.ParsedCommand);
@@ -65,7 +65,7 @@ public class CommandParserServiceTests
     [InlineData(":export json \"path/with space/file.json\"", CommandType.Export, new[] { "json", "path/with space/file.json" })]
     public void ParseCommand_QuotedArguments_ReturnsSuccessAndCorrectArgs(string input, CommandType expectedType, string[] expectedArgs)
     {
-        var result = _parser.ParseCommand(input, _settings);
+        var result = CommandParserService.ParseCommand(input, _settings);
 
         Assert.True(result.IsSuccess, $"Input: '{input}' failed. Error: {result.ErrorMessage}");
         Assert.NotNull(result.ParsedCommand);
@@ -83,7 +83,7 @@ public class CommandParserServiceTests
     [InlineData(":pub topic\" payload")] // Quote not preceded by space
     public void ParseCommand_MalformedQuotedArguments_ReturnsFailure(string input)
     {
-        var result = _parser.ParseCommand(input, _settings);
+        var result = CommandParserService.ParseCommand(input, _settings);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.ParsedCommand);
@@ -99,7 +99,7 @@ public class CommandParserServiceTests
     [InlineData("notacommand")]
     public void ParseCommand_UnknownOrEmptyCommand_ReturnsFailure(string? input)
     {
-        var result = _parser.ParseCommand(input!, _settings);
+        var result = CommandParserService.ParseCommand(input!, _settings);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.ParsedCommand);
@@ -125,7 +125,7 @@ public class CommandParserServiceTests
     [InlineData(":search term1 term2")] // Too many args
     public void ParseCommand_IncorrectArgumentCount_ReturnsFailure(string input)
     {
-        var result = _parser.ParseCommand(input, _settings);
+        var result = CommandParserService.ParseCommand(input, _settings);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.ParsedCommand);
@@ -137,7 +137,7 @@ public class CommandParserServiceTests
     [Fact]
     public void ParseCommand_ExportDefault_ReturnsSuccessWithDefaults()
     {
-        var result = _parser.ParseCommand(":export", _settings);
+        var result = CommandParserService.ParseCommand(":export", _settings);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.ParsedCommand);
@@ -159,7 +159,7 @@ public class CommandParserServiceTests
     [InlineData(":export txt \"path with space/file.csv\"", "txt", "path with space/file.csv")]
     public void ParseCommand_ExportWithArgs_ReturnsSuccessAndCorrectArgs(string input, string expectedFormat, string expectedPath)
     {
-        var result = _parser.ParseCommand(input, _settings);
+        var result = CommandParserService.ParseCommand(input, _settings);
 
         Assert.True(result.IsSuccess, $"Input: '{input}' failed. Error: {result.ErrorMessage}");
         Assert.NotNull(result.ParsedCommand);
@@ -176,7 +176,7 @@ public class CommandParserServiceTests
     [InlineData(":export path/to/file xml")] // Invalid format
     public void ParseCommand_ExportInvalidFormat_ReturnsFailure(string input)
     {
-        var result = _parser.ParseCommand(input, _settings);
+        var result = CommandParserService.ParseCommand(input, _settings);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.ParsedCommand);
@@ -191,7 +191,7 @@ public class CommandParserServiceTests
     [InlineData(":filter \"search term with spaces\"", CommandType.Filter, new[] { "search term with spaces" })]
     public void ParseCommand_FilterCommand_ReturnsSuccessAndCorrectArgs(string input, CommandType expectedType, string[]? expectedArgs)
     {
-        var result = _parser.ParseCommand(input, _settings);
+        var result = CommandParserService.ParseCommand(input, _settings);
 
         Assert.True(result.IsSuccess, $"Input: '{input}' failed. Error: {result.ErrorMessage}");
         Assert.NotNull(result.ParsedCommand);
@@ -215,7 +215,7 @@ public class CommandParserServiceTests
     [InlineData(":search term", CommandType.Search, new[] { "term" })]
     public void ParseCommand_SearchCommand_ReturnsSuccessAndCorrectArgs(string input, CommandType expectedType, string[]? expectedArgs)
     {
-        var result = _parser.ParseCommand(input, _settings);
+        var result = CommandParserService.ParseCommand(input, _settings);
 
         Assert.True(result.IsSuccess, $"Input: '{input}' failed. Error: {result.ErrorMessage}");
         Assert.NotNull(result.ParsedCommand);
@@ -242,7 +242,7 @@ public class CommandParserServiceTests
     [InlineData(":setauthmode enhanced", "enhanced")]
     public void ParseCommand_SetAuthMode_ValidModes_ReturnsSuccess(string input, string expectedMode)
     {
-        var result = _parser.ParseCommand(input, _settings);
+        var result = CommandParserService.ParseCommand(input, _settings);
 
         Assert.True(result.IsSuccess, $"Input: '{input}' failed. Error: {result.ErrorMessage}");
         Assert.NotNull(result.ParsedCommand);
@@ -259,7 +259,7 @@ public class CommandParserServiceTests
     [InlineData(":setauthmode anonymous extra")] // Too many args
     public void ParseCommand_SetAuthMode_InvalidModes_ReturnsFailure(string input)
     {
-        var result = _parser.ParseCommand(input, _settings);
+        var result = CommandParserService.ParseCommand(input, _settings);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.ParsedCommand);

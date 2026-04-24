@@ -59,7 +59,7 @@ namespace CrowsNestMqtt.UnitTests.UI
         /// <summary>
         /// Creates a test main view model for testing
         /// </summary>
-        protected MainViewModel CreateTestMainViewModel(string? aspireHostname = null, int? aspirePort = null)
+        protected static MainViewModel CreateTestMainViewModel(string? aspireHostname = null, int? aspirePort = null)
         {
             var commandParserService = new CommandParserService();
             var mqttServiceMock = Substitute.For<IMqttService>();

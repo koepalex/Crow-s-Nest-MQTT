@@ -157,9 +157,9 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             
             // Make sure all nodes are initially collapsed
             var setNodeExpandedMethod = typeof(MainViewModel).GetMethod("SetNodeExpandedRecursive", 
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
             
-            setNodeExpandedMethod?.Invoke(viewModel, new object[] { viewModel.TopicTreeNodes, false });
+            setNodeExpandedMethod?.Invoke(null, new object[] { viewModel.TopicTreeNodes, false });
             
             // Act
             // var expandMethod = typeof(MainViewModel).GetMethod("ExpandAllNodes",
@@ -167,7 +167,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // expandMethod?.Invoke(viewModel, null);
             
             // Invoke SetNodeExpandedRecursive directly for synchronous testing
-            setNodeExpandedMethod?.Invoke(viewModel, new object[] { viewModel.TopicTreeNodes, true });
+            setNodeExpandedMethod?.Invoke(null, new object[] { viewModel.TopicTreeNodes, true });
 
             // Assert - Check all nodes are expanded
             Assert.True(viewModel.TopicTreeNodes[0].IsExpanded);
@@ -200,9 +200,9 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             
             // Make sure all nodes are initially expanded
             var setNodeExpandedMethod = typeof(MainViewModel).GetMethod("SetNodeExpandedRecursive", 
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
             
-            setNodeExpandedMethod?.Invoke(viewModel, new object[] { viewModel.TopicTreeNodes, true });
+            setNodeExpandedMethod?.Invoke(null, new object[] { viewModel.TopicTreeNodes, true });
             
             // Act
             // var collapseMethod = typeof(MainViewModel).GetMethod("CollapseAllNodes",
@@ -210,7 +210,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // collapseMethod?.Invoke(viewModel, null);
 
             // Invoke SetNodeExpandedRecursive directly for synchronous testing
-            setNodeExpandedMethod?.Invoke(viewModel, new object[] { viewModel.TopicTreeNodes, false });
+            setNodeExpandedMethod?.Invoke(null, new object[] { viewModel.TopicTreeNodes, false });
 
             // Assert - Check all nodes are collapsed
             Assert.False(viewModel.TopicTreeNodes[0].IsExpanded);

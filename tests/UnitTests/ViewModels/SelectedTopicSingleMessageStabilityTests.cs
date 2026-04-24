@@ -29,7 +29,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             return new MainViewModel(_commandParser, _mqttService, uiScheduler: ImmediateScheduler.Instance);
         }
 
-        private void InvokePrivateBatch(MainViewModel vm, List<IdentifiedMqttApplicationMessageReceivedEventArgs> batch)
+        private static void InvokePrivateBatch(MainViewModel vm, List<IdentifiedMqttApplicationMessageReceivedEventArgs> batch)
         {
             // Use reflection to invoke the private ProcessMessageBatchOnUIThread(List<Identified...>)
             var mi = typeof(MainViewModel)
@@ -38,7 +38,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             mi!.Invoke(vm, new object[] { batch });
         }
 
-        private IdentifiedMqttApplicationMessageReceivedEventArgs BuildEvent(string topic, byte[] payload, string? contentType = null)
+        private static IdentifiedMqttApplicationMessageReceivedEventArgs BuildEvent(string topic, byte[] payload, string? contentType = null)
         {
             var builder = new MqttApplicationMessageBuilder()
                 .WithTopic(topic)

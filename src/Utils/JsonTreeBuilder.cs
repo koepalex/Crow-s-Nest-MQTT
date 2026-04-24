@@ -14,7 +14,7 @@ namespace CrowsNestMqtt.Utils
         /// </summary>
         /// <param name="document">The JSON document to parse (must not be null)</param>
         /// <returns>Root JsonTreeNode with depth = 1</returns>
-        public JsonTreeNode BuildTree(JsonDocument document)
+        public static JsonTreeNode BuildTree(JsonDocument document)
         {
             ArgumentNullException.ThrowIfNull(document);
 

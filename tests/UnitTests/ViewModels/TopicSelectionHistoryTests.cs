@@ -92,7 +92,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
 
         #region Helpers
 
-        private void AddTestMessage(MainViewModel vm, string topic, string payload)
+        private static void AddTestMessage(MainViewModel vm, string topic, string payload)
         {
             var field = typeof(MainViewModel).GetField("_messageHistorySource", BindingFlags.NonPublic | BindingFlags.Instance);
             var source = field?.GetValue(vm) as SourceList<MessageViewModel>;
@@ -121,7 +121,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             source!.Add(messageVm);
         }
 
-        private void InvokePrivate(object target, string methodName, params object[] args)
+        private static void InvokePrivate(object target, string methodName, params object[] args)
         {
             var mi = target.GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
             Assert.NotNull(mi);

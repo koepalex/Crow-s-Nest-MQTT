@@ -27,12 +27,9 @@ public class MessageViewModelFactory : IMessageViewModelFactory
         IMqttService mqttService,
         IStatusBarService statusBarService)
     {
-        if (message == null)
-            throw new ArgumentNullException(nameof(message));
-        if (mqttService == null)
-            throw new ArgumentNullException(nameof(mqttService));
-        if (statusBarService == null)
-            throw new ArgumentNullException(nameof(statusBarService));
+        ArgumentNullException.ThrowIfNull(message);
+        ArgumentNullException.ThrowIfNull(mqttService);
+        ArgumentNullException.ThrowIfNull(statusBarService);
 
         var payloadBytes = message.ApplicationMessage.Payload.ToArray();
         var preview = GeneratePayloadPreview(payloadBytes);

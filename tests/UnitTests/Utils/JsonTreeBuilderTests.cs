@@ -14,7 +14,7 @@ namespace CrowsNestMqtt.UnitTests.Utils
             var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
-            var root = builder.BuildTree(document);
+            var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
 
             // Assert
             Assert.NotNull(root);
@@ -34,7 +34,7 @@ namespace CrowsNestMqtt.UnitTests.Utils
             var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
-            var root = builder.BuildTree(document);
+            var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
 
             // Assert - Root (depth 1)
             Assert.Equal(1, root.Depth);
@@ -68,7 +68,7 @@ namespace CrowsNestMqtt.UnitTests.Utils
             var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
-            var root = builder.BuildTree(document);
+            var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
 
             // Assert - Traverse to depth 5 and verify all expanded
             var current = root;
@@ -94,7 +94,7 @@ namespace CrowsNestMqtt.UnitTests.Utils
             var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
-            var root = builder.BuildTree(document);
+            var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
 
             // Assert - Depths 1-5 expanded
             var current = root;
@@ -120,7 +120,7 @@ namespace CrowsNestMqtt.UnitTests.Utils
             var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
-            var root = builder.BuildTree(document);
+            var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
 
             // Assert - Navigate to depth 6
             var current = root;
@@ -149,7 +149,7 @@ namespace CrowsNestMqtt.UnitTests.Utils
             var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
-            var root = builder.BuildTree(document);
+            var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
 
             // Assert - Root expanded
             Assert.True(root.IsExpanded);
@@ -179,7 +179,7 @@ namespace CrowsNestMqtt.UnitTests.Utils
             var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
-            var root = builder.BuildTree(document);
+            var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
 
             // Assert
             var emptyNode = root.Children[0];
@@ -198,7 +198,7 @@ namespace CrowsNestMqtt.UnitTests.Utils
             var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
-            var root = builder.BuildTree(document);
+            var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
 
             // Assert
             var emptyArrNode = root.Children[0];
@@ -217,7 +217,7 @@ namespace CrowsNestMqtt.UnitTests.Utils
             var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
-            var root = builder.BuildTree(document);
+            var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
 
             // Assert - All scalar children not expandable
             Assert.Equal(4, root.Children.Count);
@@ -237,7 +237,7 @@ namespace CrowsNestMqtt.UnitTests.Utils
             var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
-            var root = builder.BuildTree(document);
+            var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
 
             // Assert
             var parentNode = root.Children[0];

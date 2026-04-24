@@ -39,7 +39,7 @@ public class TextExporterTests : IDisposable
     }
 
     // Helper to create BufferedMqttMessage
-    private BufferedMqttMessage CreateTestBufferedMessage(
+    private static BufferedMqttMessage CreateTestBufferedMessage(
         string topic = "test/topic",
         string payload = "Hello MQTT",
         MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtLeastOnce,
@@ -70,7 +70,7 @@ public class TextExporterTests : IDisposable
     }
 
     // Helper to build expected content based on TextExporter format
-    private string BuildExpectedContent(MqttApplicationMessage msg, DateTime receivedTime)
+    private static string BuildExpectedContent(MqttApplicationMessage msg, DateTime receivedTime)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Timestamp: {receivedTime:yyyy-MM-dd HH:mm:ss.fff}");
@@ -288,4 +288,140 @@ public class TextExporterTests : IDisposable
         Assert.True(File.Exists(filePath));
         Assert.Equal(expectedFilename, Path.GetFileName(filePath));
     }
+    #region ExportToFile error handling
+
+    [Fact]
+    public void ExportToFile_WithInvalidPath_ReturnsNull()
+    {
+        var exporter = new TextExporter();
+        var msg = new MqttApplicationMessageBuilder()
+            .WithTopic("test/topic")
+            .WithPayload("test payload")
+            .Build();
+        var receivedTime = DateTime.UtcNow;
+
+        var invalidPath = Path.Combine("Z:\\nonexistent\\deeply\\nested\\path", Guid.NewGuid().ToString());
+
+        var result = exporter.ExportToFile(msg, receivedTime, invalidPath);
+
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    #region ExportAllToFile validation
+
+    [Fact]
+    public void ExportAllToFile_WithNullMessages_ThrowsArgumentNullException()
+    {
+        var exporter = new TextExporter();
+        var timestamps = new List<DateTime> { DateTime.UtcNow };
+
+        Assert.Throws<ArgumentNullException>(() =>
+            exporter.ExportAllToFile(null!, timestamps, "output.txt"));
+    }
+
+    [Fact]
+    public void ExportAllToFile_WithNullTimestamps_ThrowsArgumentNullException()
+    {
+        var exporter = new TextExporter();
+        var messages = new List<MqttApplicationMessage>
+        {
+            new MqttApplicationMessageBuilder().WithTopic("t").WithPayload("p").Build()
+        };
+
+        Assert.Throws<ArgumentNullException>(() =>
+            exporter.ExportAllToFile(messages, null!, "output.txt"));
+    }
+
+    [Fact]
+    public void ExportAllToFile_WithMismatchedCounts_ThrowsArgumentException()
+    {
+        var exporter = new TextExporter();
+        var messages = new List<MqttApplicationMessage>
+        {
+            new MqttApplicationMessageBuilder().WithTopic("t").WithPayload("p").Build(),
+            new MqttApplicationMessageBuilder().WithTopic("t2").WithPayload("p2").Build()
+        };
+        var timestamps = new List<DateTime> { DateTime.UtcNow };
+
+        Assert.Throws<ArgumentException>(() =>
+            exporter.ExportAllToFile(messages, timestamps, "output.txt"));
+    }
+
+    [Fact]
+    public void ExportAllToFile_WithEmptyCollections_ReturnsNull()
+    {
+        var exporter = new TextExporter();
+        var messages = new List<MqttApplicationMessage>();
+        var timestamps = new List<DateTime>();
+
+        var result = exporter.ExportAllToFile(messages, timestamps, "output.txt");
+
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    #region ExportAllToFile file I/O
+
+    [Fact]
+    public void ExportAllToFile_WithValidMessages_CreatesFile()
+    {
+        var exporter = new TextExporter();
+        var messages = new List<MqttApplicationMessage>
+        {
+            new MqttApplicationMessageBuilder().WithTopic("test/a").WithPayload("payload1").Build(),
+            new MqttApplicationMessageBuilder().WithTopic("test/b").WithPayload("payload2").Build()
+        };
+        var timestamps = new List<DateTime> { DateTime.UtcNow, DateTime.UtcNow };
+        var outputPath = Path.Combine(_testDirectory, "export.txt");
+
+        var result = exporter.ExportAllToFile(messages, timestamps, outputPath);
+
+        Assert.NotNull(result);
+        Assert.Equal(outputPath, result);
+        Assert.True(File.Exists(outputPath));
+        var content = File.ReadAllText(outputPath);
+        Assert.Contains("test/a", content);
+        Assert.Contains("test/b", content);
+        Assert.Contains("================", content);
+    }
+
+    [Fact]
+    public void ExportAllToFile_WithInvalidPath_ReturnsNull()
+    {
+        var exporter = new TextExporter();
+        var messages = new List<MqttApplicationMessage>
+        {
+            new MqttApplicationMessageBuilder().WithTopic("t").WithPayload("p").Build()
+        };
+        var timestamps = new List<DateTime> { DateTime.UtcNow };
+        var invalidPath = Path.Combine("Z:\\nonexistent\\deeply\\nested", "export.txt");
+
+        var result = exporter.ExportAllToFile(messages, timestamps, invalidPath);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void ExportAllToFile_WithSingleMessage_CreatesFileWithoutDelimiter()
+    {
+        var exporter = new TextExporter();
+        var messages = new List<MqttApplicationMessage>
+        {
+            new MqttApplicationMessageBuilder().WithTopic("test/single").WithPayload("payload").Build()
+        };
+        var timestamps = new List<DateTime> { DateTime.UtcNow };
+        var outputPath = Path.Combine(_testDirectory, "single_export.txt");
+
+        var result = exporter.ExportAllToFile(messages, timestamps, outputPath);
+
+        Assert.NotNull(result);
+        var content = File.ReadAllText(outputPath);
+        Assert.Contains("test/single", content);
+        Assert.DoesNotContain("================", content);
+    }
+
+    #endregion
 } // End of TextExporterTests class

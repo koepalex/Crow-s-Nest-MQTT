@@ -29,10 +29,10 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
        private sealed class ImmediateDispatcher : Avalonia.Threading.IDispatcher
        {
            public bool CheckAccess() => true;
-           public void Post(Action action) => action();
+           public static void Post(Action action) => action();
            public void Post(Action action, Avalonia.Threading.DispatcherPriority priority) => action();
            public void VerifyAccess() { }
-           public Avalonia.Threading.DispatcherPriority Priority => Avalonia.Threading.DispatcherPriority.Normal;
+           public static Avalonia.Threading.DispatcherPriority Priority => Avalonia.Threading.DispatcherPriority.Normal;
        }
 
        private readonly ICommandParserService _commandParserService;

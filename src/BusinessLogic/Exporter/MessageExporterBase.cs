@@ -49,15 +49,13 @@ public abstract class MessageExporterBase : IMessageExporter
     /// </summary>
     /// <exception cref="ArgumentNullException">If messages or timestamps are null.</exception>
     /// <exception cref="ArgumentException">If counts don't match.</exception>
-    protected (List<MqttApplicationMessage>?, List<DateTime>?) ValidateExportAllParameters(
+    protected static (List<MqttApplicationMessage>?, List<DateTime>?) ValidateExportAllParameters(
         IEnumerable<MqttApplicationMessage> messages,
         IEnumerable<DateTime> timestamps)
     {
         // Null checks
-        if (messages == null)
-            throw new ArgumentNullException(nameof(messages));
-        if (timestamps == null)
-            throw new ArgumentNullException(nameof(timestamps));
+        ArgumentNullException.ThrowIfNull(messages);
+        ArgumentNullException.ThrowIfNull(timestamps);
 
         var messageList = messages.ToList();
         var timestampList = timestamps.ToList();
@@ -95,7 +93,7 @@ public abstract class MessageExporterBase : IMessageExporter
     /// <summary>
     /// Wraps file write operations with common error handling.
     /// </summary>
-    protected string? SafeWriteToFile(string filePath, Action writeAction, int messageCount)
+    protected static string? SafeWriteToFile(string filePath, Action writeAction, int messageCount)
     {
         try
         {
