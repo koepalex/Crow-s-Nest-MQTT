@@ -10,7 +10,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="MQTTnet.Server" />
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">
@@ -37,7 +36,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\TestData\MqttTestDataGenerator.cs" Link="TestData\MqttTestDataGenerator.cs" />
-    <Compile Include="..\TestData\MqttTestUtilities.cs" Link="TestData\MqttTestUtilities.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="appsettings.test.json">

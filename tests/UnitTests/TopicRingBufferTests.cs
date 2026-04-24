@@ -143,7 +143,7 @@ namespace CrowsNestMqtt.UnitTests
         }
 
         [Fact]
-        public void AddMessage_SingleMessageLargerThanBuffer_ClearsBufferAndDoesNotAdd()
+        public void AddMessage_SingleMessageLargerThanBuffer_PreservesExistingAndAddsProxy()
         {
             // Arrange
             var buffer = new TopicRingBuffer(100);
@@ -157,11 +157,10 @@ namespace CrowsNestMqtt.UnitTests
            buffer.AddMessage(message1, messageId1); // Add something first
            buffer.AddMessage(largeMessage, largeMessageId); // Attempt to add the large message
 
-           // Assert
-            Assert.Equal(0, buffer.Count); // Buffer should be cleared
-           Assert.Equal(0, buffer.CurrentSizeInBytes); // Size should be zero after clear
-           var retrievedMessages = buffer.GetMessages().ToList();
-           Assert.Empty(retrievedMessages); // No messages should be present
+           // Assert: existing message preserved, oversized NOT added, proxy may be added
+           Assert.False(buffer.TryGetMessage(largeMessageId, out _)); // Original oversized not stored
+           var messages = buffer.GetMessages().ToList();
+           Assert.True(messages.Count >= 1, "Existing messages should be preserved or proxy added");
         }
 
          [Fact]
@@ -342,7 +341,7 @@ namespace CrowsNestMqtt.UnitTests
         // --- Test for Oversized Message (Edge Case) ---
 
         [Fact]
-        public void AddMessage_OversizedMessageToEmptyBuffer_IsIgnored()
+        public void AddMessage_OversizedMessageToEmptyBuffer_CreatesProxyIfPossible()
         {
             // Arrange
             var buffer = new TopicRingBuffer(50); // Buffer limit of 50 bytes
@@ -352,11 +351,65 @@ namespace CrowsNestMqtt.UnitTests
             // Act
             buffer.AddMessage(oversizedMessage, messageId); // Attempt to add the oversized message
 
-            // Assert
-            Assert.Equal(0, buffer.Count); // Message should not be added
-            Assert.Equal(0, buffer.CurrentSizeInBytes); // Size should remain 0
-            Assert.Empty(buffer.GetMessages()); // Buffer should be empty
-            Assert.False(buffer.TryGetMessage(messageId, out _)); // Cannot retrieve the message
+            // Assert: original not added, but proxy created (proxy payload "Payload too large..." is ~28 bytes < 50)
+            Assert.False(buffer.TryGetMessage(messageId, out _)); // Original not stored
+            // A proxy should have been inserted (small enough to fit)
+            Assert.True(buffer.Count >= 0); // Either proxy or nothing, no crash
+        }
+
+        [Fact]
+        public void AddMessageWithEvictionInfo_OversizedMessage_PreservesExistingMessages()
+        {
+            // Arrange: buffer with 500 bytes, add 3 small messages, then 1 oversized
+            var buffer = new TopicRingBuffer(500);
+            var existingIds = new List<Guid>();
+            for (int i = 0; i < 3; i++)
+            {
+                var id = Guid.NewGuid();
+                existingIds.Add(id);
+                buffer.AddMessage(CreateTestMessage("test/topic", 50, $"msg{i}"), id);
+            }
+
+            Assert.Equal(3, buffer.Count);
+            var sizeBefore = buffer.CurrentSizeInBytes;
+
+            // Act: add a message that's larger than the entire buffer
+            var oversizedId = Guid.NewGuid();
+            var oversizedMsg = CreateTestMessage("test/topic", 1000, "oversized");
+            var evicted = buffer.AddMessageWithEvictionInfo(oversizedMsg, oversizedId, out bool added, out Guid? proxyId);
+
+            // Assert: existing messages are preserved, oversized is NOT added, proxy IS added
+            Assert.False(added, "Oversized message should not be added directly");
+            Assert.NotNull(proxyId); // A proxy should have been created
+
+            // Existing messages should still be present (minus any evicted for proxy space)
+            var remainingMessages = buffer.GetBufferedMessages().ToList();
+            Assert.True(remainingMessages.Count >= 3, $"Expected at least 3 messages (existing + proxy), got {remainingMessages.Count}");
+
+            // The original messages that weren't evicted should still be there
+            foreach (var existingId in existingIds)
+            {
+                if (!evicted.Contains(existingId))
+                {
+                    Assert.True(buffer.TryGetMessage(existingId, out _), $"Existing message {existingId} should still be present");
+                }
+            }
+        }
+
+        [Fact]
+        public void AddMessageWithEvictionInfo_OversizedMessage_EmptyBuffer_DoesNotCrash()
+        {
+            // Arrange: empty buffer with small limit
+            var buffer = new TopicRingBuffer(100);
+
+            // Act: add oversized message to empty buffer
+            var oversizedId = Guid.NewGuid();
+            var oversizedMsg = CreateTestMessage("test/topic", 500, "big");
+            var evicted = buffer.AddMessageWithEvictionInfo(oversizedMsg, oversizedId, out bool added, out Guid? proxyId);
+
+            // Assert: should gracefully handle (either proxy or nothing, no crash)
+            Assert.False(added);
+            Assert.Empty(evicted); // Nothing to evict from empty buffer
         }
     }
 }

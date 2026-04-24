@@ -74,7 +74,7 @@ public class CommandInterfaceTests
         public void ExecuteSubmitInput_WithSearchTerm_ShouldApplyFilter()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             const string searchTerm = "test search";
             viewModel.CommandText = searchTerm;
 
@@ -95,7 +95,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithHelpCommand_ShouldDisplayHelp()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             var parsedCommand = new ParsedCommand(CommandType.Help, new List<string>().AsReadOnly());
 
             // Act - Call the DispatchCommand method via reflection
@@ -110,7 +110,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithSpecificHelpCommand_ShouldDisplaySpecificHelp()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             var parsedCommand = new ParsedCommand(CommandType.Help, new List<string> { "connect" }.AsReadOnly());
 
             // Act - Call the DispatchCommand method via reflection
@@ -125,7 +125,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithFilterCommand_ShouldApplyTopicFilter()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             var parsedCommand = new ParsedCommand(CommandType.Filter, new List<string> { "sensor" }.AsReadOnly());
 
             // Act - Call the DispatchCommand method via reflection
@@ -141,7 +141,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithClearFilterCommand_ShouldClearTopicFilter()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             
             // First apply a filter
             var applyFilterCommand = new ParsedCommand(CommandType.Filter, new List<string> { "sensor" }.AsReadOnly());
@@ -163,7 +163,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithExportCommand_ShouldExportSelectedMessage()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             
            // Create a message to export
            var messageIdExport = Guid.NewGuid();
@@ -200,7 +200,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithViewRawCommand_ShouldSwitchToRawView()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             
            // Create a message with JSON payload
            var messageIdViewRaw = Guid.NewGuid();
@@ -241,7 +241,7 @@ public class CommandInterfaceTests
         public void DispatchCommand_WithViewJsonCommand_ShouldSwitchToJsonView()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             
            // Create a message with JSON payload (same as above for simplicity, could reuse)
            var messageIdViewJson = Guid.NewGuid();
@@ -295,7 +295,7 @@ public class CommandInterfaceTests
         public void UpdateCommandSuggestions_ShouldFilterSuggestionsByCommandText()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService);
+            using var viewModel = new MainViewModel(_commandParserService, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             
             // Get the private method via reflection
             var updateSuggestionsMethod = typeof(MainViewModel).GetMethod("UpdateCommandSuggestions", 
@@ -341,7 +341,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService(); // Use real parser
-            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous; // Start as anonymous
 
             // Act
@@ -357,7 +357,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword; // Start as userpass
             viewModel.Settings.AuthUsername = "test"; // Ensure it's not empty for full switch effect
 
@@ -374,7 +374,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
             viewModel.Settings.AuthUsername = ""; // Ensure username is empty
 
@@ -392,7 +392,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
             viewModel.Settings.AuthUsername = "";
             viewModel.Settings.AuthPassword = "";
@@ -412,7 +412,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
             viewModel.Settings.AuthUsername = "";
             viewModel.Settings.AuthPassword = "";
@@ -432,7 +432,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            using var viewModel = new MainViewModel(commandParser, uiScheduler: Scheduler.Immediate);
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword;
             viewModel.Settings.AuthUsername = "olduser";
             viewModel.Settings.AuthPassword = "oldpass";
@@ -453,7 +453,7 @@ public class CommandInterfaceTests
         {
             // Arrange
             var commandParser = new CommandParserService();
-            using var viewModel = new MainViewModel(commandParser);
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword;
             viewModel.Settings.AuthUsername = "olduser";
             viewModel.Settings.AuthPassword = "oldpass";
@@ -467,6 +467,181 @@ public class CommandInterfaceTests
             Assert.Equal("olduser", viewModel.Settings.AuthUsername); // Username should remain unchanged
             Assert.Contains("Password set. Settings will be saved.", viewModel.StatusBarText);
             Assert.DoesNotContain("Auth mode switched", viewModel.StatusBarText);
+        }
+
+        [Fact]
+        public void TogglePublishWindowCommand_ShouldRaiseToggleEvent_NotShowEvent()
+        {
+            // Arrange
+            var commandParser = new CommandParserService();
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+
+            bool toggleRaised = false;
+            bool showRaised = false;
+            viewModel.TogglePublishWindowRequested += (_, _) => toggleRaised = true;
+            viewModel.ShowPublishWindowRequested += (_, _) => showRaised = true;
+
+            // Act
+            viewModel.TogglePublishWindowCommand.Execute().Subscribe();
+
+            // Assert: toggle path must raise the toggle event exclusively so the
+            // view can close an already-open window instead of re-activating it.
+            Assert.True(toggleRaised, "TogglePublishWindowRequested should be raised.");
+            Assert.False(showRaised, "ShowPublishWindowRequested must not be raised by the toggle command.");
+        }
+
+        [Fact]
+        public void DispatchCommand_Publish_ShouldRaiseShowEvent_NotToggleEvent()
+        {
+            // Arrange
+            var commandParser = new CommandParserService();
+            using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+
+            bool toggleRaised = false;
+            bool showRaised = false;
+            viewModel.TogglePublishWindowRequested += (_, _) => toggleRaised = true;
+            viewModel.ShowPublishWindowRequested += (_, _) => showRaised = true;
+
+            // Act
+            DispatchCommand(viewModel, CommandType.Publish);
+
+            // Assert: :publish always shows, never toggles closed.
+            Assert.True(showRaised, "ShowPublishWindowRequested should be raised by :publish.");
+            Assert.False(toggleRaised, "TogglePublishWindowRequested must not be raised by :publish.");
+        }
+
+        [Fact]
+        public void DispatchCommand_PublishWithTopicAndFileRef_RoutesFileThroughLoadFileContent()
+        {
+            // Arrange: real file so LoadFileContentAsync succeeds.
+            var tempFile = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllText(tempFile, "{\"hello\":\"world\"}");
+
+                var commandParser = new CommandParserService();
+                using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+
+                // Act
+                DispatchCommand(viewModel, CommandType.Publish, "foo/bar", "@" + tempFile);
+
+                // Assert: file reference routed into VM (not raw text in editor).
+                var pvm = viewModel.PublishViewModel;
+                Assert.NotNull(pvm);
+                Assert.Equal("foo/bar", pvm!.Topic);
+                Assert.Equal(tempFile, pvm.LoadedFilePath);
+                Assert.True(pvm.IsPayloadReadOnly, "File-ref mode should make the payload editor read-only.");
+            }
+            finally
+            {
+                File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void DispatchCommand_PublishWithSingleFileRef_UsesSelectedTopic()
+        {
+            // Arrange
+            var tempFile = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllText(tempFile, "payload");
+
+                var commandParser = new CommandParserService();
+                using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+
+                // Seed a selected topic via reflection (private field).
+                var selectedPathField = typeof(MainViewModel).GetField("_normalizedSelectedPath", BindingFlags.Instance | BindingFlags.NonPublic);
+                selectedPathField?.SetValue(viewModel, "sensors/temperature");
+
+                // Act: :publish @<tmp>  (single argument starting with '@').
+                DispatchCommand(viewModel, CommandType.Publish, "@" + tempFile);
+
+                // Assert
+                var pvm = viewModel.PublishViewModel;
+                Assert.NotNull(pvm);
+                Assert.Equal("sensors/temperature", pvm!.Topic);
+                Assert.Equal(tempFile, pvm.LoadedFilePath);
+                Assert.True(pvm.IsPayloadReadOnly);
+            }
+            finally
+            {
+                File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void DispatchCommand_PublishWithRelativeFileRef_ResolvesAgainstBasePath()
+        {
+            // Arrange: create a file inside a sandbox that serves as the samples
+            // base directory. The command references the file by its *name*
+            // only (relative), relying on the handler to resolve it via
+            // IFileAutoCompleteService.BasePath.
+            var baseDir = Path.Combine(Path.GetTempPath(), "CrowsNestMqtt_SamplesBase_" + Guid.NewGuid().ToString("N")[..8]);
+            Directory.CreateDirectory(baseDir);
+            try
+            {
+                var fileName = "sample-payload.json";
+                var filePath = Path.Combine(baseDir, fileName);
+                File.WriteAllText(filePath, "{\"k\":1}");
+
+                var stubFileSvc = new StubFileAutoCompleteService { BasePath = baseDir };
+
+                var commandParser = new CommandParserService();
+                using var viewModel = new MainViewModel(
+                    commandParser,
+                    mqttService: _mqttServiceMock,
+                    uiScheduler: Scheduler.Immediate,
+                    fileAutoCompleteService: stubFileSvc);
+
+                // Act: the argument is just "@sample-payload.json" — no directory.
+                DispatchCommand(viewModel, CommandType.Publish, "foo/bar", "@" + fileName);
+
+                // Assert: the handler resolves the relative path against BasePath.
+                var pvm = viewModel.PublishViewModel;
+                Assert.NotNull(pvm);
+                Assert.Equal("foo/bar", pvm!.Topic);
+                Assert.Equal(filePath, pvm.LoadedFilePath);
+                Assert.True(pvm.IsPayloadReadOnly);
+            }
+            finally
+            {
+                if (Directory.Exists(baseDir))
+                    Directory.Delete(baseDir, recursive: true);
+            }
+        }
+
+        [Fact]
+        public void UpdateCommandSuggestions_PublishAtToken_EmitsFileSuggestions()
+        {
+            // Arrange
+            var stubFileSvc = new StubFileAutoCompleteService(
+                new FileAutoCompleteSuggestion("/tmp/foo.json", "foo.json", false, 12L, ".json"),
+                new FileAutoCompleteSuggestion("/tmp/foobar.txt", "foobar.txt", false, 10L, ".txt"));
+
+            var commandParser = new CommandParserService();
+            using var viewModel = new MainViewModel(
+                commandParser,
+                mqttService: _mqttServiceMock,
+                uiScheduler: Scheduler.Immediate,
+                fileAutoCompleteService: stubFileSvc);
+
+            // Act: invoke the private UpdateCommandSuggestions directly to avoid
+            // the debounce pipeline in the constructor.
+            var method = typeof(MainViewModel).GetMethod("UpdateCommandSuggestions", BindingFlags.Instance | BindingFlags.NonPublic);
+            method?.Invoke(viewModel, new object?[] { ":publish foo/bar @/tmp/foo" });
+
+            // Assert
+            Assert.Contains(":publish foo/bar @/tmp/foo.json", viewModel.CommandSuggestions);
+            Assert.Contains(":publish foo/bar @/tmp/foobar.txt", viewModel.CommandSuggestions);
+        }
+
+        private sealed class StubFileAutoCompleteService : IFileAutoCompleteService
+        {
+            private readonly List<FileAutoCompleteSuggestion> _suggestions;
+            public StubFileAutoCompleteService(params FileAutoCompleteSuggestion[] items) => _suggestions = new List<FileAutoCompleteSuggestion>(items);
+            public string BasePath { get; set; } = System.IO.Path.GetTempPath();
+            public List<FileAutoCompleteSuggestion> GetSuggestions(string partialPath, int maxResults = 20) => _suggestions;
         }
     }
 }

@@ -59,6 +59,8 @@ public enum CommandType
     DeleteTopic,
     /// <summary> Navigate to the response message for the currently selected request message. </summary>
     GotoResponse,
+    /// <summary> Publish a message to a topic. </summary>
+    Publish,
     /// <summary> Represents an unrecognized or invalid command. </summary>
     Unknown
 }

@@ -77,6 +77,14 @@ public interface IMqttService : IDisposable
     Task ClearRetainedMessageAsync(string topic, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtLeastOnce, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Publishes an MQTT message with full MQTT V5 property support.
+    /// </summary>
+    /// <param name="request">The publish request containing topic, payload, and V5 properties.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>The result of the publish operation.</returns>
+    Task<Models.MqttPublishResult> PublishAsync(Models.MqttPublishRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Clears all messages from all internal topic buffers.
     /// </summary>
     void ClearAllBuffers();

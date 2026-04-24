@@ -161,6 +161,16 @@ Crow's NestMQTT is command-driven. Access the command palette with **Ctrl+Shift+
   - Shows response topic, correlation ID, and metadata
   - Only works on request messages (messages with `response-topic` header)
 
+### Publish Commands
+
+- **`:publish [topic] [@file|text]`** - Open the non-modal publish window.
+  - If topic is omitted, defaults to the currently selected topic
+  - `@filepath` loads payload from a file (e.g., `:publish sensor/data @payload.json`)
+  - Inline text sets the payload directly (e.g., `:publish test/topic hello world`)
+  - No arguments opens the publish window with default settings
+  - The publish window supports all MQTT V5 properties: QoS, Retain, Content-Type, Response-Topic, Correlation-Data, Message-Expiry-Interval, Payload-Format-Indicator, User Properties
+  - Keyboard shortcut: `Ctrl+Shift+M` to toggle the publish window
+
 ### Utility Commands
 
 - **`:help [command]`** - Display help for all commands or specific command. Example: `:help connect`
@@ -190,6 +200,10 @@ Crow's NestMQTT is command-driven. Access the command palette with **Ctrl+Shift+
 # Clear retained messages
 :deletetopic sensor/+
 :deletetopic device/# --confirm
+
+# Publish messages
+:publish sensor/data @payload.json
+:publish test/topic hello world
 
 # Find and navigate topics
 /temperature
@@ -374,6 +388,7 @@ builder
 - `:export <json|txt> <filepath>` - Data export
 - `:view <raw|json|image|video|hex>` - Payload viewers
 - `:deletetopic [topic-pattern]` - Delete retained messages from topics
+- `:publish [topic] [@file|text]` - Publish messages with MQTT V5 property support
 - `:settings` - Configuration access
 
 ## Important Notes

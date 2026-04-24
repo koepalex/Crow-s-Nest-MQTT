@@ -24,6 +24,7 @@
     <!-- Response status icons -->
     <StreamGeometry x:Key="clock_icon">M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z</StreamGeometry>
     <StreamGeometry x:Key="arrow_icon">M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z</StreamGeometry>
+    <StreamGeometry x:Key="send_regular">M5.694 12 2.299 3.272c-.236-.607.356-1.188.942-.982l.093.04 18 9c.503.251.553.888.104 1.204l-.104.066-18 9c-.622.31-1.3-.285-1.035-.942l.035-.08L5.694 12 2.299 3.272 5.694 12ZM4.402 4.54l2.61 6.71h6.627a.75.75 0 0 1 .743.648l.007.102a.75.75 0 0 1-.648.743l-.102.007H7.01l-2.609 6.71L19.322 12 4.401 4.54Z</StreamGeometry>
     <!-- Warning icon for expired messages -->
     <StreamGeometry x:Key="warning_icon">M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2v-2zm0-6h2v4h-2v-4z</StreamGeometry>
   </UserControl.Resources>
@@ -103,6 +104,16 @@
                       </Style>
                   </Button.Styles>
                   <PathIcon Data="{StaticResource export_regular}" Width="16" Height="16"/>
+              </Button>
+              <!-- Publish button to open the non-modal publish window -->
+              <Button x:Name="PublishButton"
+                      Command="{Binding TogglePublishWindowCommand}"
+                      ToolTip.Tip="Open publish window (Ctrl+Shift+M)"
+                      MinHeight="32"
+                      Padding="12,8"
+                      VerticalContentAlignment="Center"
+                      HorizontalContentAlignment="Center">
+                  <PathIcon Data="{StaticResource send_regular}" Width="16" Height="16"/>
               </Button>
               <TextBlock Text="Status:" VerticalAlignment="Center" Margin="10,0,0,0"/>
               <PathIcon VerticalAlignment="Center" Margin="5,0"
@@ -430,7 +441,7 @@
           </Grid> <!-- End of Main Content Grid -->
 
           <Panel Grid.Row="0" Grid.Column="1" IsVisible="{Binding IsSettingsVisible}" Background="{DynamicResource ApplicationBackgroundBrush}">
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto, Auto" Margin="5"> <!-- Increased to 19 rows for Application Settings -->
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="5"> <!-- 21 rows (0-20) for Application Settings -->
                 <Grid.Styles>
                     <Style Selector="TextBlock">
                         <Setter Property="VerticalAlignment" Value="Center"/>
@@ -548,8 +559,19 @@
                 <!-- Application Settings Header -->
                 <TextBlock Grid.Row="17" Grid.Column="0" Grid.ColumnSpan="2" Text="Application Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
 
+                <!-- Subscription QoS -->
+                <TextBlock Grid.Row="18" Grid.Column="0" Text="Subscription QoS:"/>
+                <Grid Grid.Row="18" Grid.Column="1" RowDefinitions="Auto,Auto">
+                    <ComboBox Grid.Row="0" SelectedIndex="{Binding Settings.SubscriptionQoS, Mode=TwoWay}" MinWidth="120">
+                        <ComboBoxItem Content="0 - At Most Once"/>
+                        <ComboBoxItem Content="1 - At Least Once (Default)"/>
+                        <ComboBoxItem Content="2 - Exactly Once"/>
+                    </ComboBox>
+                    <TextBlock Grid.Row="1" Text="Higher QoS preserves message delivery guarantees but reduces throughput" FontSize="10" Margin="0,2,0,0"/>
+                </Grid>
+
                 <!-- Topic Buffer Limits List -->
-                <ItemsControl Grid.Row="18" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding Settings.TopicSpecificLimits}" Margin="0,0,0,5">
+                <ItemsControl Grid.Row="19" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding Settings.TopicSpecificLimits}" Margin="0,0,0,5">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:TopicBufferLimitViewModel}">
                             <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto" Margin="0,2">
@@ -562,7 +584,7 @@
                 </ItemsControl>
                 
                 <!-- Add New Limit Button -->
-                <Button Grid.Row="19" Grid.Column="0" Grid.ColumnSpan="2" Content="Add New Limit" Command="{Binding Settings.AddTopicLimitCommand}" HorizontalAlignment="Left" Margin="0,5,0,0"/>
+                <Button Grid.Row="20" Grid.Column="0" Grid.ColumnSpan="2" Content="Add New Limit" Command="{Binding Settings.AddTopicLimitCommand}" HorizontalAlignment="Left" Margin="0,5,0,0"/>
 
             </Grid>
         </Panel>

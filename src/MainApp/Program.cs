@@ -29,6 +29,38 @@ class Program
         "logs",
         "app-.log");
 
+    private static readonly string _samplesDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "CrowsNestMqtt",
+        "samples");
+
+    private const string SamplesReadmeContents =
+        "Drop files in this folder to use them as payloads via the :publish command.\r\n" +
+        "\r\n" +
+        "Example:\r\n" +
+        "  :publish my/topic @sample.json\r\n" +
+        "\r\n" +
+        "Autocomplete in the command palette will suggest files from this folder.\r\n" +
+        "Absolute paths (e.g. @\"S:\\data\\payload.json\") are supported too, but are\r\n" +
+        "not auto-completed.\r\n";
+
+    private static void EnsureSamplesDirectory()
+    {
+        try
+        {
+            Directory.CreateDirectory(_samplesDirectory);
+            var readme = Path.Combine(_samplesDirectory, "README.txt");
+            if (!File.Exists(readme))
+            {
+                File.WriteAllText(readme, SamplesReadmeContents);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to initialize samples directory at {Path}", _samplesDirectory);
+        }
+    }
+
     [STAThread]
     public static void Main(string[] args)
     {
@@ -70,6 +102,10 @@ class Program
                 {
                     // Create services for dependency injection
                     var commandParserService = new CommandParserService();
+                    var publishHistoryService = new PublishHistoryService();
+                    EnsureSamplesDirectory();
+                    SyntaxHighlightingPatcher.ApplyDarkThemePatches();
+                    var fileAutoCompleteService = new FileAutoCompleteService(_samplesDirectory);
 
                     // Services will be created in MainViewModel after MqttService is available
                     IDeleteTopicService? deleteTopicService = null;
@@ -82,7 +118,7 @@ class Program
 
                     desktop.MainWindow = new MainWindow
                     {
-                        DataContext = new MainViewModel(commandParserService, null, deleteTopicService, correlationService, iconService, aspireHostname, aspirePort)
+                        DataContext = new MainViewModel(commandParserService, null, deleteTopicService, correlationService, iconService, aspireHostname, aspirePort, publishHistoryService: publishHistoryService, fileAutoCompleteService: fileAutoCompleteService)
                     };
 
                     if (!string.IsNullOrEmpty(aspireHostname) && aspirePort.HasValue)

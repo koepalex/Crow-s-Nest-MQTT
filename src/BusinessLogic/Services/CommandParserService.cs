@@ -371,6 +371,29 @@ public class CommandParserService : ICommandParserService
                 }
                 return CommandResult.Failure("Invalid arguments for :gotoresponse. Expected: :gotoresponse");
 
+            case "publish":
+                // :publish - open dialog (uses selected topic)
+                // :publish <topic> - open dialog with topic
+                // :publish <topic> <payload> - direct publish
+                // :publish <topic> @<filepath> - publish file contents
+                if (arguments.Count == 0)
+                {
+                    // Open publish dialog with selected topic
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Publish, arguments));
+                }
+                else if (arguments.Count == 1)
+                {
+                    // Open publish dialog with specified topic
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Publish, arguments));
+                }
+                else if (arguments.Count >= 2)
+                {
+                    // Direct publish: topic + payload (or @filepath)
+                    // Rejoin payload arguments in case payload had spaces (already handled by quotes in SplitArguments)
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.Publish, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :publish. Expected: :publish [topic] [payload|@filepath]");
+
             default:
                 return CommandResult.Failure($"Unknown command: '{commandKeyword}'");
         }

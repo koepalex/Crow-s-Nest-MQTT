@@ -138,5 +138,100 @@ namespace CrowsNestMqtt.UnitTests.Utils
             Assert.True(store.TryGetMessage(idY1, out _, out _));
             Assert.True(store.TryGetMessage(idY2, out _, out _));
         }
+
+        [Fact]
+        public void UpdateLimits_IncreasesBufferSize_PreservesExistingMessages()
+        {
+            // Arrange: small buffer, fill it
+            var store = new TopicMessageStore(100);
+            var id1 = Guid.NewGuid();
+            var id2 = Guid.NewGuid();
+            store.AddBatch(new[]
+            {
+                (id1, "topic/a", CreateMessage("topic/a", 40, "msg1")),
+                (id2, "topic/a", CreateMessage("topic/a", 40, "msg2")),
+            });
+
+            // Act: increase the limit
+            store.UpdateLimits(1000);
+
+            // Assert: existing messages still present
+            Assert.True(store.TryGetMessage(id1, out _, out _));
+            Assert.True(store.TryGetMessage(id2, out _, out _));
+
+            // Can now add more messages that wouldn't have fit before
+            var id3 = Guid.NewGuid();
+            var (added, _) = store.AddBatch(new[]
+            {
+                (id3, "topic/a", CreateMessage("topic/a", 40, "msg3"))
+            });
+            Assert.Single(added);
+        }
+
+        [Fact]
+        public void UpdateLimits_DecreasesBufferSize_EvictsOldMessages()
+        {
+            // Arrange: large buffer, fill with messages
+            var store = new TopicMessageStore(1000);
+            var ids = new List<Guid>();
+            for (int i = 0; i < 5; i++)
+            {
+                var id = Guid.NewGuid();
+                ids.Add(id);
+                store.AddBatch(new[]
+                {
+                    (id, "topic/b", CreateMessage("topic/b", 100, $"msg{i}"))
+                });
+            }
+
+            // Act: shrink the limit — only 2 messages worth of space
+            store.UpdateLimits(250);
+
+            // Assert: oldest messages evicted, newest preserved
+            var remaining = store.GetBufferedMessages("topic/b").ToList();
+            Assert.True(remaining.Count < 5, $"Expected fewer than 5 messages after shrink, got {remaining.Count}");
+            Assert.True(remaining.Count >= 2, $"Expected at least 2 messages, got {remaining.Count}");
+        }
+
+        [Fact]
+        public void UpdateLimits_WithSpecificTopicLimits_AppliesPerTopic()
+        {
+            // Arrange: uniform limits
+            var store = new TopicMessageStore(500);
+            var id1 = Guid.NewGuid();
+            var id2 = Guid.NewGuid();
+            store.AddBatch(new[]
+            {
+                (id1, "sensors/temp", CreateMessage("sensors/temp", 200, "temp")),
+                (id2, "sensors/humidity", CreateMessage("sensors/humidity", 200, "humid"))
+            });
+
+            // Act: update with topic-specific limits — small for temp, large for humidity
+            var specificLimits = new Dictionary<string, long>
+            {
+                { "sensors/temp", 100 },  // Smaller than current message
+                { "sensors/humidity", 1000 }
+            };
+            store.UpdateLimits(500, specificLimits);
+
+            // Assert: humidity message preserved (larger limit)
+            Assert.True(store.TryGetMessage(id2, out _, out _), "Humidity message should be preserved");
+        }
+
+        [Fact]
+        public void UpdateLimits_SameSize_DoesNotRebuild()
+        {
+            // Arrange: create store with specific limits
+            var limits = new Dictionary<string, long> { { "#", 500 } };
+            var store = new TopicMessageStore(500, limits);
+            var id = Guid.NewGuid();
+            store.AddBatch(new[] { (id, "test", CreateMessage("test", 100, "data")) });
+
+            // Act: update with same limits
+            store.UpdateLimits(500, limits);
+
+            // Assert: message still present (buffer not unnecessarily rebuilt)
+            Assert.True(store.TryGetMessage(id, out _, out _));
+        }
     }
 }

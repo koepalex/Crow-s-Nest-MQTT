@@ -104,4 +104,45 @@ public class SettingsViewModelTests
         Assert.Equal("mode", vm.AuthenticationMethod);
         Assert.Equal("my-token", vm.AuthenticationData);
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void Into_SettingsData_HasCorrectSubscriptionQoS(int qos)
+    {
+        var vm = new SettingsViewModel { SubscriptionQoS = qos };
+        var settingsData = vm.Into();
+        Assert.Equal(qos, settingsData.SubscriptionQoS);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void From_SettingsData_SetsSubscriptionQoS(int qos)
+    {
+        var settingsData = new SettingsData("host", 1, "client", 1, true, 1, new AnonymousAuthenticationMode(), null, null, SubscriptionQoS: qos);
+        var vm = new SettingsViewModel();
+        vm.From(settingsData);
+        Assert.Equal(qos, vm.SubscriptionQoS);
+    }
+
+    [Fact]
+    public void SettingsData_SubscriptionQoS_DefaultsToOne()
+    {
+        // SettingsData record default (not SettingsViewModel which loads persisted settings)
+        var data = new SettingsData("host", 1, "client", 60, true, 0, new AnonymousAuthenticationMode(), null, null);
+        Assert.Equal(1, data.SubscriptionQoS);
+    }
+
+    [Theory]
+    [InlineData(-1, 0)]
+    [InlineData(3, 2)]
+    [InlineData(99, 2)]
+    public void SubscriptionQoS_ClampsOutOfRangeValues(int input, int expected)
+    {
+        var vm = new SettingsViewModel { SubscriptionQoS = input };
+        Assert.Equal(expected, vm.SubscriptionQoS);
+    }
 }
