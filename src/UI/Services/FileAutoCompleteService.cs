@@ -25,10 +25,18 @@ public class FileAutoCompleteService : IFileAutoCompleteService
     }
 
     /// <inheritdoc />
+    public string BasePath => _basePath;
+
+    /// <inheritdoc />
     public List<FileAutoCompleteSuggestion> GetSuggestions(string partialPath, int maxResults = 20)
     {
         if (string.IsNullOrWhiteSpace(partialPath))
             return GetRootSuggestions(maxResults);
+
+        // Absolute paths are treated as explicit, user-supplied full paths.
+        // We do not offer filesystem-wide completion for them.
+        if (Path.IsPathRooted(partialPath))
+            return new List<FileAutoCompleteSuggestion>();
 
         try
         {
@@ -154,8 +162,11 @@ public class FileAutoCompleteService : IFileAutoCompleteService
         return suggestions.Take(maxResults).ToList();
     }
 
-    private string GetRelativePath(string fullPath)
+    private static string GetRelativePath(string fullPath)
     {
-        return Path.GetRelativePath(_basePath, fullPath);
+        // Suggestions expose the fully-qualified path so that once a user
+        // accepts a completion the resulting command line is self-contained
+        // and does not depend on the process's current working directory.
+        return Path.GetFullPath(fullPath);
     }
 }

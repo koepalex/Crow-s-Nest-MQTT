@@ -571,6 +571,47 @@ public class CommandInterfaceTests
         }
 
         [Fact]
+        public void DispatchCommand_PublishWithRelativeFileRef_ResolvesAgainstBasePath()
+        {
+            // Arrange: create a file inside a sandbox that serves as the samples
+            // base directory. The command references the file by its *name*
+            // only (relative), relying on the handler to resolve it via
+            // IFileAutoCompleteService.BasePath.
+            var baseDir = Path.Combine(Path.GetTempPath(), "CrowsNestMqtt_SamplesBase_" + Guid.NewGuid().ToString("N")[..8]);
+            Directory.CreateDirectory(baseDir);
+            try
+            {
+                var fileName = "sample-payload.json";
+                var filePath = Path.Combine(baseDir, fileName);
+                File.WriteAllText(filePath, "{\"k\":1}");
+
+                var stubFileSvc = new StubFileAutoCompleteService { BasePath = baseDir };
+
+                var commandParser = new CommandParserService();
+                using var viewModel = new MainViewModel(
+                    commandParser,
+                    mqttService: _mqttServiceMock,
+                    uiScheduler: Scheduler.Immediate,
+                    fileAutoCompleteService: stubFileSvc);
+
+                // Act: the argument is just "@sample-payload.json" — no directory.
+                DispatchCommand(viewModel, CommandType.Publish, "foo/bar", "@" + fileName);
+
+                // Assert: the handler resolves the relative path against BasePath.
+                var pvm = viewModel.PublishViewModel;
+                Assert.NotNull(pvm);
+                Assert.Equal("foo/bar", pvm!.Topic);
+                Assert.Equal(filePath, pvm.LoadedFilePath);
+                Assert.True(pvm.IsPayloadReadOnly);
+            }
+            finally
+            {
+                if (Directory.Exists(baseDir))
+                    Directory.Delete(baseDir, recursive: true);
+            }
+        }
+
+        [Fact]
         public void UpdateCommandSuggestions_PublishAtToken_EmitsFileSuggestions()
         {
             // Arrange
@@ -599,6 +640,7 @@ public class CommandInterfaceTests
         {
             private readonly List<FileAutoCompleteSuggestion> _suggestions;
             public StubFileAutoCompleteService(params FileAutoCompleteSuggestion[] items) => _suggestions = new List<FileAutoCompleteSuggestion>(items);
+            public string BasePath { get; set; } = System.IO.Path.GetTempPath();
             public List<FileAutoCompleteSuggestion> GetSuggestions(string partialPath, int maxResults = 20) => _suggestions;
         }
     }

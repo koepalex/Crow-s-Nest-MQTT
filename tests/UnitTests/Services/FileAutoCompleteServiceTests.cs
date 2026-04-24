@@ -237,7 +237,42 @@ public class FileAutoCompleteServiceTests : IDisposable
 
         // Assert
         var fileSuggestion = results.First(s => !s.IsDirectory);
-        Assert.Equal(Path.Combine("sub", "inside.txt"), fileSuggestion.Path);
+        Assert.Equal(Path.GetFullPath(Path.Combine(_testDir, "sub", "inside.txt")), fileSuggestion.Path);
+    }
+
+    [Fact]
+    public void BasePath_ReflectsConstructorArgument()
+    {
+        Assert.Equal(_testDir, _service.BasePath);
+    }
+
+    [Fact]
+    public void GetSuggestions_RootedAbsolutePath_ReturnsEmptyList()
+    {
+        // Arrange — create a file at an absolute path inside the base dir.
+        CreateFile("absolute.json");
+        var absolutePath = Path.Combine(_testDir, "absolute.json");
+
+        // Act — rooted partial paths should never produce completion suggestions.
+        var results = _service.GetSuggestions(absolutePath);
+
+        // Assert
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void GetSuggestions_SuggestionPath_IsAbsolute()
+    {
+        // Arrange
+        CreateFile("foo.json");
+
+        // Act
+        var results = _service.GetSuggestions("foo");
+
+        // Assert
+        var suggestion = Assert.Single(results);
+        Assert.True(Path.IsPathRooted(suggestion.Path), $"Expected absolute path, got '{suggestion.Path}'");
+        Assert.Equal(Path.GetFullPath(Path.Combine(_testDir, "foo.json")), suggestion.Path);
     }
 
     [Fact]

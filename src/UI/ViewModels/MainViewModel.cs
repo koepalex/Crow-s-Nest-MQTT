@@ -2751,6 +2751,22 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             if (payloadArg.StartsWith('@') && payloadArg.Length > 1)
             {
                 var filePath = payloadArg.Substring(1);
+
+                // If the file doesn't exist as typed and the path is relative,
+                // resolve it against the samples base directory used for
+                // autocomplete so `@foo.json` works end-to-end (type, accept,
+                // execute) without the user needing to know the absolute path.
+                if (!System.IO.File.Exists(filePath)
+                    && !System.IO.Path.IsPathRooted(filePath)
+                    && _fileAutoCompleteService != null)
+                {
+                    var resolved = System.IO.Path.Combine(_fileAutoCompleteService.BasePath, filePath);
+                    if (System.IO.File.Exists(resolved))
+                    {
+                        filePath = resolved;
+                    }
+                }
+
                 if (System.IO.File.Exists(filePath))
                 {
                     // Route through the file-reference model so the dialog
