@@ -104,6 +104,7 @@ class Program
                     var commandParserService = new CommandParserService();
                     var publishHistoryService = new PublishHistoryService();
                     EnsureSamplesDirectory();
+                    SyntaxHighlightingPatcher.ApplyDarkThemePatches();
                     var fileAutoCompleteService = new FileAutoCompleteService(_samplesDirectory);
 
                     // Services will be created in MainViewModel after MqttService is available
