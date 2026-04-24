@@ -46,7 +46,7 @@ public class MqttEngineTopicLimitTests
         Assert.Equal(expectedScore, actualScore);
     }
 
-    private MqttEngine CreateEngineWithRules(List<TopicBufferLimit> rules)
+    private static MqttEngine CreateEngineWithRules(List<TopicBufferLimit> rules)
     {
         var settings = new MqttConnectionSettings
         {

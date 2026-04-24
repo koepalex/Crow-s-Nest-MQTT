@@ -39,7 +39,7 @@ public class TextExporterTests : IDisposable
     }
 
     // Helper to create BufferedMqttMessage
-    private BufferedMqttMessage CreateTestBufferedMessage(
+    private static BufferedMqttMessage CreateTestBufferedMessage(
         string topic = "test/topic",
         string payload = "Hello MQTT",
         MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtLeastOnce,
@@ -70,7 +70,7 @@ public class TextExporterTests : IDisposable
     }
 
     // Helper to build expected content based on TextExporter format
-    private string BuildExpectedContent(MqttApplicationMessage msg, DateTime receivedTime)
+    private static string BuildExpectedContent(MqttApplicationMessage msg, DateTime receivedTime)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Timestamp: {receivedTime:yyyy-MM-dd HH:mm:ss.fff}");

@@ -15,7 +15,7 @@ namespace CrowsNestMqtt.UnitTests.Services;
 
 public class EnhancedAuthenticationHandlerTests
 {
-    private string GenerateTestToken(DateTime expiry)
+    private static string GenerateTestToken(DateTime expiry)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.ASCII.GetBytes("a-super-secret-key-that-is-long-enough");

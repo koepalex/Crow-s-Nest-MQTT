@@ -19,7 +19,7 @@ namespace CrowsNestMqtt.UnitTests
         }
 
         // Helper method to safely invoke methods with proper null handling
-        private T? InvokeStaticMethod<T>(Type type, string methodName, object?[]? parameters = null)
+        private static T? InvokeStaticMethod<T>(Type type, string methodName, object?[]? parameters = null)
         {
             var method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
             Assert.NotNull(method); // Verify method exists

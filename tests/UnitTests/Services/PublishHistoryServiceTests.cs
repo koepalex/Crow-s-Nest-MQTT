@@ -30,7 +30,7 @@ public class PublishHistoryServiceTests : IDisposable
             Directory.Delete(_testDir, recursive: true);
     }
 
-    private MqttPublishRequest CreateTestRequest(string topic = "test/topic", string payload = "hello")
+    private static MqttPublishRequest CreateTestRequest(string topic = "test/topic", string payload = "hello")
     {
         return new MqttPublishRequest
         {
