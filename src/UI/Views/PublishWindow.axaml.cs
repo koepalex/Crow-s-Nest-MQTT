@@ -3,6 +3,7 @@ using System.Reactive;
 using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using CrowsNestMqtt.UI.ViewModels;
 using ReactiveUI;
@@ -22,20 +23,30 @@ public partial class PublishWindow : Window
     {
         CloseCommand = ReactiveCommand.Create(Close);
         InitializeComponent();
+
+        // Register with handledEventsToo:true so shortcuts still close the
+        // window even when a focused child control (e.g. AvaloniaEdit's
+        // TextEditor) has already marked the KeyDown event as Handled.
+        AddHandler(KeyDownEvent, OnKeyDownForcedHandler,
+            RoutingStrategies.Bubble, handledEventsToo: true);
     }
 
-    /// <inheritdoc />
-    protected override void OnKeyDown(KeyEventArgs e)
+    private void OnKeyDownForcedHandler(object? sender, KeyEventArgs e)
     {
-        base.OnKeyDown(e);
-
-        // Defensive fallback: ensure Escape always closes the window, even if
-        // a focused control (e.g. AvaloniaEdit TextEditor) swallows the
-        // Window.KeyBinding.
-        if (!e.Handled && e.Key == Key.Escape)
+        if (e.Key == Key.Escape)
         {
-            e.Handled = true;
             Close();
+            e.Handled = true;
+            return;
+        }
+
+        // Ctrl+Shift+M toggles the publish window globally. Main window can't
+        // see this keystroke when PublishWindow has focus, so handle it here
+        // too — "toggle" from inside a visible window means close.
+        if (e.Key == Key.M && e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift))
+        {
+            Close();
+            e.Handled = true;
         }
     }
 

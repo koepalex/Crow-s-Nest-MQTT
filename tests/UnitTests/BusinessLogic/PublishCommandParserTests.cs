@@ -101,4 +101,19 @@ public class PublishCommandParserTests
         Assert.Equal("test", result.ParsedCommand.Arguments[0]);
         Assert.Equal("hello world with spaces", result.ParsedCommand.Arguments[1]);
     }
+
+    [Fact]
+    public void ParseInput_PublishWithSingleFileRef_ReturnsSingleArgStartingWithAt()
+    {
+        // :publish @file.md should parse as a single argument so the handler
+        // can interpret it as a file reference with the currently-selected
+        // topic (not mistake it for the topic itself).
+        var result = _parser.ParseInput(":publish @file.md", _defaultSettings);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.ParsedCommand);
+        Assert.Equal(CommandType.Publish, result.ParsedCommand.Type);
+        Assert.Single(result.ParsedCommand.Arguments);
+        Assert.Equal("@file.md", result.ParsedCommand.Arguments[0]);
+    }
 }

@@ -2711,46 +2711,65 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     {
         var vm = GetOrCreatePublishViewModel();
 
-        // If topic argument provided, set it on the VM
-        if (command.Arguments.Count > 0)
+        string? topicArg = null;
+        string? payloadArg = null;
+
+        if (command.Arguments.Count == 1)
         {
-            vm.Topic = command.Arguments[0];
+            // Single-argument form: if it starts with '@' treat it as a file
+            // reference for the currently-selected topic. Otherwise it's a
+            // topic (existing behaviour) and the user will fill the payload
+            // in the dialog.
+            if (command.Arguments[0].StartsWith('@'))
+            {
+                payloadArg = command.Arguments[0];
+                topicArg = _normalizedSelectedPath;
+            }
+            else
+            {
+                topicArg = command.Arguments[0];
+            }
         }
-        else if (!string.IsNullOrEmpty(_normalizedSelectedPath))
+        else if (command.Arguments.Count >= 2)
         {
-            vm.Topic = _normalizedSelectedPath;
+            topicArg = command.Arguments[0];
+            payloadArg = string.Join(" ", command.Arguments.Skip(1));
+        }
+        else
+        {
+            // No args — fall back to selected topic if any.
+            topicArg = _normalizedSelectedPath;
         }
 
-        // If there's inline payload (second argument or more), set it
-        if (command.Arguments.Count > 1)
+        if (!string.IsNullOrEmpty(topicArg))
         {
-            var payload = string.Join(" ", command.Arguments.Skip(1));
-            // Check for @file reference
-            if (payload.StartsWith("@") && payload.Length > 1)
+            vm.Topic = topicArg;
+        }
+
+        if (!string.IsNullOrEmpty(payloadArg))
+        {
+            if (payloadArg.StartsWith('@') && payloadArg.Length > 1)
             {
-                var filePath = payload.Substring(1);
+                var filePath = payloadArg.Substring(1);
                 if (System.IO.File.Exists(filePath))
                 {
-                    try
-                    {
-                        var fileContent = System.IO.File.ReadAllText(filePath);
-                        vm.PayloadDocument.Text = fileContent;
-                        StatusBarText = $"Loaded payload from file: {filePath}";
-                    }
-                    catch (Exception ex)
-                    {
-                        StatusBarText = $"Error reading file: {ex.Message}";
-                        Log.Warning(ex, "Failed to read file for publish: {FilePath}", filePath);
-                    }
+                    // Route through the file-reference model so the dialog
+                    // switches to read-only mode with content-type detection
+                    // and a file-info summary instead of pasting text into
+                    // the payload editor.
+                    _ = vm.LoadFileContentAsync(filePath);
+                    StatusBarText = $"Loaded file reference: {filePath}";
                 }
                 else
                 {
                     StatusBarText = $"File not found: {filePath}";
+                    vm.StatusText = $"File not found: {filePath}";
+                    Log.Warning("Publish file reference not found: {FilePath}", filePath);
                 }
             }
             else
             {
-                vm.PayloadDocument.Text = payload;
+                vm.PayloadDocument.Text = payloadArg;
             }
         }
 
@@ -3950,6 +3969,28 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         {
             // If text is empty or doesn't start with ':', show no suggestions
             return;
+        }
+
+        // File-reference autocomplete for :publish <args…> @<partial>.
+        // Activates when the text starts with ":publish " and the last
+        // whitespace-separated token begins with '@'.
+        if (_fileAutoCompleteService != null &&
+            currentText.StartsWith(":publish ", StringComparison.OrdinalIgnoreCase))
+        {
+            int lastSpace = currentText.LastIndexOf(' ');
+            var lastToken = lastSpace >= 0 ? currentText.Substring(lastSpace + 1) : string.Empty;
+            if (lastToken.StartsWith('@'))
+            {
+                var prefix = currentText.Substring(0, lastSpace + 1); // includes trailing space
+                var partial = lastToken.Substring(1); // strip leading '@'
+
+                foreach (var sug in _fileAutoCompleteService.GetSuggestions(partial, 15))
+                {
+                    CommandSuggestions.Add($"{prefix}@{sug.Path}");
+                }
+                Log.Debug("File autocomplete for '{Partial}' → {Count} suggestions.", partial, CommandSuggestions.Count);
+                return;
+            }
         }
 
         // Filter available commands based on the input (case-insensitive)

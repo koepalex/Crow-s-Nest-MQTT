@@ -509,5 +509,97 @@ public class CommandInterfaceTests
             Assert.True(showRaised, "ShowPublishWindowRequested should be raised by :publish.");
             Assert.False(toggleRaised, "TogglePublishWindowRequested must not be raised by :publish.");
         }
+
+        [Fact]
+        public void DispatchCommand_PublishWithTopicAndFileRef_RoutesFileThroughLoadFileContent()
+        {
+            // Arrange: real file so LoadFileContentAsync succeeds.
+            var tempFile = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllText(tempFile, "{\"hello\":\"world\"}");
+
+                var commandParser = new CommandParserService();
+                using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+
+                // Act
+                DispatchCommand(viewModel, CommandType.Publish, "foo/bar", "@" + tempFile);
+
+                // Assert: file reference routed into VM (not raw text in editor).
+                var pvm = viewModel.PublishViewModel;
+                Assert.NotNull(pvm);
+                Assert.Equal("foo/bar", pvm!.Topic);
+                Assert.Equal(tempFile, pvm.LoadedFilePath);
+                Assert.True(pvm.IsPayloadReadOnly, "File-ref mode should make the payload editor read-only.");
+            }
+            finally
+            {
+                File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void DispatchCommand_PublishWithSingleFileRef_UsesSelectedTopic()
+        {
+            // Arrange
+            var tempFile = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllText(tempFile, "payload");
+
+                var commandParser = new CommandParserService();
+                using var viewModel = new MainViewModel(commandParser, mqttService: _mqttServiceMock, uiScheduler: Scheduler.Immediate);
+
+                // Seed a selected topic via reflection (private field).
+                var selectedPathField = typeof(MainViewModel).GetField("_normalizedSelectedPath", BindingFlags.Instance | BindingFlags.NonPublic);
+                selectedPathField?.SetValue(viewModel, "sensors/temperature");
+
+                // Act: :publish @<tmp>  (single argument starting with '@').
+                DispatchCommand(viewModel, CommandType.Publish, "@" + tempFile);
+
+                // Assert
+                var pvm = viewModel.PublishViewModel;
+                Assert.NotNull(pvm);
+                Assert.Equal("sensors/temperature", pvm!.Topic);
+                Assert.Equal(tempFile, pvm.LoadedFilePath);
+                Assert.True(pvm.IsPayloadReadOnly);
+            }
+            finally
+            {
+                File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void UpdateCommandSuggestions_PublishAtToken_EmitsFileSuggestions()
+        {
+            // Arrange
+            var stubFileSvc = new StubFileAutoCompleteService(
+                new FileAutoCompleteSuggestion("/tmp/foo.json", "foo.json", false, 12L, ".json"),
+                new FileAutoCompleteSuggestion("/tmp/foobar.txt", "foobar.txt", false, 10L, ".txt"));
+
+            var commandParser = new CommandParserService();
+            using var viewModel = new MainViewModel(
+                commandParser,
+                mqttService: _mqttServiceMock,
+                uiScheduler: Scheduler.Immediate,
+                fileAutoCompleteService: stubFileSvc);
+
+            // Act: invoke the private UpdateCommandSuggestions directly to avoid
+            // the debounce pipeline in the constructor.
+            var method = typeof(MainViewModel).GetMethod("UpdateCommandSuggestions", BindingFlags.Instance | BindingFlags.NonPublic);
+            method?.Invoke(viewModel, new object?[] { ":publish foo/bar @/tmp/foo" });
+
+            // Assert
+            Assert.Contains(":publish foo/bar @/tmp/foo.json", viewModel.CommandSuggestions);
+            Assert.Contains(":publish foo/bar @/tmp/foobar.txt", viewModel.CommandSuggestions);
+        }
+
+        private sealed class StubFileAutoCompleteService : IFileAutoCompleteService
+        {
+            private readonly List<FileAutoCompleteSuggestion> _suggestions;
+            public StubFileAutoCompleteService(params FileAutoCompleteSuggestion[] items) => _suggestions = new List<FileAutoCompleteSuggestion>(items);
+            public List<FileAutoCompleteSuggestion> GetSuggestions(string partialPath, int maxResults = 20) => _suggestions;
+        }
     }
 }

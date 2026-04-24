@@ -16,6 +16,7 @@
 
   <Window.KeyBindings>
     <KeyBinding Gesture="Escape" Command="{Binding CloseCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+    <KeyBinding Gesture="Ctrl+Shift+M" Command="{Binding CloseCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
     <KeyBinding Gesture="Alt+P" Command="{Binding PublishCommand}" />
     <KeyBinding Gesture="Ctrl+Return" Command="{Binding PublishCommand}" />
   </Window.KeyBindings>
