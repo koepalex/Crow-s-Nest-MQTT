@@ -378,3 +378,5 @@ dotnet_naming_style.s_camelcase.capitalization = camel_case
 
 dotnet_diagnostic.CS1591.severity = suggestion
 dotnet_diagnostic.CA1031.severity = none
+dotnet_diagnostic.CA1819.severity = suggestion
+dotnet_diagnostic.CA1859.severity = suggestion
