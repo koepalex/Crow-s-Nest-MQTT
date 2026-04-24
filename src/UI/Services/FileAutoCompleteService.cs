@@ -75,7 +75,7 @@ public class FileAutoCompleteService : IFileAutoCompleteService
         return GetDirectoryContents(_basePath, maxResults);
     }
 
-    private List<FileAutoCompleteSuggestion> GetDirectoryContents(string directory, int maxResults)
+    private static List<FileAutoCompleteSuggestion> GetDirectoryContents(string directory, int maxResults)
     {
         var suggestions = new List<FileAutoCompleteSuggestion>();
 
@@ -115,7 +115,7 @@ public class FileAutoCompleteService : IFileAutoCompleteService
         return suggestions.Take(maxResults).ToList();
     }
 
-    private List<FileAutoCompleteSuggestion> GetMatchingSuggestions(string directory, string searchPattern, int maxResults)
+    private static List<FileAutoCompleteSuggestion> GetMatchingSuggestions(string directory, string searchPattern, int maxResults)
     {
         var suggestions = new List<FileAutoCompleteSuggestion>();
 

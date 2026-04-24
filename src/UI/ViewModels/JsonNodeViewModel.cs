@@ -53,7 +53,7 @@ public class JsonNodeViewModel : ReactiveObject
         // Note: Children are populated recursively by JsonViewerViewModel.PopulateNodes
     }
 
-    private string GetValueDisplay(JsonElement element)
+    private static string GetValueDisplay(JsonElement element)
     {
         return element.ValueKind switch
         {
@@ -89,7 +89,7 @@ public class JsonNodeViewModel : ReactiveObject
         return value.Substring(0, MaxValueDisplayLength) + "…";
     }
 
-    private IBrush GetValueBrush(JsonValueKind kind)
+    private static IBrush GetValueBrush(JsonValueKind kind)
     {
         // Basic syntax highlighting colors
         return kind switch
