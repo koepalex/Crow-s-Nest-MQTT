@@ -76,6 +76,9 @@
                            FontSize="12"
                            ShowLineNumbers="True"
                            WordWrap="True"
+                           Background="Black"
+                           Foreground="White"
+                           LineNumbersForeground="Gray"
                            IsVisible="{Binding !IsPayloadReadOnly}"
                            Document="{Binding PayloadDocument, Mode=TwoWay}"
                            SyntaxHighlighting="{Binding SyntaxHighlighting}" />
