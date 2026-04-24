@@ -104,6 +104,12 @@ If the content-type indicates binary data (but not image/video), Crow's NestMQTT
 
 You can switch between viewers for the currently selected MQTT message using the `:view` command.
 
+### Publishing
+Crow's NestMQTT allows publishing of MQTT messages, the publishing dialog (can be toggled via `Ctrl+Shift+M`) allows defining the payload, configuring message metadata as well as setting user-properties.  
+You can also choose to select a file for publishing instead (which will fillout some metadata like content-type automatically). As pirates take everything and give nothing back, all send messages are stored locally to easily send them again.
+
+![](./doc/images/publishing.png)
+
 ### Other Features
 Crow's NestMQTT has some advanced features to make the life of the pirate that sail on the MQTT bit sea easier such as.
 
