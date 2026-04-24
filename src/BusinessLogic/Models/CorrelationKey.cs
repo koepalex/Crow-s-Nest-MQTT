@@ -19,8 +19,7 @@ namespace CrowsNestMqtt.BusinessLogic.Models
         /// <exception cref="ArgumentException">Thrown when correlationData is empty.</exception>
         public CorrelationKey(byte[] correlationData)
         {
-            if (correlationData == null)
-                throw new ArgumentNullException(nameof(correlationData));
+            ArgumentNullException.ThrowIfNull(correlationData);
 
             if (correlationData.Length == 0)
                 throw new ArgumentException("Correlation data cannot be empty", nameof(correlationData));

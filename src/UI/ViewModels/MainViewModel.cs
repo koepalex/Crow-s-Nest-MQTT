@@ -1234,7 +1234,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     /// <summary>
     /// Gets the icon path for a given response status.
     /// </summary>
-    private string GetIconPathForStatus(ResponseStatus status)
+    private static string GetIconPathForStatus(ResponseStatus status)
     {
         return status switch
         {
@@ -2007,7 +2007,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
         if (isPayloadValidUtf8)
         {
-            if (payloadAsString.Trim().StartsWith("{") || payloadAsString.Trim().StartsWith("["))
+            if (payloadAsString.Trim().StartsWith('{') || payloadAsString.Trim().StartsWith('['))
             {
                 try
                 {
@@ -2157,7 +2157,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         }
     }
 
-    private bool IsBinaryContentType(string? contentType)
+    private static bool IsBinaryContentType(string? contentType)
     {
         if (string.IsNullOrEmpty(contentType))
             return false;
@@ -2316,7 +2316,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     }
 
     // Helper to guess syntax highlighting
-    private IHighlightingDefinition? GuessSyntaxHighlighting(string? contentType, string payload)
+    private static IHighlightingDefinition? GuessSyntaxHighlighting(string? contentType, string payload)
     {
         if (contentType?.Contains("json", StringComparison.OrdinalIgnoreCase) == true)
             return HighlightingManager.Instance.GetDefinition("Json");
@@ -2329,8 +2329,8 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
         // Simple content-based guessing
         var trimmedPayload = payload.TrimStart();
-        if (trimmedPayload.StartsWith("<")) return HighlightingManager.Instance.GetDefinition("XML"); // Could be XML or HTML
-        if (trimmedPayload.StartsWith("{") || trimmedPayload.StartsWith("[")) return HighlightingManager.Instance.GetDefinition("Json");
+        if (trimmedPayload.StartsWith('<')) return HighlightingManager.Instance.GetDefinition("XML"); // Could be XML or HTML
+        if (trimmedPayload.StartsWith('{') || trimmedPayload.StartsWith('[')) return HighlightingManager.Instance.GetDefinition("Json");
 
         return null; // Default to no highlighting
     }
@@ -2469,7 +2469,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         
         // The MqttEngine now manages its own cancellation token.
         // We just need to call the method.
-        await _mqttService.ConnectAsync();
+        await _mqttService.ConnectAsync().ConfigureAwait(false);
     }
 
     private async Task DisconnectAsync()
@@ -2477,7 +2477,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         Log.Information("Disconnect/Cancel command executed.");
         // The MqttEngine's DisconnectAsync is now responsible for handling
         // both disconnection and cancellation of an ongoing connection attempt.
-        await _mqttService.DisconnectAsync();
+        await _mqttService.DisconnectAsync().ConfigureAwait(false);
     }
 
     private void ClearHistory()
@@ -2623,7 +2623,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     /// Expands all parent nodes in the tree hierarchy to make the specified node visible.
     /// </summary>
     /// <param name="node">The target node whose parents should be expanded.</param>
-    private void ExpandParentNodes(NodeViewModel node)
+    private static void ExpandParentNodes(NodeViewModel node)
     {
         var current = node.Parent;
         while (current != null)
@@ -2652,7 +2652,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     /// <summary>
     /// Recursively searches for a topic node by path.
     /// </summary>
-    private NodeViewModel? FindTopicNodeRecursive(NodeViewModel node, string topicPath)
+    private static NodeViewModel? FindTopicNodeRecursive(NodeViewModel node, string topicPath)
     {
         if (node.FullPath == topicPath)
             return node;
@@ -3427,7 +3427,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 }
             }
 
-            if (!fullMessages.Any())
+            if (fullMessages.Count == 0)
             {
                 StatusBarText = "Error: No valid messages to export.";
                 Log.Warning("Export all command failed: No valid full messages retrieved.");
@@ -3727,7 +3727,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     /// Recursively collects topic references from the topic tree.
     /// Only includes topics that have messages (MessageCount > 0).
     /// </summary>
-    private void CollectTopicReferencesRecursive(IEnumerable<NodeViewModel> nodes, List<TopicReference> topics)
+    private static void CollectTopicReferencesRecursive(IEnumerable<NodeViewModel> nodes, List<TopicReference> topics)
     {
         foreach (var node in nodes)
         {
@@ -3781,7 +3781,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     /// <param name="matchCount">Reference to the count of matching nodes.</param>
     /// <param name="filter">The filter string (only used if clearFilter is false).</param>
     /// <returns>True if any node in this branch (itself or descendants) is visible.</returns>
-    private bool SetNodeVisibilityRecursive(IEnumerable<NodeViewModel> nodes, bool isVisible, bool clearFilter, ref int matchCount, string? filter = null) // Reordered parameters
+    private static bool SetNodeVisibilityRecursive(IEnumerable<NodeViewModel> nodes, bool isVisible, bool clearFilter, ref int matchCount, string? filter = null) // Reordered parameters
     {
         bool anyChildVisible = false;
         foreach (var node in nodes)
@@ -3959,7 +3959,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     /// </summary>
     /// <param name="nodes">The collection of nodes to process.</param>
     /// <param name="isExpanded">The desired expansion state.</param>
-    private void SetNodeExpandedRecursive(IEnumerable<NodeViewModel> nodes, bool isExpanded)
+    private static void SetNodeExpandedRecursive(IEnumerable<NodeViewModel> nodes, bool isExpanded)
     {
         foreach (var node in nodes)
         {
@@ -3981,7 +3981,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     {
         CommandSuggestions.Clear(); // Clear previous suggestions
 
-        if (string.IsNullOrWhiteSpace(currentText) || !currentText.StartsWith(":"))
+        if (string.IsNullOrWhiteSpace(currentText) || !currentText.StartsWith(':'))
         {
             // If text is empty or doesn't start with ':', show no suggestions
             return;
@@ -4508,7 +4508,7 @@ internal class EnhancedCommandProcessor : ICommandProcessor
     {
         if (command.Equals("deletetopic", StringComparison.OrdinalIgnoreCase))
         {
-            return await ExecuteDeleteTopicWithUIIntegration(arguments, cancellationToken);
+            return await ExecuteDeleteTopicWithUIIntegration(arguments, cancellationToken).ConfigureAwait(false);
         }
 
         return new ICommandProcessor.CommandExecutionResult(false, $"Unknown command: {command}");

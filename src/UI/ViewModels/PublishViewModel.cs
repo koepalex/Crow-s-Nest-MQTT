@@ -369,7 +369,7 @@ public class PublishViewModel : ReactiveObject, IDisposable
     {
         // Triggered by the View which handles the file dialog
         StatusText = "Use the file dialog to select a file.";
-        await Task.CompletedTask;
+        await Task.CompletedTask.ConfigureAwait(false);
     }
 
     /// <summary>
@@ -597,7 +597,7 @@ public class PublishViewModel : ReactiveObject, IDisposable
         try
         {
             await _publishHistoryService.LoadAsync();
-            await RefreshHistoryAsync();
+            await RefreshHistoryAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {

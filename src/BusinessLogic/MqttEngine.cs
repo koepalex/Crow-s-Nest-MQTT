@@ -908,7 +908,7 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     /// </summary>
     private void ProcessMessageBatch(object? state)
     {
-        if (_pendingMessages.Count == 0) return;
+        if (_pendingMessages.IsEmpty) return;
 
         var messagesToProcess = new List<MqttApplicationMessageReceivedEventArgs>();
         
