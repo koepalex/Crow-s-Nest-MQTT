@@ -77,14 +77,14 @@ public partial class PublishWindow : Window
                                 new FilePickerFileType("XML") { Patterns = ["*.xml"] },
                                 new FilePickerFileType("Text") { Patterns = ["*.txt"] }
                             ]
-                        });
+                        }).ConfigureAwait(false);
 
                     if (files.Count > 0)
                     {
                         var path = files[0].TryGetLocalPath();
                         if (path != null)
                         {
-                            await vm.LoadFileContentAsync(path);
+                            await vm.LoadFileContentAsync(path).ConfigureAwait(false);
                         }
                         else
                         {

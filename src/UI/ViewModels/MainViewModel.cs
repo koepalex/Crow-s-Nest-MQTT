@@ -2527,7 +2527,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             }
 
             var processor = new EnhancedCommandProcessor(this, _deleteTopicService);
-            var result = await processor.ExecuteDeleteTopicCommand([selectedTopic], _deleteTopicService, CancellationToken.None);
+            var result = await processor.ExecuteDeleteTopicCommand([selectedTopic], _deleteTopicService, CancellationToken.None).ConfigureAwait(false);
 
             // Show delete result message with duration to ensure visibility
             ShowStatus(result.Message, TimeSpan.FromSeconds(5));
@@ -3642,7 +3642,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             Log.Information("Executing delete topic command for pattern: {Pattern}", topicPattern);
 
             // Execute the actual deletion
-            var result = await _deleteTopicService.DeleteTopicAsync(deleteCommand);
+            var result = await _deleteTopicService.DeleteTopicAsync(deleteCommand).ConfigureAwait(false);
 
             StatusBarText = result.SummaryMessage ?? $"Delete operation completed with status: {result.Status}";
 
@@ -3651,7 +3651,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 Log.Information("Delete topic command completed successfully: {Summary}", result.SummaryMessage);
 
                 // T025 - Real-time UI updates
-                await RefreshTopicTreeAfterDelete(topicPattern);
+                await RefreshTopicTreeAfterDelete(topicPattern).ConfigureAwait(false);
             }
             else
             {
@@ -4564,7 +4564,7 @@ internal class EnhancedCommandProcessor : ICommandProcessor
                 return new ICommandProcessor.CommandExecutionResult(false, "Delete topic service not available");
             }
 
-            var result = await this.ExecuteDeleteTopicCommand(arguments, _deleteTopicService, cancellationToken);
+            var result = await this.ExecuteDeleteTopicCommand(arguments, _deleteTopicService, cancellationToken).ConfigureAwait(false);
 
             if (result.Success)
             {
