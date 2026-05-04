@@ -87,7 +87,7 @@ jobs:
 
     - name: Upload Application (${{ matrix.runtime }})
       if: matrix.runtime != 'osx-x64' && matrix.runtime != 'osx-arm64'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: crows-nest-mqtt-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }} # Use version from needs context
         path: ./publish/${{ matrix.runtime }}
@@ -95,7 +95,7 @@ jobs:
 
     - name: Upload macOS DMG (${{ matrix.runtime }})
       if: matrix.runtime == 'osx-x64' || matrix.runtime == 'osx-arm64'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: crows-nest-mqtt-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }} # Use version from needs context
         path: ./publish/${{ matrix.runtime }}/*.dmg
@@ -120,7 +120,7 @@ jobs:
 
     - name: Upload MSIX (${{ matrix.runtime }})
       if: matrix.runtime == 'win-x64' || matrix.runtime == 'win-arm64'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: crows-nest-mqtt-msix-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }}
         path: ./publish/msix/*.msix
@@ -136,13 +136,13 @@ jobs:
     - uses: actions/checkout@v6
 
     - name: Download win-x64 MSIX
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v6
       with:
         name: crows-nest-mqtt-msix-win-x64-${{ needs.determine_version.outputs.semVer }}
         path: ./msix-inputs/
 
     - name: Download win-arm64 MSIX
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v6
       with:
         name: crows-nest-mqtt-msix-win-arm64-${{ needs.determine_version.outputs.semVer }}
         path: ./msix-inputs/
@@ -156,7 +156,7 @@ jobs:
           -OutputPath "./publish/bundle/CrowsNestMqtt-${{ needs.determine_version.outputs.semVer }}.msixbundle"
 
     - name: Upload MSIX Bundle
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: crows-nest-mqtt-msixbundle-${{ needs.determine_version.outputs.semVer }}
         path: ./publish/bundle/*.msixbundle
@@ -173,7 +173,7 @@ jobs:
       contents: write
     steps:
     - name: Download artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v6
       with:
         path: ./release/
          
