@@ -43,12 +43,13 @@ Download the platform-specific archive or `.dmg` from [GitHub Releases](https://
 * Allows filtering of MQTT topics by pattern 🗃️
 * Allows searching of pattern within MQTT message payloads 🔍
 * Supports copy of MQTT message including metadata 
-* Export if MQTT messages  
+* Export of MQTT messages  
 * `content-type` aware visual representation of MQTT message payload 
   * Json
   * Images
   * Video
   * Hex (for binary data)
+* MQTT message publishing
 * dotnet Aspire context aware
 
 ## Graphical User Interface
