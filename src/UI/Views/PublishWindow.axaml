@@ -63,7 +63,7 @@
           <TextBlock DockPanel.Dock="Left" Text="Topic:" VerticalAlignment="Center"
                      Width="110" />
           <TextBox Text="{Binding Topic, Mode=TwoWay}"
-                   Watermark="e.g. sensor/temperature" />
+                   PlaceholderText="e.g. sensor/temperature" />
         </DockPanel>
 
         <!-- Payload Editor -->
@@ -127,7 +127,7 @@
             <TextBlock DockPanel.Dock="Left" Text="Content Type:" Width="150"
                        VerticalAlignment="Center" />
             <TextBox Text="{Binding ContentType, Mode=TwoWay}"
-                     Watermark="e.g. application/json" />
+                     PlaceholderText="e.g. application/json" />
           </DockPanel>
 
           <!-- Payload Format Indicator -->
@@ -143,7 +143,7 @@
             <TextBlock DockPanel.Dock="Left" Text="Response Topic:" Width="150"
                        VerticalAlignment="Center" />
             <TextBox Text="{Binding ResponseTopic, Mode=TwoWay}"
-                     Watermark="Optional response topic" />
+                     PlaceholderText="Optional response topic" />
           </DockPanel>
 
           <!-- Correlation Data -->
@@ -151,7 +151,7 @@
             <TextBlock DockPanel.Dock="Left" Text="Correlation Data:" Width="150"
                        VerticalAlignment="Center" />
             <TextBox Text="{Binding CorrelationData, Mode=TwoWay}"
-                     Watermark="Hex or UTF-8 string" />
+                     PlaceholderText="Hex or UTF-8 string" />
           </DockPanel>
 
           <!-- Message Expiry Interval -->
@@ -160,7 +160,7 @@
                        VerticalAlignment="Center" />
             <NumericUpDown Value="{Binding MessageExpiryInterval, Mode=TwoWay}"
                            Minimum="0" Maximum="4294967295"
-                           FormatString="0" Watermark="0 = no expiry" />
+                           FormatString="0" PlaceholderText="0 = no expiry" />
           </DockPanel>
 
           <!-- User Properties -->
@@ -170,9 +170,9 @@
               <DataTemplate>
                 <Grid ColumnDefinitions="*,*,Auto" Margin="0,2">
                   <TextBox Grid.Column="0" Text="{Binding Name, Mode=TwoWay}"
-                           Watermark="Name" Margin="0,0,4,0" />
+                           PlaceholderText="Name" Margin="0,0,4,0" />
                   <TextBox Grid.Column="1" Text="{Binding Value, Mode=TwoWay}"
-                           Watermark="Value" Margin="4,0,4,0" />
+                           PlaceholderText="Value" Margin="4,0,4,0" />
                   <Button Grid.Column="2" Content="✕" Padding="6,4"
                           Command="{Binding DataContext.RemoveUserPropertyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                           CommandParameter="{Binding}" />

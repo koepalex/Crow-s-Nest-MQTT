@@ -43,7 +43,7 @@
  
       <!-- Top Command/Search Bar -->
       <AutoCompleteBox x:Name="CommandAutoCompleteBox" Grid.Row="0"
-                       Watermark="Enter command or search query..."
+                       PlaceholderText="Enter command or search query..."
                        Text="{Binding CommandText, Mode=TwoWay}"
                        ItemsSource="{Binding CommandSuggestions}"
                        FilterMode="StartsWith"
@@ -479,7 +479,7 @@
 
                 <!-- Client ID -->
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Client ID:"/>
-                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Settings.ClientId, Mode=TwoWay}" Watermark="(auto-generated)"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Settings.ClientId, Mode=TwoWay}" PlaceholderText="(auto-generated)"/>
 
                 <!-- Keep Alive -->
                 <TextBlock Grid.Row="5" Grid.Column="0" Text="Keep Alive (s):"/>
@@ -492,7 +492,7 @@
                 <!-- Session Expiry -->
                 <TextBlock Grid.Row="7" Grid.Column="0" Text="Session Expiry (s):"/>
                 <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Vertical" Spacing="5">
-                    <NumericUpDown Value="{Binding Settings.SessionExpiryIntervalSeconds, Mode=TwoWay}" MinWidth="120"  FormatString="N0" Minimum="0" Watermark="(infinite)"/>
+                    <NumericUpDown Value="{Binding Settings.SessionExpiryIntervalSeconds, Mode=TwoWay}" MinWidth="120"  FormatString="N0" Minimum="0" PlaceholderText="(infinite)"/>
                     <TextBlock Text="(0 = expires immediately, empty = infinite)" FontSize="10"/>
                 </StackPanel>
 
@@ -507,14 +507,14 @@
                 <TextBlock Grid.Row="9" Grid.Column="0" Text="Username:" IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
                 <TextBox Grid.Row="9" Grid.Column="1"
                          Text="{Binding Settings.AuthUsername, Mode=TwoWay}"
-                         Watermark="Enter username"
+                         PlaceholderText="Enter username"
                          IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
 
                 <!-- Auth Password (Conditionally Visible) -->
                 <TextBlock Grid.Row="10" Grid.Column="0" Text="Password:" IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
                 <TextBox  Grid.Row="10" Grid.Column="1"
                              Text="{Binding Settings.AuthPassword, Mode=TwoWay}"
-                             Watermark="Enter password" PasswordChar="*"
+                             PlaceholderText="Enter password" PasswordChar="*"
                              IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
                 
                 <!-- Enhanced Authentication Header -->
@@ -522,7 +522,7 @@
 
                 <!-- Authentication Method -->
                 <TextBlock Grid.Row="12" Grid.Column="0" Text="Auth Method:" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
-                <TextBox Grid.Row="12" Grid.Column="1" Text="{Binding Settings.AuthenticationMethod, Mode=TwoWay}" Watermark="e.g., 'K8S-SAT'" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
+                <TextBox Grid.Row="12" Grid.Column="1" Text="{Binding Settings.AuthenticationMethod, Mode=TwoWay}" PlaceholderText="e.g., 'K8S-SAT'" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
 
                 <!-- Authentication Data -->
                 <TextBlock Grid.Row="13" Grid.Column="0" Text="Auth Data:" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
@@ -539,7 +539,7 @@
                     <TextBox 
                             IsVisible="{Binding Settings.IsEnhancedAuthSelected}"
                             Text="{Binding Settings.AuthenticationData, Mode=TwoWay}"
-                            Watermark="e.g., payload of Service Account Token"
+                            PlaceholderText="e.g., payload of Service Account Token"
                             AcceptsReturn="True"
                             TextWrapping="NoWrap"          
                             HorizontalAlignment="Stretch"/>
@@ -575,8 +575,8 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:TopicBufferLimitViewModel}">
                             <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto" Margin="0,2">
-                                <TextBox Grid.Column="0" Text="{Binding TopicFilter, Mode=TwoWay}" Watermark="Topic Filter (e.g., # or /some/topic)" Margin="0,0,5,0" MinWidth="150"/>
-                                <NumericUpDown Grid.Column="1" Value="{Binding MaxSizeBytes, Mode=TwoWay, StringFormat=N0}" ParsingNumberStyle="Integer" Minimum="0" Watermark="Bytes" Margin="0,0,5,0" MinWidth="100"/>
+                                <TextBox Grid.Column="0" Text="{Binding TopicFilter, Mode=TwoWay}" PlaceholderText="Topic Filter (e.g., # or /some/topic)" Margin="0,0,5,0" MinWidth="150"/>
+                                <NumericUpDown Grid.Column="1" Value="{Binding MaxSizeBytes, Mode=TwoWay, StringFormat=N0}" ParsingNumberStyle="Integer" Minimum="0" PlaceholderText="Bytes" Margin="0,0,5,0" MinWidth="100"/>
                                 <Button Grid.Column="2" Content="Remove" Command="{Binding $parent[ItemsControl].DataContext.Settings.RemoveTopicLimitCommand}" CommandParameter="{Binding}" Padding="5,2" IsEnabled="{Binding CanBeRemoved}"/>
                             </Grid>
                         </DataTemplate>
