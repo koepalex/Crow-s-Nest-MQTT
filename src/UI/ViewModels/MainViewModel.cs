@@ -2134,38 +2134,42 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         }
         if (isPayloadValidUtf8)
         {
-            // Safety guard: very large payloads without an explicit application/json
-            // content-type are unlikely to be JSON and can freeze the UI while the
-            // TreeView attempts to render thousands of nodes. Fall back to the raw
-            // viewer and let the user request the JSON tree explicitly via :view json.
-            const int JsonAutoViewMaxLength = 2 * 1024 * 1024; // 2 MB of UTF-16 chars
+            // Only use JSON viewer when content-type explicitly indicates JSON.
+            // Raw viewer is the default for all other payloads.
             bool isExplicitJsonContentType = msg.ContentType != null
-                && msg.ContentType.Contains("json", StringComparison.OrdinalIgnoreCase);
-            if (payloadAsString.Length > JsonAutoViewMaxLength && !isExplicitJsonContentType)
+                && msg.ContentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase);
+
+            if (isExplicitJsonContentType)
             {
-                ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
-                StatusBarText = $"Payload too large ({payloadAsString.Length:N0} chars) for automatic JSON tree view. Showing raw. Use :view json to force.";
-                Log.Information("Skipped automatic JSON tree view for oversized payload ({Length} chars, content-type={ContentType}).", payloadAsString.Length, msg.ContentType);
-                this.RaisePropertyChanged(nameof(ShowJsonParseError));
-                this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
-                return;
+                const int JsonAutoViewMaxLength = 2 * 1024 * 1024; // 2 MB of UTF-16 chars
+                if (payloadAsString.Length > JsonAutoViewMaxLength)
+                {
+                    ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
+                    StatusBarText = $"Payload too large ({payloadAsString.Length:N0} chars) for JSON tree view. Showing raw. Use :view json to force.";
+                    Log.Information("Skipped JSON tree view for oversized payload ({Length} chars, content-type={ContentType}).", payloadAsString.Length, msg.ContentType);
+                    this.RaisePropertyChanged(nameof(ShowJsonParseError));
+                    this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+                    return;
+                }
+
+                JsonViewer.LoadJson(payloadAsString);
+                if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
+                {
+                    IsJsonViewerVisible = true;
+                    IsRawTextViewerVisible = false;
+                    IsImageViewerVisible = false;
+                    IsVideoViewerVisible = false;
+                    IsHexViewerVisible = false;
+                    PayloadSyntaxHighlighting = HighlightingManager.Instance.GetDefinition("Json");
+                    this.RaisePropertyChanged(nameof(ShowJsonParseError));
+                    this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+                    return;
+                }
+                // JSON content-type but invalid JSON — fall through to raw viewer
+                StatusBarText = $"Content-type is JSON but payload is not valid JSON. Showing raw view.";
             }
 
-            JsonViewer.LoadJson(payloadAsString);
-            if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
-            {
-                IsJsonViewerVisible = true;
-                IsRawTextViewerVisible = false;
-                IsImageViewerVisible = false;
-                IsVideoViewerVisible = false;
-                IsHexViewerVisible = false;
-                PayloadSyntaxHighlighting = HighlightingManager.Instance.GetDefinition("Json");
-                this.RaisePropertyChanged(nameof(ShowJsonParseError));
-                this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
-                return;
-            }
             ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
-            StatusBarText = $"Payload is not valid JSON. Showing raw view. {JsonViewer.JsonParseError}";
             this.RaisePropertyChanged(nameof(ShowJsonParseError));
             this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
             return;

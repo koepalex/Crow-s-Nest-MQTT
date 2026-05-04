@@ -89,6 +89,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
            var fullMessage = new MqttApplicationMessageBuilder()
                .WithTopic(topic)
                .WithPayload(Encoding.UTF8.GetBytes(jsonPayload))
+               .WithContentType("application/json")
                .Build();
 
            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
