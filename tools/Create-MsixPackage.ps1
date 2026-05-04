@@ -114,6 +114,13 @@ if (-not (Test-Path $AssetsDir)) {
     exit 1
 }
 
+# Determine host architecture for SDK tool selection (tools must run on the host,
+# regardless of the target architecture we're packaging for)
+$hostArch = switch ($env:PROCESSOR_ARCHITECTURE) {
+    'ARM64' { 'arm64' }
+    default { 'x64' }
+}
+
 # Find Windows SDK tools
 function Find-SdkTool {
     param([string]$ToolName)
@@ -130,14 +137,16 @@ function Find-SdkTool {
         Sort-Object { [Version]$_.Name } -Descending
 
     foreach ($sdkVersion in $sdkVersions) {
-        $toolPath = Join-Path $sdkVersion.FullName "$Architecture\$ToolName"
+        $toolPath = Join-Path $sdkVersion.FullName "$hostArch\$ToolName"
         if (Test-Path $toolPath) {
             return $toolPath
         }
-        # Fallback to x64 for tools that might only exist in x64
-        $toolPathX64 = Join-Path $sdkVersion.FullName "x64\$ToolName"
-        if (Test-Path $toolPathX64) {
-            return $toolPathX64
+        # Fallback to x64 if host arch tool not found
+        if ($hostArch -ne 'x64') {
+            $toolPathX64 = Join-Path $sdkVersion.FullName "x64\$ToolName"
+            if (Test-Path $toolPathX64) {
+                return $toolPathX64
+            }
         }
     }
 
