@@ -760,7 +760,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         _publishHistoryService = publishHistoryService; // Store injected publish history service (optional)
         _fileAutoCompleteService = fileAutoCompleteService; // Store injected file autocomplete service (optional)
         _uiScheduler = uiScheduler 
-            ?? (Application.Current == null ? Scheduler.Immediate : RxApp.MainThreadScheduler); // Use Immediate in non-Avalonia (plain unit test) context
+            ?? (Application.Current == null ? Scheduler.Immediate : RxSchedulers.MainThreadScheduler); // Use Immediate in non-Avalonia (plain unit test) context
         _testMode = Application.Current == null
                     || AppDomain.CurrentDomain.FriendlyName?.IndexOf("testhost", StringComparison.OrdinalIgnoreCase) >= 0
                     || AppDomain.CurrentDomain.FriendlyName?.IndexOf("vstest", StringComparison.OrdinalIgnoreCase) >= 0
@@ -1370,40 +1370,55 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         messageViewModels.Add(messageVm);
 
         // Track request-response correlation for MQTT V5
+        // Strategy: always try linking as a response first (handles responses that echo ResponseTopic),
+        // then fall back to registering as a new request if linking failed and message has ResponseTopic.
         if (_correlationService != null && e?.ApplicationMessage != null)
         {
             var msg = e.ApplicationMessage;
 
-            // Register request messages with response-topic
-            if (!string.IsNullOrEmpty(msg?.ResponseTopic) && msg?.CorrelationData != null && msg.CorrelationData.Length > 0)
+            if (msg?.CorrelationData != null && msg.CorrelationData.Length > 0)
             {
                 var correlationHex = BitConverter.ToString(msg.CorrelationData).Replace("-", "");
-                Log.Information("Registering REQUEST message {MessageId} on topic {Topic} with response-topic {ResponseTopic} and correlation-data {CorrelationData}",
-                    messageId, topic, msg.ResponseTopic, correlationHex);
+                var linked = false;
 
-                var registered = _correlationService.RegisterRequestAsync(
-                    messageId.ToString(),
-                    msg.CorrelationData,
-                    msg.ResponseTopic,
-                    ttlMinutes: 30).GetAwaiter().GetResult();
+                // Try to link as a response first
+                try
+                {
+                    linked = _correlationService.LinkResponseAsync(
+                        messageId.ToString(),
+                        msg.CorrelationData,
+                        topic).GetAwaiter().GetResult();
+                }
+                catch (ArgumentException)
+                {
+                    // LinkResponseAsync throws if responseTopic is null/empty — not a valid response
+                }
 
-                Log.Information("Request registration {Result} for message {MessageId}",
-                    registered ? "SUCCEEDED" : "FAILED", messageId);
-            }
-            // Link response messages with correlation-data
-            else if (msg?.CorrelationData != null && msg.CorrelationData.Length > 0)
-            {
-                var correlationHex = BitConverter.ToString(msg.CorrelationData).Replace("-", "");
-                Log.Information("Linking RESPONSE message {MessageId} on topic {Topic} with correlation-data {CorrelationData}",
-                    messageId, topic, correlationHex);
+                if (linked)
+                {
+                    Log.Information("Linked RESPONSE message {MessageId} on topic {Topic} with correlation-data {CorrelationData}",
+                        messageId, topic, correlationHex);
+                }
+                else if (!string.IsNullOrEmpty(msg.ResponseTopic))
+                {
+                    // Not a response (or no matching request yet) — register as a new request
+                    Log.Information("Registering REQUEST message {MessageId} on topic {Topic} with response-topic {ResponseTopic} and correlation-data {CorrelationData}",
+                        messageId, topic, msg.ResponseTopic, correlationHex);
 
-                var linked = _correlationService.LinkResponseAsync(
-                    messageId.ToString(),
-                    msg.CorrelationData,
-                    topic).GetAwaiter().GetResult();
+                    var registered = _correlationService.RegisterRequestAsync(
+                        messageId.ToString(),
+                        msg.CorrelationData,
+                        msg.ResponseTopic,
+                        ttlMinutes: 30).GetAwaiter().GetResult();
 
-                Log.Information("Response linking {Result} for message {MessageId}",
-                    linked ? "SUCCEEDED" : "FAILED", messageId);
+                    Log.Information("Request registration {Result} for message {MessageId}",
+                        registered ? "SUCCEEDED" : "FAILED", messageId);
+                }
+                else
+                {
+                    Log.Information("Unlinked message {MessageId} on topic {Topic} with correlation-data {CorrelationData} (no matching request and no response-topic)",
+                        messageId, topic, correlationHex);
+                }
             }
         }
     }
@@ -2109,40 +2124,52 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
             return;
         }
+        // text/* content-type: skip JSON auto-parse and show raw viewer directly
+        if (msg.ContentType?.StartsWith("text/", StringComparison.OrdinalIgnoreCase) == true && isPayloadValidUtf8)
+        {
+            ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
+            this.RaisePropertyChanged(nameof(ShowJsonParseError));
+            this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+            return;
+        }
         if (isPayloadValidUtf8)
         {
-            // Safety guard: very large payloads without an explicit application/json
-            // content-type are unlikely to be JSON and can freeze the UI while the
-            // TreeView attempts to render thousands of nodes. Fall back to the raw
-            // viewer and let the user request the JSON tree explicitly via :view json.
-            const int JsonAutoViewMaxLength = 2 * 1024 * 1024; // 2 MB of UTF-16 chars
+            // Only use JSON viewer when content-type explicitly indicates JSON.
+            // Raw viewer is the default for all other payloads.
             bool isExplicitJsonContentType = msg.ContentType != null
-                && msg.ContentType.Contains("json", StringComparison.OrdinalIgnoreCase);
-            if (payloadAsString.Length > JsonAutoViewMaxLength && !isExplicitJsonContentType)
+                && msg.ContentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase);
+
+            if (isExplicitJsonContentType)
             {
-                ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
-                StatusBarText = $"Payload too large ({payloadAsString.Length:N0} chars) for automatic JSON tree view. Showing raw. Use :view json to force.";
-                Log.Information("Skipped automatic JSON tree view for oversized payload ({Length} chars, content-type={ContentType}).", payloadAsString.Length, msg.ContentType);
-                this.RaisePropertyChanged(nameof(ShowJsonParseError));
-                this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
-                return;
+                const int JsonAutoViewMaxLength = 2 * 1024 * 1024; // 2 MB of UTF-16 chars
+                if (payloadAsString.Length > JsonAutoViewMaxLength)
+                {
+                    ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
+                    StatusBarText = $"Payload too large ({payloadAsString.Length:N0} chars) for JSON tree view. Showing raw. Use :view json to force.";
+                    Log.Information("Skipped JSON tree view for oversized payload ({Length} chars, content-type={ContentType}).", payloadAsString.Length, msg.ContentType);
+                    this.RaisePropertyChanged(nameof(ShowJsonParseError));
+                    this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+                    return;
+                }
+
+                JsonViewer.LoadJson(payloadAsString);
+                if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
+                {
+                    IsJsonViewerVisible = true;
+                    IsRawTextViewerVisible = false;
+                    IsImageViewerVisible = false;
+                    IsVideoViewerVisible = false;
+                    IsHexViewerVisible = false;
+                    PayloadSyntaxHighlighting = HighlightingManager.Instance.GetDefinition("Json");
+                    this.RaisePropertyChanged(nameof(ShowJsonParseError));
+                    this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+                    return;
+                }
+                // JSON content-type but invalid JSON — fall through to raw viewer
+                StatusBarText = $"Content-type is JSON but payload is not valid JSON. Showing raw view.";
             }
 
-            JsonViewer.LoadJson(payloadAsString);
-            if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
-            {
-                IsJsonViewerVisible = true;
-                IsRawTextViewerVisible = false;
-                IsImageViewerVisible = false;
-                IsVideoViewerVisible = false;
-                IsHexViewerVisible = false;
-                PayloadSyntaxHighlighting = HighlightingManager.Instance.GetDefinition("Json");
-                this.RaisePropertyChanged(nameof(ShowJsonParseError));
-                this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
-                return;
-            }
             ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
-            StatusBarText = $"Payload is not valid JSON. Showing raw view. {JsonViewer.JsonParseError}";
             this.RaisePropertyChanged(nameof(ShowJsonParseError));
             this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
             return;
@@ -2512,7 +2539,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             }
 
             var processor = new EnhancedCommandProcessor(this, _deleteTopicService);
-            var result = await processor.ExecuteDeleteTopicCommand([selectedTopic], _deleteTopicService, CancellationToken.None);
+            var result = await processor.ExecuteDeleteTopicCommand([selectedTopic], _deleteTopicService, CancellationToken.None).ConfigureAwait(false);
 
             // Show delete result message with duration to ensure visibility
             ShowStatus(result.Message, TimeSpan.FromSeconds(5));
@@ -3627,7 +3654,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             Log.Information("Executing delete topic command for pattern: {Pattern}", topicPattern);
 
             // Execute the actual deletion
-            var result = await _deleteTopicService.DeleteTopicAsync(deleteCommand);
+            var result = await _deleteTopicService.DeleteTopicAsync(deleteCommand).ConfigureAwait(false);
 
             StatusBarText = result.SummaryMessage ?? $"Delete operation completed with status: {result.Status}";
 
@@ -3636,7 +3663,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 Log.Information("Delete topic command completed successfully: {Summary}", result.SummaryMessage);
 
                 // T025 - Real-time UI updates
-                await RefreshTopicTreeAfterDelete(topicPattern);
+                await RefreshTopicTreeAfterDelete(topicPattern).ConfigureAwait(false);
             }
             else
             {
@@ -4549,7 +4576,7 @@ internal class EnhancedCommandProcessor : ICommandProcessor
                 return new ICommandProcessor.CommandExecutionResult(false, "Delete topic service not available");
             }
 
-            var result = await this.ExecuteDeleteTopicCommand(arguments, _deleteTopicService, cancellationToken);
+            var result = await this.ExecuteDeleteTopicCommand(arguments, _deleteTopicService, cancellationToken).ConfigureAwait(false);
 
             if (result.Success)
             {

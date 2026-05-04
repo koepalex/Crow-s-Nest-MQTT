@@ -251,7 +251,7 @@ public class PublishViewModel : ReactiveObject, IDisposable
         // Update syntax highlighting when ContentType changes
         this.WhenAnyValue(x => x.ContentType)
             .Throttle(TimeSpan.FromMilliseconds(300))
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(ct => UpdateSyntaxHighlighting(ct));
 
         // Load history on init
@@ -279,21 +279,21 @@ public class PublishViewModel : ReactiveObject, IDisposable
                 }
 
                 StatusText = $"Reading file '{Path.GetFileName(LoadedFilePath)}'...";
-                filePayload = await File.ReadAllBytesAsync(LoadedFilePath);
+                filePayload = await File.ReadAllBytesAsync(LoadedFilePath).ConfigureAwait(false);
             }
 
             var request = BuildPublishRequest(filePayload);
             StatusText = $"Publishing to '{request.Topic}'...";
 
-            var result = await _mqttService.PublishAsync(request);
+            var result = await _mqttService.PublishAsync(request).ConfigureAwait(false);
 
             if (result.Success)
             {
                 StatusText = $"Published to '{result.Topic}' successfully.";
                 _publishHistoryService?.AddEntry(request, LoadedFilePath);
                 if (_publishHistoryService != null)
-                    await _publishHistoryService.SaveAsync();
-                await RefreshHistoryAsync();
+                    await _publishHistoryService.SaveAsync().ConfigureAwait(false);
+                await RefreshHistoryAsync().ConfigureAwait(false);
             }
             else
             {
@@ -596,7 +596,7 @@ public class PublishViewModel : ReactiveObject, IDisposable
 
         try
         {
-            await _publishHistoryService.LoadAsync();
+            await _publishHistoryService.LoadAsync().ConfigureAwait(false);
             await RefreshHistoryAsync().ConfigureAwait(false);
         }
         catch (Exception ex)

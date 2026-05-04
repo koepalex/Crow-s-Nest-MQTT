@@ -133,6 +133,36 @@ $binaryMessage = $binaryMsgBuilder.Build()
 
 Send-MqttMessage -Message $binaryMessage -Description "Binary sent to topic 'test/viewer/hex' with content-type 'application/octet-stream'."
 
+# --- Send raw text (pirate song) ---
+$pirateSong = @"
+Yo ho, yo ho, a pirate's life for me!
+We pillage, we plunder, we rifle and loot.
+Drink up me hearties, yo ho!
+We kidnap and ravage and don't give a hoot.
+Drink up me hearties, yo ho!
+
+Yo ho, yo ho, a pirate's life for me!
+We extort, we pilfer, we filch and sack.
+Drink up me hearties, yo ho!
+Maraud and embezzle and even hijack.
+Drink up me hearties, yo ho!
+
+Yo ho, yo ho, a pirate's life for me!
+We kindle and char, inflame and ignite.
+Drink up me hearties, yo ho!
+We burn up the city, we're really a fright.
+Drink up me hearties, yo ho!
+"@
+
+$rawBytes = [System.Text.Encoding]::UTF8.GetBytes($pirateSong)
+$rawMsgBuilder = [MQTTnet.MqttApplicationMessageBuilder]::new()
+$rawMsgBuilder = $rawMsgBuilder.WithTopic("test/viewer/raw").WithPayload($rawBytes)
+$rawMsgBuilder = $rawMsgBuilder.WithContentType("text/plain")
+$rawMsgBuilder = $rawMsgBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+$rawMessage = $rawMsgBuilder.Build()
+
+Send-MqttMessage -Message $rawMessage -Description "Pirate song sent to topic 'test/viewer/raw' with content-type 'text/plain'."
+
 # --- Send retained message for delete testing ---
 $retainedPayload = @{
     message = "This is a retained message for testing delete functionality"

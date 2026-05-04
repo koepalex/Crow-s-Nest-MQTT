@@ -23,8 +23,8 @@ public class PublishViewModelTests : IDisposable
 
     public PublishViewModelTests()
     {
-        _originalScheduler = RxApp.MainThreadScheduler;
-        RxApp.MainThreadScheduler = Scheduler.Immediate;
+        _originalScheduler = RxSchedulers.MainThreadScheduler;
+        RxSchedulers.MainThreadScheduler = Scheduler.Immediate;
 
         _mqttService = Substitute.For<IMqttService>();
         _historyService = Substitute.For<IPublishHistoryService>();
@@ -33,7 +33,7 @@ public class PublishViewModelTests : IDisposable
 
     public void Dispose()
     {
-        RxApp.MainThreadScheduler = _originalScheduler;
+        RxSchedulers.MainThreadScheduler = _originalScheduler;
     }
 
     private PublishViewModel CreateViewModel() => new(_mqttService, _historyService);

@@ -210,6 +210,7 @@ public class CommandInterfaceTests
            var fullMessageViewRaw = new MqttApplicationMessageBuilder()
                .WithTopic(topicViewRaw)
                .WithPayload(Encoding.UTF8.GetBytes(payloadViewRaw))
+               .WithContentType("application/json")
                .Build();
 
             _mqttServiceMock.TryGetMessage(topicViewRaw, messageIdViewRaw, out Arg.Any<MqttApplicationMessage?>())
@@ -251,6 +252,7 @@ public class CommandInterfaceTests
            var fullMessageViewJson = new MqttApplicationMessageBuilder()
                .WithTopic(topicViewJson)
                .WithPayload(Encoding.UTF8.GetBytes(payloadViewJson))
+               .WithContentType("application/json")
                .Build();
 
            _mqttServiceMock.TryGetMessage(topicViewJson, messageIdViewJson, out Arg.Any<MqttApplicationMessage?>())

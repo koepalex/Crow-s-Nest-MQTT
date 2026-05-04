@@ -1,7 +1,10 @@
 using System;
+using System.Reactive.Concurrency;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Avalonia.Threading;
+using ReactiveUI;
+using ReactiveUI.Builder;
 using Xunit;
 
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
@@ -25,7 +28,7 @@ namespace CrowsNestMqtt.UnitTests.TestInfrastructure
     /// <summary>
     /// Module initializer runs once per test assembly load, before any tests are executed.
     /// Ensures Avalonia Dispatcher.UIThread uses the ImmediateDispatcher for all tests,
-    /// removing order dependencies on individual test class static constructors.
+    /// and initializes ReactiveUI with immediate schedulers for deterministic test execution.
     /// </summary>
     internal static class TestDispatcherSetup
     {
@@ -45,6 +48,23 @@ namespace CrowsNestMqtt.UnitTests.TestInfrastructure
             {
                 // Swallow: tests that rely on dispatcher sync will still fail clearly if this setup breaks.
             }
+
+            // Initialize ReactiveUI for test context (required by ReactiveUI 23.2+)
+            try
+            {
+                var builder = RxAppBuilder.CreateReactiveUIBuilder();
+                builder.WithMainThreadScheduler(Scheduler.Immediate);
+                builder.WithTaskPoolScheduler(Scheduler.Immediate);
+                builder.BuildApp();
+            }
+            catch
+            {
+                // Swallow: if already initialized or fails, tests will fail clearly.
+            }
+
+            // Ensure schedulers are set to Immediate for deterministic test execution
+            RxSchedulers.MainThreadScheduler = Scheduler.Immediate;
+            RxSchedulers.TaskpoolScheduler = Scheduler.Immediate;
         }
     }
 }

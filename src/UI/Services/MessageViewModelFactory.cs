@@ -83,12 +83,36 @@ public class MessageViewModelFactory : IMessageViewModelFactory
         if (_correlationService == null || message == null)
             return false;
 
-        // Register request messages with response-topic
-        if (!string.IsNullOrEmpty(message.ResponseTopic) &&
-            message.CorrelationData != null &&
-            message.CorrelationData.Length > 0)
+        if (message.CorrelationData == null || message.CorrelationData.Length == 0)
+            return false;
+
+        var correlationHex = BitConverter.ToString(message.CorrelationData).Replace("-", "");
+
+        // Try to link as a response first (handles responses that echo ResponseTopic)
+        bool linked = false;
+        try
         {
-            var correlationHex = BitConverter.ToString(message.CorrelationData).Replace("-", "");
+            linked = await _correlationService.LinkResponseAsync(
+                messageId.ToString(),
+                message.CorrelationData,
+                topic).ConfigureAwait(false);
+        }
+        catch (ArgumentException)
+        {
+            // LinkResponseAsync throws if responseTopic is null/empty — not a valid response
+        }
+
+        if (linked)
+        {
+            Log.Information(
+                "Linked RESPONSE message {MessageId} on topic {Topic} with correlation-data {CorrelationData}",
+                messageId, topic, correlationHex);
+            return true;
+        }
+
+        // Not a response (or no matching request yet) — register as a new request if it has ResponseTopic
+        if (!string.IsNullOrEmpty(message.ResponseTopic))
+        {
             Log.Information(
                 "Registering REQUEST message {MessageId} on topic {Topic} with response-topic {ResponseTopic} and correlation-data {CorrelationData}",
                 messageId, topic, message.ResponseTopic, correlationHex);
@@ -105,25 +129,10 @@ public class MessageViewModelFactory : IMessageViewModelFactory
 
             return registered;
         }
-        // Link response messages with correlation-data
-        else if (message.CorrelationData != null && message.CorrelationData.Length > 0)
-        {
-            var correlationHex = BitConverter.ToString(message.CorrelationData).Replace("-", "");
-            Log.Information(
-                "Linking RESPONSE message {MessageId} on topic {Topic} with correlation-data {CorrelationData}",
-                messageId, topic, correlationHex);
 
-            var linked = await _correlationService.LinkResponseAsync(
-                messageId.ToString(),
-                message.CorrelationData,
-                topic).ConfigureAwait(false);
-
-            Log.Information(
-                "Response linking {Result} for message {MessageId}",
-                linked ? "SUCCEEDED" : "FAILED", messageId);
-
-            return linked;
-        }
+        Log.Information(
+            "Unlinked message {MessageId} on topic {Topic} with correlation-data {CorrelationData} (no matching request and no response-topic)",
+            messageId, topic, correlationHex);
 
         return false;
     }

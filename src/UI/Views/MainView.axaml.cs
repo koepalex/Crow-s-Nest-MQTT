@@ -1,6 +1,7 @@
 using Avalonia; // Added for VisualTreeAttachmentEventArgs
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform; // Added for ClipboardExtensions (SetTextAsync)
 using Avalonia.Interactivity; // Added for RoutedEventArgs
 using Avalonia.Threading; // Added for Dispatcher
 using CrowsNestMqtt.UI.ViewModels; // Namespace for MainViewModel
@@ -97,8 +98,8 @@ public partial class MainView : UserControl
 
                 // Subscribe to focus events (unsubscribe handled in OnDetached/UnsubscribeFromViewModel)
 #pragma warning disable IL2026 // Suppress trim warning for FromEventPattern
-                _gotFocusSubscription = Observable.FromEventPattern<GotFocusEventArgs>(_parentWindow, nameof(Window.GotFocus))
-                    .ObserveOn(RxApp.MainThreadScheduler)
+                _gotFocusSubscription = Observable.FromEventPattern<FocusChangedEventArgs>(_parentWindow, nameof(Window.GotFocus))
+                    .ObserveOn(RxSchedulers.MainThreadScheduler)
                     .Subscribe(_ =>
                     {
                         CrowsNestMqtt.Utils.AppLogger.Trace("MainView GotFocus event fired. Setting IsWindowFocused = true.");
@@ -108,7 +109,7 @@ public partial class MainView : UserControl
 
 #pragma warning disable IL2026 // Suppress trim warning for FromEventPattern
                 _lostFocusSubscription = Observable.FromEventPattern<RoutedEventArgs>(_parentWindow, nameof(Window.LostFocus))
-                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .ObserveOn(RxSchedulers.MainThreadScheduler)
                     .Subscribe(_ =>
                     {
                         CrowsNestMqtt.Utils.AppLogger.Trace("MainView LostFocus event fired. Setting IsWindowFocused = false.");
@@ -119,7 +120,7 @@ public partial class MainView : UserControl
                 // FR-008, FR-009, FR-013, FR-014: Wire keyboard event routing for navigation shortcuts
 #pragma warning disable IL2026 // Suppress trim warning for FromEventPattern
                 _keyDownSubscription = Observable.FromEventPattern<KeyEventArgs>(_parentWindow, nameof(Window.KeyDown))
-                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .ObserveOn(RxSchedulers.MainThreadScheduler)
                     .Subscribe(e => OnWindowKeyDown(e.EventArgs));
 #pragma warning restore IL2026
 
@@ -127,8 +128,8 @@ public partial class MainView : UserControl
                 if (CommandAutoCompleteBox != null)
                 {
 #pragma warning disable IL2026 // Suppress trim warning for FromEventPattern
-                    _commandInputGotFocusSubscription = Observable.FromEventPattern<GotFocusEventArgs>(CommandAutoCompleteBox, nameof(Control.GotFocus))
-                        .ObserveOn(RxApp.MainThreadScheduler)
+                    _commandInputGotFocusSubscription = Observable.FromEventPattern<FocusChangedEventArgs>(CommandAutoCompleteBox, nameof(Control.GotFocus))
+                        .ObserveOn(RxSchedulers.MainThreadScheduler)
                         .Subscribe(_ =>
                         {
                             CrowsNestMqtt.Utils.AppLogger.Trace("CommandAutoCompleteBox GotFocus. Setting IsCommandInputFocused = true.");
@@ -136,7 +137,7 @@ public partial class MainView : UserControl
                         });
 
                     _commandInputLostFocusSubscription = Observable.FromEventPattern<RoutedEventArgs>(CommandAutoCompleteBox, nameof(Control.LostFocus))
-                        .ObserveOn(RxApp.MainThreadScheduler)
+                        .ObserveOn(RxSchedulers.MainThreadScheduler)
                         .Subscribe(_ =>
                         {
                             CrowsNestMqtt.Utils.AppLogger.Trace("CommandAutoCompleteBox LostFocus. Setting IsCommandInputFocused = false.");
@@ -187,7 +188,7 @@ public partial class MainView : UserControl
             // Subscribe to ClipboardText changes
             vm.WhenAnyValue(x => x.ClipboardText)
               .DistinctUntilChanged()
-              .ObserveOn(RxApp.MainThreadScheduler)
+              .ObserveOn(RxSchedulers.MainThreadScheduler)
               .Subscribe(async clipboardText =>
               {
                   if (!string.IsNullOrWhiteSpace(clipboardText))
@@ -204,7 +205,7 @@ public partial class MainView : UserControl
 
             // Subscribe to the FocusCommandBarCommand
             _focusCommandSubscription = vm.FocusCommandBarCommand
-                .ObserveOn(RxApp.MainThreadScheduler) // Ensure focus happens on UI thread
+                .ObserveOn(RxSchedulers.MainThreadScheduler) // Ensure focus happens on UI thread
                 .Subscribe(_ =>
                {
                    CommandAutoCompleteBox?.Focus(); // Focus the control
@@ -212,7 +213,7 @@ public partial class MainView : UserControl
 
             // Subscribe to the FocusTopicTreeCommand
             _focusTopicTreeSubscription = vm.FocusTopicTreeCommand
-                .ObserveOn(RxApp.MainThreadScheduler) // Ensure focus happens on UI thread
+                .ObserveOn(RxSchedulers.MainThreadScheduler) // Ensure focus happens on UI thread
                 .Subscribe(_ =>
                {
                    CrowsNestMqtt.Utils.AppLogger.Debug("FocusTopicTreeCommand triggered - attempting to focus TreeView");
@@ -311,7 +312,7 @@ public partial class MainView : UserControl
 
            // Subscribe to RawPayloadDocument changes to clear selection when empty
            _rawPayloadDocumentSubscription = vm.WhenAnyValue(x => x.RawPayloadDocument)
-               .ObserveOn(RxApp.MainThreadScheduler) // Ensure UI access is on the correct thread
+               .ObserveOn(RxSchedulers.MainThreadScheduler) // Ensure UI access is on the correct thread
                .Subscribe(doc =>
                {
                    // Check if the editor and its TextArea are available

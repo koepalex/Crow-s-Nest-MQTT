@@ -61,6 +61,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
            var fullMessage = new MqttApplicationMessageBuilder()
                .WithTopic(topic)
                .WithPayload(Encoding.UTF8.GetBytes(jsonPayload))
+               .WithContentType("application/json")
                .Build();
 
            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
@@ -93,6 +94,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
            var fullMessage = new MqttApplicationMessageBuilder()
                .WithTopic(topic)
                .WithPayload(Encoding.UTF8.GetBytes(invalidJsonPayload))
+               .WithContentType("application/json")
                .Build();
 
             _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
@@ -137,6 +139,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
            var fullMessage = new MqttApplicationMessageBuilder()
                .WithTopic(topic)
                .WithPayload(Encoding.UTF8.GetBytes(complexJsonPayload))
+               .WithContentType("application/json")
                .Build();
 
            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
@@ -181,6 +184,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
            var fullMessage = new MqttApplicationMessageBuilder()
               .WithTopic(topic)
               .WithPayload(Encoding.UTF8.GetBytes(arrayJsonPayload))
+              .WithContentType("application/json")
               .Build();
 
           _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
@@ -315,6 +319,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
            var fullMessage = new MqttApplicationMessageBuilder()
                .WithTopic(topic)
                .WithPayload(Encoding.UTF8.GetBytes(jsonPayload))
+               .WithContentType("application/json")
                .Build();
 
            _mqttServiceMock.TryGetMessage(topic, messageId, out Arg.Any<MqttApplicationMessage?>())
