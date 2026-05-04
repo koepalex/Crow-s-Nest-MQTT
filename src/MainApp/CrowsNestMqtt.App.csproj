@@ -22,7 +22,7 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />
-    <PackageReference Include="Avalonia.ReactiveUI" />
+    <PackageReference Include="ReactiveUI.Avalonia" />
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="GitVersion.MsBuild" >

@@ -251,7 +251,7 @@ public class PublishViewModel : ReactiveObject, IDisposable
         // Update syntax highlighting when ContentType changes
         this.WhenAnyValue(x => x.ContentType)
             .Throttle(TimeSpan.FromMilliseconds(300))
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(ct => UpdateSyntaxHighlighting(ct));
 
         // Load history on init

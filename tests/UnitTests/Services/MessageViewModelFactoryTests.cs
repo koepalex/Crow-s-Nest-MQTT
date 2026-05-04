@@ -564,6 +564,83 @@ public class MessageViewModelFactoryTests
         Assert.False(result);
     }
 
+    [Fact]
+    public async Task RegisterCorrelationAsync_ResponseWithEchoedResponseTopic_LinksAsResponse()
+    {
+        // Arrange - simulates a response message that echoes the ResponseTopic from the request.
+        // The old if/else-if logic would misclassify this as a new request.
+        var factory = new MessageViewModelFactory(_mockCorrelationService);
+        _mockCorrelationService.LinkResponseAsync(
+            Arg.Any<string>(),
+            Arg.Any<byte[]>(),
+            Arg.Any<string>())
+            .Returns(Task.FromResult(true));
+
+        var message = new MqttApplicationMessage
+        {
+            Topic = "response/topic",
+            Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes("response payload")),
+            ResponseTopic = "response/topic", // Echoed from request
+            CorrelationData = new byte[] { 0x01, 0x02, 0x03 }
+        };
+
+        // Act
+        var result = await factory.RegisterCorrelationAsync(Guid.NewGuid(), message, "response/topic");
+
+        // Assert - should link as response, NOT register as a new request
+        Assert.True(result);
+        await _mockCorrelationService.Received(1).LinkResponseAsync(
+            Arg.Any<string>(),
+            Arg.Is<byte[]>(b => b.SequenceEqual(new byte[] { 0x01, 0x02, 0x03 })),
+            "response/topic");
+        await _mockCorrelationService.DidNotReceive().RegisterRequestAsync(
+            Arg.Any<string>(),
+            Arg.Any<byte[]>(),
+            Arg.Any<string>(),
+            Arg.Any<int>());
+    }
+
+    [Fact]
+    public async Task RegisterCorrelationAsync_UnlinkedMessageWithResponseTopic_RegistersAsRequest()
+    {
+        // Arrange - LinkResponseAsync returns false (no matching request), so it registers as new request
+        var factory = new MessageViewModelFactory(_mockCorrelationService);
+        _mockCorrelationService.LinkResponseAsync(
+            Arg.Any<string>(),
+            Arg.Any<byte[]>(),
+            Arg.Any<string>())
+            .Returns(Task.FromResult(false));
+        _mockCorrelationService.RegisterRequestAsync(
+            Arg.Any<string>(),
+            Arg.Any<byte[]>(),
+            Arg.Any<string>(),
+            Arg.Any<int>())
+            .Returns(Task.FromResult(true));
+
+        var message = new MqttApplicationMessage
+        {
+            Topic = "request/topic",
+            Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes("request payload")),
+            ResponseTopic = "response/topic",
+            CorrelationData = new byte[] { 0x01, 0x02, 0x03 }
+        };
+
+        // Act
+        var result = await factory.RegisterCorrelationAsync(Guid.NewGuid(), message, "request/topic");
+
+        // Assert - should fall through to register as request
+        Assert.True(result);
+        await _mockCorrelationService.Received(1).LinkResponseAsync(
+            Arg.Any<string>(),
+            Arg.Any<byte[]>(),
+            "request/topic");
+        await _mockCorrelationService.Received(1).RegisterRequestAsync(
+            Arg.Any<string>(),
+            Arg.Any<byte[]>(),
+            "response/topic",
+            30);
+    }
+
     // Helper method to create test messages
     private static IdentifiedMqttApplicationMessageReceivedEventArgs CreateTestMessage(
         string topic,

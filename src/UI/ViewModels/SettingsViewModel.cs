@@ -168,7 +168,7 @@ public class SettingsViewModel : ReactiveObject
                 itemPropertiesChanged.StartWith(Unit.Default) // StartWith to ensure initial state is considered if items exist
             )
             .Throttle(TimeSpan.FromMilliseconds(500))
-            .ObserveOn(RxApp.TaskpoolScheduler)
+            .ObserveOn(RxSchedulers.TaskpoolScheduler)
             .Subscribe(_ => SaveSettings());
 
 
