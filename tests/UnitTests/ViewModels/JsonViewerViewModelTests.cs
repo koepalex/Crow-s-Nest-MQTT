@@ -548,5 +548,138 @@ namespace UnitTests.ViewModels
             Assert.Contains("…", node.ValueDisplay);
             Assert.Contains($"{len} chars", node.ValueDisplay);
         }
+
+        [Fact]
+        public void LoadJson_EmptyString_ClearsNodesWithoutError()
+        {
+            var vm = new JsonViewerViewModel();
+            // Pre-populate with data to prove it clears
+            vm.LoadJson("{\"x\":1}");
+            Assert.NotEmpty(vm.RootNodes);
+
+            vm.LoadJson(string.Empty);
+
+            Assert.False(vm.HasParseError);
+            Assert.Equal(string.Empty, vm.JsonParseError);
+            Assert.Empty(vm.RootNodes);
+        }
+
+        [Fact]
+        public void LoadJson_WhitespaceOnlyString_ClearsNodesWithoutError()
+        {
+            var vm = new JsonViewerViewModel();
+            vm.LoadJson("{\"x\":1}");
+            Assert.NotEmpty(vm.RootNodes);
+
+            vm.LoadJson("   \t\r\n   ");
+
+            Assert.False(vm.HasParseError);
+            Assert.Equal(string.Empty, vm.JsonParseError);
+            Assert.Empty(vm.RootNodes);
+        }
+
+        [Fact]
+        public void LoadJson_InvalidJson_ErrorContainsLineAndPosition()
+        {
+            var vm = new JsonViewerViewModel();
+            vm.LoadJson("{invalid json}");
+
+            Assert.True(vm.HasParseError);
+            Assert.StartsWith("JSON Parsing Error:", vm.JsonParseError);
+            Assert.Matches(@"\(Line: \d+, Pos: \d+\)", vm.JsonParseError);
+        }
+
+        [Fact]
+        public void LoadJson_DepthBeyondAutoExpandMaxDepth_NodesNotExpanded()
+        {
+            // Build JSON nested to depth 7 (deeper than AutoExpandMaxDepth=5)
+            var vm = new JsonViewerViewModel();
+            string json = "{\"d1\":{\"d2\":{\"d3\":{\"d4\":{\"d5\":{\"d6\":{\"d7\":\"leaf\"}}}}}}}";
+            vm.LoadJson(json);
+
+            Assert.False(vm.HasParseError);
+
+            // Walk down to depth 6 (zero-indexed from root object properties at depth 1)
+            var d1 = vm.RootNodes[0]; // depth 1
+            var d2 = d1.Children[0];  // depth 2
+            var d3 = d2.Children[0];  // depth 3
+            var d4 = d3.Children[0];  // depth 4
+            var d5 = d4.Children[0];  // depth 5
+            var d6 = d5.Children[0];  // depth 6
+
+            // Nodes at depth <= 5 should be expanded
+            Assert.True(d1.IsExpanded, "Depth 1 should be expanded");
+            Assert.True(d2.IsExpanded, "Depth 2 should be expanded");
+            Assert.True(d3.IsExpanded, "Depth 3 should be expanded");
+            Assert.True(d4.IsExpanded, "Depth 4 should be expanded");
+            Assert.True(d5.IsExpanded, "Depth 5 should be expanded");
+
+            // Node at depth 6 should NOT be expanded
+            Assert.False(d6.IsExpanded, "Depth 6 should NOT be expanded (exceeds AutoExpandMaxDepth)");
+        }
+
+        [Fact]
+        public void LoadJson_ArrayRootExceedingBudget_NotExpanded()
+        {
+            int count = JsonViewerViewModel.AutoExpandNodeBudget + 1;
+            var json = "[" + string.Join(",", Enumerable.Range(0, count).Select(i => i.ToString())) + "]";
+
+            var vm = new JsonViewerViewModel();
+            vm.LoadJson(json);
+
+            Assert.False(vm.HasParseError);
+            Assert.Single(vm.RootNodes);
+            var arrayRoot = vm.RootNodes[0];
+            Assert.Equal(count, arrayRoot.Children.Count);
+            Assert.False(arrayRoot.IsExpanded, "Array root exceeding budget should NOT be auto-expanded");
+        }
+
+        [Fact]
+        public void LoadJson_SmallNestedStructure_AllNodesExpanded()
+        {
+            var vm = new JsonViewerViewModel();
+            vm.LoadJson("{\"a\":{\"b\":{\"c\":\"val\"}}}");
+
+            Assert.False(vm.HasParseError);
+            var a = vm.RootNodes[0];
+            var b = a.Children[0];
+
+            Assert.True(a.IsExpanded, "Small structure node at depth 1 should be expanded");
+            Assert.True(b.IsExpanded, "Small structure node at depth 2 should be expanded");
+        }
+
+        [Fact]
+        public void LoadJson_SecondLoad_ReplacesFirstData()
+        {
+            var vm = new JsonViewerViewModel();
+            vm.LoadJson("{\"first\":1,\"second\":2}");
+            Assert.Equal(2, vm.RootNodes.Count);
+            Assert.Equal("first", vm.RootNodes[0].Name);
+
+            vm.LoadJson("{\"replacement\":99}");
+
+            Assert.Single(vm.RootNodes);
+            Assert.Equal("replacement", vm.RootNodes[0].Name);
+            Assert.Equal("99", vm.RootNodes[0].ValueDisplay);
+        }
+
+        [Fact]
+        public void LoadJson_AfterError_ResetsErrorState()
+        {
+            var vm = new JsonViewerViewModel();
+
+            // First: set error state with invalid JSON
+            vm.LoadJson("{ not valid }");
+            Assert.True(vm.HasParseError);
+            Assert.NotEqual(string.Empty, vm.JsonParseError);
+            Assert.Empty(vm.RootNodes);
+
+            // Second: load valid JSON - error must be cleared
+            vm.LoadJson("{\"ok\":true}");
+            Assert.False(vm.HasParseError);
+            Assert.Equal(string.Empty, vm.JsonParseError);
+            Assert.Single(vm.RootNodes);
+            Assert.Equal("ok", vm.RootNodes[0].Name);
+        }
     }
 }
