@@ -16,6 +16,14 @@ namespace CrowsNestMqtt.BusinessLogic.Services
     {
         private readonly ConcurrentDictionary<CorrelationKey, CorrelationEntry> _correlations = new();
         private readonly ConcurrentDictionary<string, CorrelationKey> _requestMessageIndex = new();
+        private readonly ConcurrentDictionary<CorrelationKey, List<PendingResponse>> _pendingResponses = new();
+
+        private static readonly TimeSpan PendingResponseTtl = TimeSpan.FromMinutes(5);
+
+        /// <summary>
+        /// Represents a response that arrived before its matching request was registered.
+        /// </summary>
+        private sealed record PendingResponse(string ResponseMessageId, string ResponseTopic, DateTime ReceivedAt);
 
         /// <inheritdoc />
         public event EventHandler<CorrelationStatusChangedEventArgs>? CorrelationStatusChanged;
@@ -45,8 +53,11 @@ namespace CrowsNestMqtt.BusinessLogic.Services
             if (_correlations.TryAdd(correlationKey, entry) &&
                 _requestMessageIndex.TryAdd(requestMessageId, correlationKey))
             {
+                // Check for pending responses that arrived before this request
+                LinkPendingResponses(correlationKey, entry, responseTopic);
+
                 // Raise status changed event
-                RaiseCorrelationStatusChanged(requestMessageId, ResponseStatus.Pending, ResponseStatus.Hidden);
+                RaiseCorrelationStatusChanged(requestMessageId, entry.Status, ResponseStatus.Hidden);
                 return Task.FromResult(true);
             }
 
@@ -70,7 +81,20 @@ namespace CrowsNestMqtt.BusinessLogic.Services
             var correlationKey = new CorrelationKey(correlationData);
 
             if (!_correlations.TryGetValue(correlationKey, out var entry))
+            {
+                // No matching request registered yet — buffer this response for later linking
+                var pending = new PendingResponse(responseMessageId, responseTopic, DateTime.UtcNow);
+                _pendingResponses.AddOrUpdate(
+                    correlationKey,
+                    _ => new List<PendingResponse> { pending },
+                    (_, list) => { list.Add(pending); return list; });
+
+                Serilog.Log.Information(
+                    "Buffered pending response {ResponseMessageId} on topic {Topic} (no matching request yet)",
+                    responseMessageId, responseTopic);
+
                 return Task.FromResult(false);
+            }
 
             // Verify response topic matches
             if (!string.Equals(entry.Correlation.ResponseTopic, responseTopic, StringComparison.Ordinal))
@@ -180,6 +204,21 @@ namespace CrowsNestMqtt.BusinessLogic.Services
                 }
             }
 
+            // Clean up stale pending responses that exceeded TTL
+            var now = DateTime.UtcNow;
+            var stalePendingKeys = new List<CorrelationKey>();
+            foreach (var kvp in _pendingResponses)
+            {
+                kvp.Value.RemoveAll(p => now - p.ReceivedAt > PendingResponseTtl);
+                if (kvp.Value.Count == 0)
+                    stalePendingKeys.Add(kvp.Key);
+            }
+
+            foreach (var key in stalePendingKeys)
+            {
+                _pendingResponses.TryRemove(key, out _);
+            }
+
             return Task.FromResult(cleanedUp);
         }
 
@@ -223,6 +262,29 @@ namespace CrowsNestMqtt.BusinessLogic.Services
                 LastCleanupAt = DateTime.UtcNow,
                 AverageResponseTime = TimeSpan.Zero
             });
+        }
+
+        /// <summary>
+        /// Links any pending responses that arrived before this request was registered.
+        /// </summary>
+        private void LinkPendingResponses(CorrelationKey correlationKey, CorrelationEntry entry, string responseTopic)
+        {
+            if (!_pendingResponses.TryRemove(correlationKey, out var pendingList))
+                return;
+
+            foreach (var pending in pendingList)
+            {
+                // Verify response topic matches
+                if (!string.Equals(responseTopic, pending.ResponseTopic, StringComparison.Ordinal))
+                    continue;
+
+                entry.AddResponse(pending.ResponseMessageId);
+                _correlations.TryUpdate(correlationKey, entry, entry);
+
+                Serilog.Log.Information(
+                    "Retroactively linked pending response {ResponseMessageId} to request {RequestMessageId}",
+                    pending.ResponseMessageId, entry.Correlation.RequestMessageId);
+            }
         }
 
         /// <summary>

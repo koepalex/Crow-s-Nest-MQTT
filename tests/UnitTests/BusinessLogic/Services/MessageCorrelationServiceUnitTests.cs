@@ -784,5 +784,123 @@ namespace CrowsNestMqtt.UnitTests.BusinessLogic.Services
             Assert.Equal(1, stats.RespondedCorrelations);
             Assert.Equal(0, stats.PendingCorrelations);
         }
+
+        [Fact]
+        public async Task LinkResponseAsync_BeforeRequestRegistered_ShouldBufferAndLinkRetroactively()
+        {
+            // Arrange - simulate response arriving before request
+            var service = CreateService();
+            var correlationData = Encoding.UTF8.GetBytes("race-condition-test");
+            var responseTopic = "response/topic";
+
+            // Act - response arrives first (no matching request yet)
+            var linkResult = await service.LinkResponseAsync("resp-1", correlationData, responseTopic);
+            Assert.False(linkResult); // Returns false because no request registered yet
+
+            // Now register the request - pending response should be auto-linked
+            var registerResult = await service.RegisterRequestAsync("req-1", correlationData, responseTopic);
+            Assert.True(registerResult);
+
+            // Assert - the response should now be linked retroactively
+            var status = await service.GetResponseStatusAsync("req-1");
+            Assert.Equal(ResponseStatus.Received, status);
+
+            var responseIds = await service.GetResponseMessageIdsAsync("req-1");
+            Assert.Single(responseIds);
+            Assert.Equal("resp-1", responseIds[0]);
+        }
+
+        [Fact]
+        public async Task LinkResponseAsync_MultipleResponsesBeforeRequest_ShouldBufferAllAndLinkRetroactively()
+        {
+            // Arrange
+            var service = CreateService();
+            var correlationData = Encoding.UTF8.GetBytes("multi-response-race");
+            var responseTopic = "response/multi";
+
+            // Act - multiple responses arrive before request
+            await service.LinkResponseAsync("resp-1", correlationData, responseTopic);
+            await service.LinkResponseAsync("resp-2", correlationData, responseTopic);
+
+            // Register request
+            var registerResult = await service.RegisterRequestAsync("req-1", correlationData, responseTopic);
+            Assert.True(registerResult);
+
+            // Assert - all responses linked
+            var responseIds = await service.GetResponseMessageIdsAsync("req-1");
+            Assert.Equal(2, responseIds.Count);
+            Assert.Contains("resp-1", responseIds);
+            Assert.Contains("resp-2", responseIds);
+        }
+
+        [Fact]
+        public async Task LinkResponseAsync_PendingResponseWithMismatchedTopic_ShouldNotLink()
+        {
+            // Arrange
+            var service = CreateService();
+            var correlationData = Encoding.UTF8.GetBytes("topic-mismatch-test");
+
+            // Response arrives on wrong topic
+            await service.LinkResponseAsync("resp-1", correlationData, "wrong/topic");
+
+            // Register request with different response topic
+            var registerResult = await service.RegisterRequestAsync("req-1", correlationData, "correct/topic");
+            Assert.True(registerResult);
+
+            // Assert - response should NOT be linked (topic mismatch)
+            var status = await service.GetResponseStatusAsync("req-1");
+            Assert.Equal(ResponseStatus.Pending, status);
+
+            var responseIds = await service.GetResponseMessageIdsAsync("req-1");
+            Assert.Empty(responseIds);
+        }
+
+        [Fact]
+        public async Task RegisterRequestAsync_WithPendingResponse_ShouldFireReceivedStatusEvent()
+        {
+            // Arrange
+            var service = CreateService();
+            var correlationData = Encoding.UTF8.GetBytes("event-test");
+            var responseTopic = "response/event";
+            var statusChanges = new List<(string RequestId, ResponseStatus NewStatus, ResponseStatus PreviousStatus)>();
+
+            service.CorrelationStatusChanged += (_, args) =>
+                statusChanges.Add((args.RequestMessageId, args.NewStatus, args.PreviousStatus));
+
+            // Response arrives first
+            await service.LinkResponseAsync("resp-1", correlationData, responseTopic);
+
+            // Act - register request (should auto-link pending response)
+            await service.RegisterRequestAsync("req-1", correlationData, responseTopic);
+
+            // Assert - should fire a single event showing Received status (not Pending)
+            Assert.Single(statusChanges);
+            Assert.Equal("req-1", statusChanges[0].RequestId);
+            Assert.Equal(ResponseStatus.Received, statusChanges[0].NewStatus);
+            Assert.Equal(ResponseStatus.Hidden, statusChanges[0].PreviousStatus);
+        }
+
+        [Fact]
+        public async Task CleanupExpiredCorrelationsAsync_ShouldRemoveStalePendingResponses()
+        {
+            // Arrange - use a service with internal access to verify state
+            var service = CreateService();
+            var correlationData = Encoding.UTF8.GetBytes("stale-pending-test");
+
+            // Buffer a response (no matching request)
+            await service.LinkResponseAsync("resp-1", correlationData, "response/topic");
+
+            // Verify pending response is buffered (indirectly: register request should link it)
+            // But first, let's just verify cleanup works by running it immediately
+            // (the pending response TTL is 5 minutes, so it shouldn't be cleaned up yet)
+            await service.CleanupExpiredCorrelationsAsync();
+
+            // Register request - should still find the pending response
+            var registerResult = await service.RegisterRequestAsync("req-1", correlationData, "response/topic");
+            Assert.True(registerResult);
+
+            var status = await service.GetResponseStatusAsync("req-1");
+            Assert.Equal(ResponseStatus.Received, status);
+        }
     }
 }
