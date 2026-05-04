@@ -2124,6 +2124,14 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
             return;
         }
+        // text/* content-type: skip JSON auto-parse and show raw viewer directly
+        if (msg.ContentType?.StartsWith("text/", StringComparison.OrdinalIgnoreCase) == true && isPayloadValidUtf8)
+        {
+            ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
+            this.RaisePropertyChanged(nameof(ShowJsonParseError));
+            this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+            return;
+        }
         if (isPayloadValidUtf8)
         {
             // Safety guard: very large payloads without an explicit application/json
