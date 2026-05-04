@@ -4,6 +4,26 @@
 
 Whether you're a seasoned developer or a newcomer to IoT, Crow’s NestMQTT provides robust tools for subscribing to topics, and inspecting payloads in real time. The client offers customizable dashboards, seamless connection management, and advanced filtering options, ensuring you can quickly pinpoint critical data streams. Its cross-platform support means that no matter your operating system, you can harness the power of MQTT to orchestrate reliable and secure message flows. Welcome aboard, and let Crow’s NestMQTT guide you through the vast network of your IoT environment!
 
+## Installation
+
+### Microsoft Store (Recommended)
+Install from the Microsoft Store for the simplest experience. Packages are automatically signed by Microsoft—no additional setup required.
+
+### GitHub Releases (Sideloading)
+Download the `.msixbundle` or platform-specific `.msix` from [GitHub Releases](https://github.com/koepalex/Crow-s-Nest-MQTT/releases). These packages are unsigned, so Windows requires **Developer Mode** to be enabled before installation:
+
+1. Open **Settings → System → For developers**
+2. Enable **Developer Mode**
+3. Double-click the downloaded `.msixbundle` to install
+
+Alternatively, install via PowerShell:
+```powershell
+Add-AppxPackage -Path .\CrowsNestMqtt-1.0.0.msixbundle
+```
+
+### Linux & macOS
+Download the platform-specific archive or `.dmg` from [GitHub Releases](https://github.com/koepalex/Crow-s-Nest-MQTT/releases) and run the executable directly—no installation step required.
+
 ## Why using it?
 
 * Focused on developer 💻
