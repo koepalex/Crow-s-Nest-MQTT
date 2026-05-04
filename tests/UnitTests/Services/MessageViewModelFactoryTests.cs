@@ -565,7 +565,7 @@ public class MessageViewModelFactoryTests
     }
 
     // Helper method to create test messages
-    private IdentifiedMqttApplicationMessageReceivedEventArgs CreateTestMessage(
+    private static IdentifiedMqttApplicationMessageReceivedEventArgs CreateTestMessage(
         string topic,
         byte[] payload,
         bool isRetained = false)

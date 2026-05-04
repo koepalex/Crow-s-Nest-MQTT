@@ -49,7 +49,7 @@ public class CommandParserService : ICommandParserService
         }
     }
 
-    internal CommandResult ParseCommand(string input, SettingsData settingsData)
+    internal static CommandResult ParseCommand(string input, SettingsData settingsData)
     {
         if (string.IsNullOrWhiteSpace(input))
         {

@@ -39,8 +39,7 @@ public class DeleteTopicService : IDeleteTopicService
     /// <inheritdoc />
     public async Task<DeleteTopicResult> DeleteTopicAsync(DeleteTopicCommand command, CancellationToken cancellationToken = default)
     {
-        if (command == null)
-            throw new ArgumentNullException(nameof(command));
+        ArgumentNullException.ThrowIfNull(command);
 
         var stopwatch = Stopwatch.StartNew();
         var startTime = DateTime.UtcNow;
@@ -215,7 +214,7 @@ public class DeleteTopicService : IDeleteTopicService
         else
         {
             // Check for invalid MQTT topic characters
-            if (topicPattern.Contains('#') && !topicPattern.EndsWith("#") && !topicPattern.EndsWith("/#"))
+            if (topicPattern.Contains('#') && !topicPattern.EndsWith('#') && !topicPattern.EndsWith("/#"))
             {
                 errors.Add("Multi-level wildcard '#' must be at the end of topic pattern");
             }
@@ -227,7 +226,7 @@ public class DeleteTopicService : IDeleteTopicService
 
             // Check for potentially dangerous patterns
             if (topicPattern == "#" || topicPattern == "+" ||
-                topicPattern.EndsWith("#") || topicPattern.EndsWith("+") ||
+                topicPattern.EndsWith('#') || topicPattern.EndsWith('+') ||
                 topicPattern.Contains("+"))
             {
                 warnings.Add("This pattern may match a very large number of topics");
@@ -244,12 +243,12 @@ public class DeleteTopicService : IDeleteTopicService
             errors.Add("Maximum topic limit exceeds system maximum (10,000)");
         }
 
-        if (errors.Any())
+        if (errors.Count > 0)
         {
             return ValidationResult.Failure(errors.ToArray());
         }
 
-        if (warnings.Any())
+        if (warnings.Count > 0)
         {
             return ValidationResult.SuccessWithWarnings(warnings.ToArray());
         }
@@ -428,7 +427,7 @@ public class DeleteTopicService : IDeleteTopicService
             parts.Add($"{failed} topics failed");
         }
 
-        if (warnings.Any())
+        if (warnings.Count > 0)
         {
             parts.Add($"{warnings.Count} warnings");
         }

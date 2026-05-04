@@ -33,10 +33,10 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         private sealed class ImmediateDispatcher : IDispatcher
         {
             public bool CheckAccess() => true;
-            public void Post(Action action) => action();
+            public static void Post(Action action) => action();
             public void Post(Action action, DispatcherPriority priority) => action();
             public void VerifyAccess() { }
-            public DispatcherPriority Priority => DispatcherPriority.Normal;
+            public static DispatcherPriority Priority => DispatcherPriority.Normal;
         }
        private readonly ICommandParserService _commandParserService;
        private readonly IMqttService _mqttServiceMock;
@@ -215,12 +215,12 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         {
             public MockMediaPlayer(LibVLC libvlc) : base(libvlc) { }
 
-            public new void Play()
+            public new static void Play()
             {
                 // Do nothing
             }
 
-            public new void Stop()
+            public new static void Stop()
             {
                 // Do nothing
             }
@@ -363,13 +363,13 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Arrange
             using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
             var guessSyntaxMethod = typeof(MainViewModel).GetMethod("GuessSyntaxHighlighting",
-                BindingFlags.NonPublic | BindingFlags.Instance);
+                BindingFlags.NonPublic | BindingFlags.Static);
             
             // Act & Assert for different content types
-            var jsonHighlighting = guessSyntaxMethod?.Invoke(viewModel, new object[] { "application/json", "{}" });
-            var xmlHighlighting = guessSyntaxMethod?.Invoke(viewModel, new object[] { "application/xml", "<root/>" });
-            var htmlHighlighting = guessSyntaxMethod?.Invoke(viewModel, new object[] { "text/html", "<html></html>" });
-            var jsHighlighting = guessSyntaxMethod?.Invoke(viewModel, new object[] { "application/javascript", "function() {}" });
+            var jsonHighlighting = guessSyntaxMethod?.Invoke(null, new object[] { "application/json", "{}" });
+            var xmlHighlighting = guessSyntaxMethod?.Invoke(null, new object[] { "application/xml", "<root/>" });
+            var htmlHighlighting = guessSyntaxMethod?.Invoke(null, new object[] { "text/html", "<html></html>" });
+            var jsHighlighting = guessSyntaxMethod?.Invoke(null, new object[] { "application/javascript", "function() {}" });
             
             // Assert
             Assert.NotNull(jsonHighlighting);
@@ -384,12 +384,12 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Arrange
             using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
             var guessSyntaxMethod = typeof(MainViewModel).GetMethod("GuessSyntaxHighlighting",
-                BindingFlags.NonPublic | BindingFlags.Instance);
+                BindingFlags.NonPublic | BindingFlags.Static);
             
             // Act & Assert for different content patterns
-            var jsonFromContent = guessSyntaxMethod?.Invoke(viewModel, new object[] { string.Empty, "{\"key\": \"value\"}" });
-            var xmlFromContent = guessSyntaxMethod?.Invoke(viewModel, new object[] { string.Empty, "<root><child>text</child></root>" });
-            var plainText = guessSyntaxMethod?.Invoke(viewModel, new object[] { string.Empty, "Just plain text, not structured." });
+            var jsonFromContent = guessSyntaxMethod?.Invoke(null, new object[] { string.Empty, "{\"key\": \"value\"}" });
+            var xmlFromContent = guessSyntaxMethod?.Invoke(null, new object[] { string.Empty, "<root><child>text</child></root>" });
+            var plainText = guessSyntaxMethod?.Invoke(null, new object[] { string.Empty, "Just plain text, not structured." });
             
             // Assert
             Assert.NotNull(jsonFromContent);

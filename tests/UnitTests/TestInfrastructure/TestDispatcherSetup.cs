@@ -16,10 +16,10 @@ namespace CrowsNestMqtt.UnitTests.TestInfrastructure
     internal sealed class ImmediateDispatcher : IDispatcher
     {
         public bool CheckAccess() => true;
-        public void Post(Action action) => action();
+        public static void Post(Action action) => action();
         public void Post(Action action, DispatcherPriority priority) => action();
         public void VerifyAccess() { }
-        public DispatcherPriority Priority => DispatcherPriority.Normal;
+        public static DispatcherPriority Priority => DispatcherPriority.Normal;
     }
 
     /// <summary>

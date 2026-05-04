@@ -186,7 +186,7 @@ public class TopicTreeManager : ITopicTreeManager
         }
     }
 
-    private NodeViewModel? FindTopicNodeRecursive(IEnumerable<NodeViewModel> nodes, string topicPath)
+    private static NodeViewModel? FindTopicNodeRecursive(IEnumerable<NodeViewModel> nodes, string topicPath)
     {
         foreach (var node in nodes)
         {
@@ -207,7 +207,7 @@ public class TopicTreeManager : ITopicTreeManager
         return null;
     }
 
-    private bool SetNodeVisibilityRecursive(
+    private static bool SetNodeVisibilityRecursive(
         IEnumerable<NodeViewModel> nodes,
         bool isVisible,
         bool clearFilter,
@@ -252,7 +252,7 @@ public class TopicTreeManager : ITopicTreeManager
         return anyChildVisible;
     }
 
-    private void SetNodeExpandedRecursive(IEnumerable<NodeViewModel> nodes, bool isExpanded)
+    private static void SetNodeExpandedRecursive(IEnumerable<NodeViewModel> nodes, bool isExpanded)
     {
         foreach (var node in nodes)
         {

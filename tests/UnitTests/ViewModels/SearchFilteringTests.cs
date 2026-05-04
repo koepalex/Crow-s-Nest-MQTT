@@ -27,10 +27,10 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
        private sealed class ImmediateDispatcher : Avalonia.Threading.IDispatcher
        {
            public bool CheckAccess() => true;
-           public void Post(Action action) => action();
+           public static void Post(Action action) => action();
            public void Post(Action action, Avalonia.Threading.DispatcherPriority priority) => action();
            public void VerifyAccess() { }
-           public Avalonia.Threading.DispatcherPriority Priority => Avalonia.Threading.DispatcherPriority.Normal;
+           public static Avalonia.Threading.DispatcherPriority Priority => Avalonia.Threading.DispatcherPriority.Normal;
        }
 
        private readonly ICommandParserService _commandParserService;
@@ -382,7 +382,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Reactive pipeline synchronous (Immediate scheduler) - no delay needed
         }
         
-        private void AddTopicNode(MainViewModel viewModel, string topic)
+        private static void AddTopicNode(MainViewModel viewModel, string topic)
         {
             // Use reflection to call the private UpdateOrCreateNode method
             var method = typeof(MainViewModel).GetMethod("UpdateOrCreateNode", 
@@ -391,7 +391,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             method?.Invoke(viewModel, new object[] { topic, true });
         }
         
-        private NodeViewModel? FindNode(IEnumerable<NodeViewModel> nodes, params string[] path)
+        private static NodeViewModel? FindNode(IEnumerable<NodeViewModel> nodes, params string[] path)
         {
             if (path.Length == 0 || nodes == null || !nodes.Any())
                 return null;

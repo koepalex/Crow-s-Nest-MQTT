@@ -107,7 +107,7 @@ namespace CrowsNestMqtt.Integration.Tests
             var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
-            var root = builder.BuildTree(document);
+            var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
 
             // Assert
             // Traverse to depth 5 and verify all expanded
@@ -140,7 +140,7 @@ namespace CrowsNestMqtt.Integration.Tests
             var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
-            var root = builder.BuildTree(document);
+            var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
 
             // Assert
             // Levels 1-5 expanded
@@ -182,7 +182,7 @@ namespace CrowsNestMqtt.Integration.Tests
 
             // Act - Measure tree construction time
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            var root = builder.BuildTree(document);
+            var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
             stopwatch.Stop();
 
             // Assert
@@ -206,7 +206,7 @@ namespace CrowsNestMqtt.Integration.Tests
             var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
-            var root = builder.BuildTree(document);
+            var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
 
             // Assert
             // First 5 levels expanded

@@ -21,7 +21,7 @@ namespace CrowsNestMqtt.UnitTests.Services
             var input = $":setauthmode {mode}";
 
             // Act
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -38,7 +38,7 @@ namespace CrowsNestMqtt.UnitTests.Services
             var input = ":setauthmode foobar";
 
             // Act
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
 
             // Assert
             Assert.False(result.IsSuccess);
@@ -53,7 +53,7 @@ namespace CrowsNestMqtt.UnitTests.Services
             var input = ":setauthmode";
 
             // Act
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
 
             // Assert
             Assert.False(result.IsSuccess);
@@ -69,7 +69,7 @@ namespace CrowsNestMqtt.UnitTests.Services
             var input = ":setuser testuser";
 
             // Act
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -86,7 +86,7 @@ namespace CrowsNestMqtt.UnitTests.Services
             var input = ":setuser";
 
             // Act
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
 
             // Assert
             Assert.False(result.IsSuccess);
@@ -101,7 +101,7 @@ namespace CrowsNestMqtt.UnitTests.Services
             var input = ":setuser user1 user2"; // CommandParserService currently takes only the first part if not quoted
 
             // Act
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
             
             // Assert
             // Based on current SplitArguments, "user1 user2" without quotes becomes two arguments.
@@ -120,7 +120,7 @@ namespace CrowsNestMqtt.UnitTests.Services
             var input = ":setpass testpassword";
 
             // Act
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -137,7 +137,7 @@ namespace CrowsNestMqtt.UnitTests.Services
             var input = ":setpass";
 
             // Act
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
 
             // Assert
             Assert.False(result.IsSuccess);
@@ -152,7 +152,7 @@ namespace CrowsNestMqtt.UnitTests.Services
             var input = ":setpass pass1 pass2";
 
             // Act
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
 
             // Assert
             Assert.False(result.IsSuccess);
@@ -165,7 +165,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         public void ParseCommand_SetAuthMethod_ValidArg_ShouldSucceed()
         {
             var input = ":setauthmethod SCRAM-SHA-1";
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.SetAuthMethod, result.ParsedCommand.Type);
@@ -177,7 +177,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         public void ParseCommand_SetAuthMethod_NoArgs_ShouldFail()
         {
             var input = ":setauthmethod";
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Null(result.ParsedCommand);
             Assert.Equal("Invalid arguments for :setauthmethod. Expected: :setauthmethod <method>", result.ErrorMessage);
@@ -187,7 +187,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         public void ParseCommand_SetAuthMethod_MultipleArgs_ShouldFail()
         {
             var input = ":setauthmethod SCRAM-SHA-1 extra";
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Null(result.ParsedCommand);
             Assert.Equal("Invalid arguments for :setauthmethod. Expected: :setauthmethod <method>", result.ErrorMessage);
@@ -198,7 +198,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         public void ParseCommand_SetAuthData_ValidArg_ShouldSucceed()
         {
             var input = ":setauthdata someData";
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.SetAuthData, result.ParsedCommand.Type);
@@ -210,7 +210,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         public void ParseCommand_SetAuthData_NoArgs_ShouldFail()
         {
             var input = ":setauthdata";
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Null(result.ParsedCommand);
             Assert.Equal("Invalid arguments for :setauthdata. Expected: :setauthdata <data>", result.ErrorMessage);
@@ -220,7 +220,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         public void ParseCommand_SetAuthData_MultipleArgs_ShouldFail()
         {
             var input = ":setauthdata foo bar";
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Null(result.ParsedCommand);
             Assert.Equal("Invalid arguments for :setauthdata. Expected: :setauthdata <data>", result.ErrorMessage);
@@ -232,7 +232,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         public void ParseCommand_SetUseTls_ValidArgs_ShouldSucceed(string value)
         {
             var input = $":setusetls {value}";
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.SetUseTls, result.ParsedCommand.Type);
@@ -244,7 +244,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         public void ParseCommand_SetUseTls_InvalidArg_ShouldFail()
         {
             var input = ":setusetls maybe";
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Null(result.ParsedCommand);
             Assert.Equal("Invalid argument for :setusetls. Expected: :setusetls <true|false>", result.ErrorMessage);
@@ -254,7 +254,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         public void ParseCommand_SetUseTls_NoArgs_ShouldFail()
         {
             var input = ":setusetls";
-            var result = _parser.ParseCommand(input, _defaultSettings);
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Null(result.ParsedCommand);
             Assert.Equal("Invalid arguments for :setusetls. Expected: :setusetls <true|false>", result.ErrorMessage);
@@ -322,7 +322,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_EmptyString_ShouldReturnSuccessSearch()
         {
-            var result = _parser.ParseCommand("", _defaultSettings);
+            var result = CommandParserService.ParseCommand("", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.Null(result.ParsedCommand);
             Assert.Equal(string.Empty, result.SearchTerm);
@@ -331,7 +331,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_WhitespaceOnly_ShouldReturnSuccessSearch()
         {
-            var result = _parser.ParseCommand("   ", _defaultSettings);
+            var result = CommandParserService.ParseCommand("   ", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.Null(result.ParsedCommand);
             Assert.Equal(string.Empty, result.SearchTerm);
@@ -340,7 +340,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_EmptyCommand_ShouldFail()
         {
-            var result = _parser.ParseCommand(":", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Empty command.", result.ErrorMessage);
         }
@@ -348,7 +348,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_UnknownCommand_ShouldFail()
         {
-            var result = _parser.ParseCommand(":unknown", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":unknown", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Unknown command: 'unknown'", result.ErrorMessage);
         }
@@ -357,7 +357,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Connect_NoArgs_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":connect", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":connect", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Connect, result.ParsedCommand.Type);
@@ -367,7 +367,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Connect_ValidServerPort_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":connect localhost:1883", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":connect localhost:1883", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Connect, result.ParsedCommand.Type);
@@ -378,7 +378,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Connect_WithUsername_ShouldFail()
         {
-            var result = _parser.ParseCommand(":connect localhost:1883 testuser", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":connect localhost:1883 testuser", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :connect. Too many arguments. Expected: :connect [<server:port>]. Use :setuser, :setpass, and :setauthmode for authentication.", result.ErrorMessage);
         }
@@ -386,7 +386,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Connect_WithUsernamePassword_ShouldFail()
         {
-            var result = _parser.ParseCommand(":connect localhost:1883 testuser testpass", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":connect localhost:1883 testuser testpass", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :connect. Too many arguments. Expected: :connect [<server:port>]. Use :setuser, :setpass, and :setauthmode for authentication.", result.ErrorMessage);
         }
@@ -394,7 +394,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Connect_InvalidServerPortFormat_ShouldFail()
         {
-            var result = _parser.ParseCommand(":connect invalidformat", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":connect invalidformat", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :connect. Argument must be in 'server:port' format.", result.ErrorMessage);
         }
@@ -402,7 +402,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Connect_InvalidPortRange_ShouldFail()
         {
-            var result = _parser.ParseCommand(":connect localhost:99999", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":connect localhost:99999", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid server:port format in :connect command. Port must be between 1 and 65535.", result.ErrorMessage);
         }
@@ -410,7 +410,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Connect_TooManyArgs_ShouldFail()
         {
-            var result = _parser.ParseCommand(":connect localhost:1883 user pass extra", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":connect localhost:1883 user pass extra", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :connect. Too many arguments. Expected: :connect [<server:port>]. Use :setuser, :setpass, and :setauthmode for authentication.", result.ErrorMessage);
         }
@@ -419,7 +419,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Disconnect_NoArgs_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":disconnect", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":disconnect", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Disconnect, result.ParsedCommand.Type);
@@ -429,7 +429,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Disconnect_WithArgs_ShouldFail()
         {
-            var result = _parser.ParseCommand(":disconnect extra", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":disconnect extra", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :disconnect. Expected: :disconnect", result.ErrorMessage);
         }
@@ -438,7 +438,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Export_ValidJsonFormat_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":export json /path/to/file.json", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":export json /path/to/file.json", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Export, result.ParsedCommand.Type);
@@ -450,7 +450,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Export_ValidTxtFormat_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":export txt /path/to/file.txt", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":export txt /path/to/file.txt", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Export, result.ParsedCommand.Type);
@@ -462,7 +462,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Export_InvalidFormat_ShouldFail()
         {
-            var result = _parser.ParseCommand(":export xml /path/to/file.xml", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":export xml /path/to/file.xml", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid format for :export. Expected 'json' or 'txt'.", result.ErrorMessage);
         }
@@ -475,7 +475,7 @@ namespace CrowsNestMqtt.UnitTests.Services
                 ExportFormat = ExportTypes.json,
                 ExportPath = "/path/to/export.json"
             };
-            var result = _parser.ParseCommand(":export", settingsWithExport);
+            var result = CommandParserService.ParseCommand(":export", settingsWithExport);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Export, result.ParsedCommand.Type);
@@ -487,7 +487,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Export_NoArgsWithInvalidSettings_ShouldFail()
         {
-            var result = _parser.ParseCommand(":export", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":export", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :export. Expected: :export <format:{json|txt}> <filepath>", result.ErrorMessage);
         }
@@ -500,7 +500,7 @@ namespace CrowsNestMqtt.UnitTests.Services
                 ExportFormat = ExportTypes.json,
                 ExportPath = "/path/to/export"
             };
-            var result = _parser.ParseCommand(":export all", settings);
+            var result = CommandParserService.ParseCommand(":export all", settings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Export, result.ParsedCommand!.Type);
@@ -513,7 +513,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_ExportAll_WithExplicitParams_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":export all txt /path", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":export all txt /path", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Export, result.ParsedCommand!.Type);
@@ -526,7 +526,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_ExportAll_InvalidFormat_ShouldFail()
         {
-            var result = _parser.ParseCommand(":export all xml /path", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":export all xml /path", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid format for :export all. Expected 'json' or 'txt'.", result.ErrorMessage);
         }
@@ -535,7 +535,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Filter_NoArgs_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":filter", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":filter", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Filter, result.ParsedCommand.Type);
@@ -545,7 +545,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Filter_WithPattern_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":filter test.*pattern", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":filter test.*pattern", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Filter, result.ParsedCommand.Type);
@@ -557,7 +557,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Clear_NoArgs_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":clear", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":clear", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Clear, result.ParsedCommand.Type);
@@ -567,7 +567,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Clear_WithArgs_ShouldFail()
         {
-            var result = _parser.ParseCommand(":clear extra", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":clear extra", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :clear_messages. Expected: :clear_messages", result.ErrorMessage);
         }
@@ -576,7 +576,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Help_NoArgs_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":help", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":help", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Help, result.ParsedCommand.Type);
@@ -586,7 +586,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Help_WithCommand_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":help connect", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":help connect", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Help, result.ParsedCommand.Type);
@@ -597,7 +597,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Help_TooManyArgs_ShouldFail()
         {
-            var result = _parser.ParseCommand(":help connect extra", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":help connect extra", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :help. Expected: :help [command_name]", result.ErrorMessage);
         }
@@ -606,7 +606,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Pause_NoArgs_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":pause", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":pause", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Pause, result.ParsedCommand.Type);
@@ -616,7 +616,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Pause_WithArgs_ShouldFail()
         {
-            var result = _parser.ParseCommand(":pause extra", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":pause extra", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :pause. Expected: :pause", result.ErrorMessage);
         }
@@ -625,7 +625,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Resume_NoArgs_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":resume", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":resume", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Resume, result.ParsedCommand.Type);
@@ -635,7 +635,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Resume_WithArgs_ShouldFail()
         {
-            var result = _parser.ParseCommand(":resume extra", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":resume extra", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :resume. Expected: :resume", result.ErrorMessage);
         }
@@ -644,7 +644,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Copy_NoArgs_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":copy", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":copy", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Copy, result.ParsedCommand.Type);
@@ -654,7 +654,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Copy_WithArgs_ShouldFail()
         {
-            var result = _parser.ParseCommand(":copy extra", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":copy extra", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :copy. Expected: :copy", result.ErrorMessage);
         }
@@ -663,7 +663,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Search_NoArgs_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":search", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":search", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Search, result.ParsedCommand.Type);
@@ -673,7 +673,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Search_WithTerm_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":search test", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":search test", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Search, result.ParsedCommand.Type);
@@ -685,7 +685,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Expand_NoArgs_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":expand", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":expand", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Expand, result.ParsedCommand.Type);
@@ -695,7 +695,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Expand_WithArgs_ShouldFail()
         {
-            var result = _parser.ParseCommand(":expand extra", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":expand extra", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :expand. Expected: :expand", result.ErrorMessage);
         }
@@ -704,7 +704,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Collapse_NoArgs_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":collapse", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":collapse", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Collapse, result.ParsedCommand.Type);
@@ -714,7 +714,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Collapse_WithArgs_ShouldFail()
         {
-            var result = _parser.ParseCommand(":collapse extra", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":collapse extra", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :collapse. Expected: :collapse", result.ErrorMessage);
         }
@@ -727,7 +727,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [InlineData("video", CommandType.ViewVideo)]
         public void ParseCommand_View_ValidTypes_ShouldSucceed(string viewType, CommandType expectedCommandType)
         {
-            var result = _parser.ParseCommand($":view {viewType}", _defaultSettings);
+            var result = CommandParserService.ParseCommand($":view {viewType}", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(expectedCommandType, result.ParsedCommand.Type);
@@ -738,7 +738,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_View_InvalidType_ShouldFail()
         {
-            var result = _parser.ParseCommand(":view invalid", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":view invalid", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :view. Expected: :view <raw|json|image|video|hex>", result.ErrorMessage);
         }
@@ -746,7 +746,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_View_NoArgs_ShouldFail()
         {
-            var result = _parser.ParseCommand(":view", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":view", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :view. Expected: :view <raw|json|image|video|hex>", result.ErrorMessage);
         }
@@ -755,7 +755,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Settings_NoArgs_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":settings", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":settings", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Settings, result.ParsedCommand.Type);
@@ -765,7 +765,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_Settings_WithArgs_ShouldFail()
         {
-            var result = _parser.ParseCommand(":settings extra", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":settings extra", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :settings. Expected: :settings", result.ErrorMessage);
         }
@@ -774,7 +774,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_GotoResponse_NoArgs_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":gotoresponse", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":gotoresponse", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.GotoResponse, result.ParsedCommand.Type);
@@ -784,7 +784,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_GotoResponse_WithArgs_ShouldFail()
         {
-            var result = _parser.ParseCommand(":gotoresponse message-id-123", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":gotoresponse message-id-123", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid arguments for :gotoresponse. Expected: :gotoresponse", result.ErrorMessage);
         }
@@ -793,7 +793,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_WithQuotedArguments_ShouldParseCorrectly()
         {
-            var result = _parser.ParseCommand(":setuser \"user with spaces\"", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":setuser \"user with spaces\"", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.SetUser, result.ParsedCommand.Type);
@@ -804,7 +804,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_WithPartialQuotes_ShouldParseCorrectly()
         {
-            var result = _parser.ParseCommand(":setpass \"password", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":setpass \"password", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.SetPassword, result.ParsedCommand.Type);
@@ -816,7 +816,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_CaseInsensitive_ShouldWork()
         {
-            var result = _parser.ParseCommand(":HELP", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":HELP", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Help, result.ParsedCommand.Type);
@@ -825,7 +825,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_ConnectWithIPAddress_ShouldSucceed()
         {
-            var result = _parser.ParseCommand(":connect 192.168.1.100:1883", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":connect 192.168.1.100:1883", _defaultSettings);
             Assert.True(result.IsSuccess);
             Assert.NotNull(result.ParsedCommand);
             Assert.Equal(CommandType.Connect, result.ParsedCommand.Type);
@@ -836,7 +836,7 @@ namespace CrowsNestMqtt.UnitTests.Services
         [Fact]
         public void ParseCommand_ConnectWithZeroPort_ShouldFail()
         {
-            var result = _parser.ParseCommand(":connect localhost:0", _defaultSettings);
+            var result = CommandParserService.ParseCommand(":connect localhost:0", _defaultSettings);
             Assert.False(result.IsSuccess);
             Assert.Equal("Invalid server:port format in :connect command. Port must be between 1 and 65535.", result.ErrorMessage);
         }
