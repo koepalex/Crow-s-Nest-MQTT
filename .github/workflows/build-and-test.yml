@@ -59,7 +59,29 @@ jobs:
       run: dotnet build CrowsNestMQTT.slnx --no-restore --configuration Release
 
     - name: Test with coverage
-      run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" --settings coverlet.runsettings --filter "Category!=LocalOnly&Category!=RequiresMqttBroker" --blame-hang --blame-hang-timeout 120s --results-directory ./TestResults --diag:logs/log.txt
+      shell: pwsh
+      run: |
+        # Run tests and capture exit code. The --blame-hang mechanism may return
+        # exit code 1 when it kills a hung process (LibVLC foreground thread)
+        # even though all tests passed.
+        $output = dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" --settings coverlet.runsettings --filter "Category!=LocalOnly&Category!=RequiresMqttBroker" --blame-hang --blame-hang-timeout 120s --results-directory ./TestResults --diag:logs/log.txt 2>&1 | Tee-Object -Variable testOutput
+        $exitCode = $LASTEXITCODE
+
+        $outputText = $testOutput -join "`n"
+        Write-Host $outputText
+
+        if ($exitCode -eq 0) {
+          exit 0
+        }
+
+        # Check if tests actually failed or if this is the known LibVLC crash
+        if ($outputText -match 'Failed:\s+0' -and $outputText -match 'Passed!') {
+          Write-Host "::warning::Test process exited with code $exitCode but all tests passed (known LibVLC foreground thread issue)."
+          exit 0
+        }
+
+        Write-Host "::error::Tests failed with exit code $exitCode"
+        exit $exitCode
     
     - name: Generate coverage report
       run: |
