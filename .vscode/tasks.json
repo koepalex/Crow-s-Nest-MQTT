@@ -42,6 +42,21 @@
             "dependsOn": "build"
         },
         {
+            "label": "Clean MainApp",
+            "command": "dotnet",
+            "type": "shell",
+            "args": [
+                "clean",
+                "${workspaceFolder}/src/MainApp/",
+                "--configuration",
+                "Release"
+            ],
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
             "label": "Publish Crow's NestMQTT App",
             "command": "dotnet",
             "type": "shell",
@@ -58,7 +73,7 @@
                 "reveal": "always"
             },
             "problemMatcher": "$msCompile",
-            
+            "dependsOn": "Clean MainApp"
         }
     ]
 }
