@@ -1,4 +1,5 @@
 using CrowsNestMqtt.BusinessLogic;
+using CrowsNestMqtt.BusinessLogic.Configuration;
 using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.UI.ViewModels;
 using NSubstitute;
@@ -129,7 +130,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             const string expectedHostname = "testhost";
             const int expectedPort = 1883;
 
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, expectedHostname, expectedPort);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, new EnvironmentSettingsOverrides { Hostname = expectedHostname, Port = expectedPort, HasOverrides = true, IsAspireEnvironment = true });
 
             // Act
             viewModel.ConnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();

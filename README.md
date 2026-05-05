@@ -220,7 +220,13 @@ When connecting to a broker with Enhanced Authentication, the client and broker 
 
 ## dotnet Aspire
 
-Crow's NestMQTT is will automatically connect to the MQTT Broker endpoint, defined via dotnet Aspire environment variable, it expects service name to be `mqtt` and endpoint to be named `default`. For example environment variable `services__mqtt__default__0` would contain `mqtt://localhost:42069`.
+Crow's NestMQTT automatically connects to the MQTT Broker endpoint defined via dotnet Aspire environment variables. It supports both `services__mqtt__mqtt__0` and `services__mqtt__default__0` naming conventions. For example, the environment variable would contain a value like `mqtt://localhost:42069`.
+
+When an Aspire endpoint environment variable is detected, the application:
+1. Parses the hostname and port from the URI
+2. Overrides the corresponding settings
+3. Automatically connects to the broker on startup
+4. Persists the overridden values to `settings.json` so other tools can use them
 
 ```csharp
   // ...
@@ -229,6 +235,70 @@ Crow's NestMQTT is will automatically connect to the MQTT Broker endpoint, defin
       .AddExecutable("mqtt-client", Path.Combine(mqttViewerWorkingDirectory, "CrowsNestMqtt.App.exe"), mqttViewerWorkingDirectory)
       .WithReference(mqttBrokerEndpoint)
       .WaitFor(mqttBroker);
+```
+
+## Environment Variable Configuration
+
+All settings can be configured via environment variables using the `CROWSNEST__` prefix. When environment variable overrides are detected, they are applied on top of file-based settings and **persisted to `settings.json`** so other tools (e.g., `SendTestData.ps1`) can use the same configuration.
+
+This is useful for:
+- Running from dotnet Aspire (settings won't be overwritten)
+- Running integration tests with specific configuration
+- CI/CD environments
+- Docker containers
+
+### Available Environment Variables
+
+| Variable | Description | Type | Example |
+|---|---|---|---|
+| `services__mqtt__mqtt__0` | Aspire MQTT endpoint (triggers auto-connect) | URI | `mqtt://localhost:1883` |
+| `services__mqtt__default__0` | Aspire MQTT endpoint (alternative name) | URI | `mqtt://broker:8883` |
+| `CROWSNEST__HOSTNAME` | MQTT broker hostname | string | `mqtt.example.com` |
+| `CROWSNEST__PORT` | MQTT broker port | int | `8883` |
+| `CROWSNEST__CLIENT_ID` | MQTT client ID | string | `my-client` |
+| `CROWSNEST__KEEP_ALIVE_SECONDS` | Keep-alive interval in seconds | int | `30` |
+| `CROWSNEST__CLEAN_SESSION` | Whether to use clean session | bool | `true` |
+| `CROWSNEST__SESSION_EXPIRY_SECONDS` | Session expiry interval | uint | `300` |
+| `CROWSNEST__AUTH_MODE` | Authentication mode | enum | `anonymous`, `userpass`, `enhanced` |
+| `CROWSNEST__AUTH_USERNAME` | Username (when AUTH_MODE=userpass) | string | `myuser` |
+| `CROWSNEST__AUTH_PASSWORD` | Password (when AUTH_MODE=userpass) | string | `mypass` |
+| `CROWSNEST__AUTH_METHOD` | Enhanced auth method (when AUTH_MODE=enhanced) | string | `SCRAM-SHA-1` |
+| `CROWSNEST__AUTH_DATA` | Enhanced auth data (when AUTH_MODE=enhanced) | string | |
+| `CROWSNEST__USE_TLS` | Enable TLS encryption | bool | `true` |
+| `CROWSNEST__SUBSCRIPTION_QOS` | Subscription QoS level (0, 1, or 2) | int | `1` |
+| `CROWSNEST__EXPORT_FORMAT` | Default export format | enum | `json`, `txt` |
+| `CROWSNEST__EXPORT_PATH` | Default export file path | string | `/tmp/exports` |
+| `CROWSNEST__MAX_TOPIC_LIMIT` | Max topics for delete operations | int | `500` |
+| `CROWSNEST__PARALLELISM_DEGREE` | Parallelism for batch operations | int | `4` |
+| `CROWSNEST__TIMEOUT_SECONDS` | Operation timeout in seconds | int | `5` |
+| `CROWSNEST__DEFAULT_BUFFER_SIZE_BYTES` | Default per-topic buffer size | long | `1048576` |
+| `CROWSNEST__TOPIC_BUFFER_LIMITS` | Per-topic buffer limits (JSON array) | JSON | `[{"TopicFilter":"#","MaxSizeBytes":2097152}]` |
+
+### Priority
+
+1. `CROWSNEST__HOSTNAME` / `CROWSNEST__PORT` take highest priority for connection settings
+2. Aspire endpoint env vars (`services__mqtt__mqtt__0`, `services__mqtt__default__0`) are used as fallback for hostname/port
+3. File-based `settings.json` is the lowest priority (used when no env vars are set)
+
+### Example: Aspire Integration
+
+```bash
+# Set by Aspire automatically:
+services__mqtt__mqtt__0=mqtt://localhost:41883
+```
+
+### Example: Manual Configuration
+
+```bash
+# Override all connection settings
+export CROWSNEST__HOSTNAME=mqtt.production.com
+export CROWSNEST__PORT=8883
+export CROWSNEST__USE_TLS=true
+export CROWSNEST__AUTH_MODE=userpass
+export CROWSNEST__AUTH_USERNAME=svc-account
+export CROWSNEST__AUTH_PASSWORD=secret
+export CROWSNEST__CLIENT_ID=monitoring-client
+export CROWSNEST__KEEP_ALIVE_SECONDS=60
 ```
 
 ## Scripts

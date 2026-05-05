@@ -6,6 +6,7 @@ using CrowsNestMqtt.UI.ViewModels;
 using CrowsNestMqtt.UI.Views;
 using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.BusinessLogic.Contracts; // Added for IMessageCorrelationService
+using CrowsNestMqtt.BusinessLogic.Configuration; // Added for EnvironmentSettingsOverrides
 using CrowsNestMqtt.UI.Services; // Added for ResponseIconService
 using CrowsNestMqtt.UI.Contracts; // Added for IResponseIconService
 using Microsoft.Extensions.Logging;
@@ -77,8 +78,8 @@ class Program
         try
         {
             Log.Information("Starting application");
-            (var aspireHostname, var aspirePort) = LoadMqttEndpointFromEnv();
-            BuildAvaloniaApp(aspireHostname, aspirePort).StartWithClassicDesktopLifetime(args);
+            var environmentOverrides = EnvironmentSettingsOverrides.Load();
+            BuildAvaloniaApp(environmentOverrides).StartWithClassicDesktopLifetime(args);
         }
         catch (Exception ex)
         {
@@ -90,7 +91,7 @@ class Program
         }
     }
 
-    public static AppBuilder BuildAvaloniaApp(string? aspireHostname = null, int? aspirePort = null)
+    public static AppBuilder BuildAvaloniaApp(EnvironmentSettingsOverrides? environmentOverrides = null)
     {
         return AppBuilder.Configure<CrowsNestMqtt.UI.App>() // Configure the App from UI project
             .UsePlatformDetect()
@@ -118,10 +119,10 @@ class Program
 
                     desktop.MainWindow = new MainWindow
                     {
-                        DataContext = new MainViewModel(commandParserService, null, deleteTopicService, correlationService, iconService, aspireHostname, aspirePort, publishHistoryService: publishHistoryService, fileAutoCompleteService: fileAutoCompleteService)
+                        DataContext = new MainViewModel(commandParserService, null, deleteTopicService, correlationService, iconService, environmentOverrides, publishHistoryService: publishHistoryService, fileAutoCompleteService: fileAutoCompleteService)
                     };
 
-                    if (!string.IsNullOrEmpty(aspireHostname) && aspirePort.HasValue)
+                    if (environmentOverrides?.IsAspireEnvironment == true)
                     {
                         (desktop.MainWindow.DataContext as MainViewModel)?.ConnectCommand.Execute().Subscribe();
                     }
@@ -197,40 +198,4 @@ class Program
         // if (e.IsTerminating) { Environment.Exit(1); }
     }
 
-    private static (string? aspireHostname, int? aspirePort) LoadMqttEndpointFromEnv()
-    {
-        string? aspireHostname = null;
-        int? aspirePort = null;
-        const string aspireMqttEnvVar = "services__mqtt__default__0";
-        var mqttConnectionString = Environment.GetEnvironmentVariable(aspireMqttEnvVar);
-
-        if (!string.IsNullOrEmpty(mqttConnectionString))
-        {
-            Log.Information("Found Aspire MQTT connection string from environment variable {EnvVarName}: {ConnectionString}", aspireMqttEnvVar, mqttConnectionString);
-            try
-            {
-                var uri = new Uri(mqttConnectionString);
-                if (!string.IsNullOrEmpty(uri.Host) && uri.Port > 0)
-                {
-                    aspireHostname = uri.Host;
-                    aspirePort = uri.Port;
-                    Log.Information("Successfully parsed Aspire MQTT configuration. Hostname: {Hostname}, Port: {Port}", aspireHostname, aspirePort);
-                }
-                else
-                {
-                    Log.Error("Failed to parse Hostname/Port from Aspire MQTT connection string: {ConnectionString}. Host or Port missing or invalid.", mqttConnectionString);
-                }
-            }
-            catch (UriFormatException ex)
-            {
-                Log.Error(ex, "Invalid URI format for Aspire MQTT connection string: {ConnectionString}", mqttConnectionString);
-            }
-        }
-        else
-        {
-            Log.Information("Aspire MQTT environment variable {EnvVarName} not found or empty.", aspireMqttEnvVar);
-        }
-
-        return (aspireHostname, aspirePort);
-    }
 }
