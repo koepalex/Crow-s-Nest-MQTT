@@ -36,6 +36,7 @@ using System.Reactive.Concurrency;
 using System.Linq;
 using CrowsNestMQTT.BusinessLogic.Navigation; // Added for keyboard navigation
 using Avalonia.Input; // Added for KeyModifiers
+using CrowsNestMqtt.BusinessLogic.Configuration; // Added for EnvironmentSettingsOverrides
 
 namespace CrowsNestMqtt.UI.ViewModels;
 
@@ -50,6 +51,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly IDeleteTopicService? _deleteTopicService; // Added delete topic service
     private readonly IMessageCorrelationService? _correlationService; // Added correlation service for request-response tracking
     private readonly IResponseIconService? _iconService; // Added icon service for UI status updates
+    private readonly EnvironmentSettingsOverrides? _environmentOverrides; // Environment variable overrides
     private Timer? _updateTimer;
     private Timer? _uiHeartbeatTimer;
     private DateTime _lastHeartbeatPosted = DateTime.MinValue;
@@ -751,7 +753,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     /// Sets up placeholder data and starts the UI update timer.
     /// </summary>
     // Constructor now requires ICommandParserService
-    public MainViewModel(ICommandParserService commandParserService, IMqttService? mqttService = null, IDeleteTopicService? deleteTopicService = null, IMessageCorrelationService? correlationService = null, IResponseIconService? iconService = null, string? aspireHostname = null, int? aspirePort = null, IScheduler? uiScheduler = null, IPublishHistoryService? publishHistoryService = null, IFileAutoCompleteService? fileAutoCompleteService = null)
+    public MainViewModel(ICommandParserService commandParserService, IMqttService? mqttService = null, IDeleteTopicService? deleteTopicService = null, IMessageCorrelationService? correlationService = null, IResponseIconService? iconService = null, EnvironmentSettingsOverrides? environmentOverrides = null, IScheduler? uiScheduler = null, IPublishHistoryService? publishHistoryService = null, IFileAutoCompleteService? fileAutoCompleteService = null)
     {
         _commandParserService = commandParserService ?? throw new ArgumentNullException(nameof(commandParserService)); // Store injected service
         _deleteTopicService = deleteTopicService; // Store injected delete topic service (optional)
@@ -767,7 +769,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                     || Environment.GetEnvironmentVariable("CI") == "true"
                     || uiScheduler == Scheduler.Immediate; // If ImmediateScheduler is injected, we're definitely in test mode
         _syncContext = SynchronizationContext.Current; // Capture sync context
-        Settings = new SettingsViewModel(); // Instantiate settings
+        Settings = new SettingsViewModel(environmentOverrides); // Instantiate settings with env overrides
+        _environmentOverrides = environmentOverrides;
         JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
         CopyTextToClipboardInteraction = new Interaction<string, Unit>(); // Initialize the interaction
         CopyImageToClipboardInteraction = new Interaction<Bitmap, Unit>(); // Initialize the image interaction
@@ -1029,15 +1032,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             this.RaisePropertyChanged(nameof(IsExportAllButtonEnabled));
         }
 
-        if (!string.IsNullOrEmpty(aspireHostname) && aspirePort.HasValue)
-        {
-            if (aspirePort.Value > 0 && aspirePort.Value < 65535)
-            {
-                Log.Information("Using Aspire-provided MQTT configuration. Hostname: {Hostname}, Port: {Port}", aspireHostname, aspirePort.Value);
-                Settings.Hostname = aspireHostname; // Example if you want to update the UI settings fields
-                Settings.Port = aspirePort.Value;
-            }
-        }
+        // Environment overrides are already applied via SettingsViewModel constructor.
+        // No need to manually set hostname/port here - the SettingsVM handles it.
 
         // Use the injected mqttService if available (for testing), otherwise create a new one.
         _mqttService = mqttService ?? new MqttEngine(new MqttConnectionSettings

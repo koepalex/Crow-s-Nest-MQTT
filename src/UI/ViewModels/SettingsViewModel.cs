@@ -91,11 +91,17 @@ public class SettingsViewModel : ReactiveObject
         set => this.RaiseAndSetIfChanged(ref _subscriptionQoS, Math.Clamp(value, 0, 2));
     }
 
-    public SettingsViewModel()
+    public SettingsViewModel(EnvironmentSettingsOverrides? environmentOverrides = null)
     {
         ExportPath = _exportFolderPath; // Set default before loading
         _isLoading = true; // Set flag before loading
         LoadSettings(); // This calls From() which populates TopicSpecificLimits
+
+        // Apply environment variable overrides after loading from file
+        if (environmentOverrides?.HasOverrides == true)
+        {
+            ApplyEnvironmentOverrides(environmentOverrides);
+        }
 
         _isLoading = false; // Clear flag after loading
 
@@ -396,6 +402,62 @@ public class SettingsViewModel : ReactiveObject
             AuthPassword = string.Empty;
             AuthenticationMethod = null;
             AuthenticationData = null;
+        }
+    }
+
+    /// <summary>
+    /// Applies environment variable overrides on top of file-based settings.
+    /// Only non-null properties in the overrides are applied.
+    /// </summary>
+    internal void ApplyEnvironmentOverrides(EnvironmentSettingsOverrides overrides)
+    {
+        if (overrides.Hostname != null) Hostname = overrides.Hostname;
+        if (overrides.Port.HasValue) Port = overrides.Port.Value;
+        if (overrides.ClientId != null) ClientId = overrides.ClientId;
+        if (overrides.KeepAliveIntervalSeconds.HasValue) KeepAliveIntervalSeconds = overrides.KeepAliveIntervalSeconds.Value;
+        if (overrides.CleanSession.HasValue) CleanSession = overrides.CleanSession.Value;
+        if (overrides.SessionExpiryIntervalSeconds.HasValue) SessionExpiryIntervalSeconds = overrides.SessionExpiryIntervalSeconds.Value;
+        if (overrides.UseTls.HasValue) UseTls = overrides.UseTls.Value;
+        if (overrides.SubscriptionQoS.HasValue) SubscriptionQoS = overrides.SubscriptionQoS.Value;
+        if (overrides.ExportFormat.HasValue) ExportFormat = overrides.ExportFormat.Value;
+        if (overrides.ExportPath != null) ExportPath = overrides.ExportPath;
+
+        if (overrides.AuthMode != null)
+        {
+            if (overrides.AuthMode is EnhancedAuthenticationMode enhanced)
+            {
+                SelectedAuthMode = AuthModeSelection.Enhanced;
+                AuthenticationMethod = enhanced.AuthenticationMethod;
+                AuthenticationData = enhanced.AuthenticationData;
+                AuthUsername = string.Empty;
+                AuthPassword = string.Empty;
+            }
+            else if (overrides.AuthMode is UsernamePasswordAuthenticationMode userPass)
+            {
+                SelectedAuthMode = AuthModeSelection.UsernamePassword;
+                AuthUsername = userPass.Username;
+                AuthPassword = userPass.Password;
+                AuthenticationMethod = null;
+                AuthenticationData = null;
+            }
+            else
+            {
+                SelectedAuthMode = AuthModeSelection.Anonymous;
+                AuthUsername = string.Empty;
+                AuthPassword = string.Empty;
+                AuthenticationMethod = null;
+                AuthenticationData = null;
+            }
+        }
+
+        if (overrides.TopicSpecificBufferLimits != null)
+        {
+            TopicSpecificLimits.Clear();
+            foreach (var limit in overrides.TopicSpecificBufferLimits)
+            {
+                TopicSpecificLimits.Add(new TopicBufferLimitViewModel(limit));
+            }
+            EnsureDefaultTopicLimit();
         }
     }
 

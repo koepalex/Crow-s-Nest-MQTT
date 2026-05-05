@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Headless;
 using CrowsNestMqtt.BusinessLogic;
+using CrowsNestMqtt.BusinessLogic.Configuration;
 using CrowsNestMqtt.UI.ViewModels;
 using CrowsNestMqtt.BusinessLogic.Services;
 using NSubstitute;
@@ -59,11 +60,11 @@ namespace CrowsNestMqtt.UnitTests.UI
         /// <summary>
         /// Creates a test main view model for testing
         /// </summary>
-        protected static MainViewModel CreateTestMainViewModel(string? aspireHostname = null, int? aspirePort = null)
+        protected static MainViewModel CreateTestMainViewModel(EnvironmentSettingsOverrides? environmentOverrides = null)
         {
             var commandParserService = new CommandParserService();
             var mqttServiceMock = Substitute.For<IMqttService>();
-            return new MainViewModel(commandParserService, mqttServiceMock, null, null, null, aspireHostname, aspirePort);
+            return new MainViewModel(commandParserService, mqttServiceMock, null, null, null, environmentOverrides);
         }
 
         /// <summary>

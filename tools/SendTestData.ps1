@@ -3,6 +3,8 @@
 
 param(
     [string]$SettingsPath = "$env:LOCALAPPDATA\CrowsNestMqtt\settings.json",
+    [string]$Broker = "",
+    [int]$BrokerPort = 0,
     [string]$ImagePath = "",
     [string]$VideoPath = "",
     [string]$JsonPath = "",
@@ -35,8 +37,8 @@ Add-Type -Path $dllPath
 
 # Read settings
 $settings = Get-Content $SettingsPath | ConvertFrom-Json
-$mqttHost = $settings.Hostname
-$port = $settings.Port
+$mqttHost = if ($Broker) { $Broker } elseif ($settings.Hostname) { $settings.Hostname } else { "localhost" }
+$port = if ($BrokerPort -gt 0) { $BrokerPort } elseif ($settings.Port -and $settings.Port -gt 0) { $settings.Port } else { 1883 }
 $useTls = $settings.UseTls
 $clientId = "pwsh-mqtt-$(Get-Random)"
 $publishTimeout = [TimeSpan]::FromSeconds(30)
@@ -44,7 +46,7 @@ $publishTimeout = [TimeSpan]::FromSeconds(30)
 # Build MQTT client options (MQTTnet 5.x API)
 $optionsBuilder = [MQTTnet.MqttClientOptionsBuilder]::new()
 $optionsBuilder = $optionsBuilder.WithTcpServer($mqttHost, [int]$port).WithClientId($clientId)
-if ($useTls) { $optionsBuilder = $optionsBuilder.WithTls() }
+if ($useTls) { $optionsBuilder = $optionsBuilder.WithTlsOptions({ param($tlsOptions) }) }
 $options = $optionsBuilder.Build()
 
 # Create MQTT client
