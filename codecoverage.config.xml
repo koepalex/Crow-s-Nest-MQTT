@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings for dotnet-coverage collect tool (Microsoft.CodeCoverage).
+     This replaces coverlet.runsettings for CI coverage collection.
+     dotnet-coverage collects externally via profiler API, resilient to test host crashes. -->
+<Configuration>
+    <CodeCoverage>
+        <!-- Empty Include = include all; Exclude filters out non-project assemblies -->
+        <ModulePaths>
+            <Exclude>
+                <ModulePath>.*[Tt]ests?\.dll$</ModulePath>
+                <ModulePath>.*\.UnitTests\.dll$</ModulePath>
+                <ModulePath>.*xunit.*\.dll$</ModulePath>
+                <ModulePath>.*NSubstitute.*\.dll$</ModulePath>
+                <ModulePath>.*MQTTnet\.dll$</ModulePath>
+                <ModulePath>.*Avalonia.*\.dll$</ModulePath>
+                <ModulePath>.*ReactiveUI.*\.dll$</ModulePath>
+                <ModulePath>.*LibVLCSharp.*\.dll$</ModulePath>
+                <ModulePath>.*Serilog.*\.dll$</ModulePath>
+                <ModulePath>.*DynamicData.*\.dll$</ModulePath>
+                <ModulePath>.*Splat.*\.dll$</ModulePath>
+                <ModulePath>.*FuzzySharp.*\.dll$</ModulePath>
+                <ModulePath>.*AvaloniaEdit.*\.dll$</ModulePath>
+                <ModulePath>.*TextMateSharp.*\.dll$</ModulePath>
+                <ModulePath>.*System\..*\.dll$</ModulePath>
+                <ModulePath>.*Microsoft\..*\.dll$</ModulePath>
+                <ModulePath>.*Newtonsoft.*\.dll$</ModulePath>
+                <ModulePath>.*coverlet.*\.dll$</ModulePath>
+            </Exclude>
+        </ModulePaths>
+
+        <!-- Exclude methods decorated with these attributes -->
+        <Attributes>
+            <Exclude>
+                <Attribute>^System\.ObsoleteAttribute$</Attribute>
+                <Attribute>^System\.CodeDom\.Compiler\.GeneratedCodeAttribute$</Attribute>
+                <Attribute>^System\.Runtime\.CompilerServices\.CompilerGeneratedAttribute$</Attribute>
+                <Attribute>^System\.Diagnostics\.CodeAnalysis\.ExcludeFromCodeCoverageAttribute$</Attribute>
+            </Exclude>
+        </Attributes>
+
+        <!-- Exclude source-generated files -->
+        <Sources>
+            <Exclude>
+                <Source>.*\\obj\\.*\.g\.cs$</Source>
+                <Source>.*\.g\.cs$</Source>
+            </Exclude>
+        </Sources>
+
+        <!-- Exclude JSON source generator types -->
+        <Functions>
+            <Exclude>
+                <Function>.*JsonContext.*</Function>
+            </Exclude>
+        </Functions>
+
+        <EnableStaticManagedInstrumentation>True</EnableStaticManagedInstrumentation>
+        <EnableDynamicManagedInstrumentation>True</EnableDynamicManagedInstrumentation>
+        <UseVerifiableInstrumentation>True</UseVerifiableInstrumentation>
+    </CodeCoverage>
+</Configuration>
