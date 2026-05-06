@@ -37,6 +37,15 @@ Add-AppxPackage -Path .\CrowsNestMqtt-1.0.0.msixbundle
 ### Linux
 Download the platform-specific archive from [GitHub Releases](https://github.com/koepalex/Crow-s-Nest-MQTT/releases) and run the executable directly—no installation step required.
 
+Current macOS release artifacts are not yet Apple Developer signed/notarized. If macOS blocks app launch after copying to `/Applications`, use one of these options:
+
+1. In Finder, right-click `CrowsNestMQTT.app` and choose **Open**.
+2. If needed, remove quarantine attributes from Terminal:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/CrowsNestMQTT.app
+```
+
 ## Why using it?
 
 * Focused on developer 💻

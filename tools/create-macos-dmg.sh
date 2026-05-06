@@ -11,6 +11,22 @@ runtime="$2"
 version="$3"
 provided_executable_name="${4:-}"
 
+sanitize_macos_executable_name() {
+  local original_name="$1"
+  local sanitized_name="$original_name"
+
+  if [[ "$sanitized_name" == *.app ]]; then
+    sanitized_name="${sanitized_name%.app}"
+  fi
+
+  if [[ -z "$sanitized_name" ]]; then
+    echo "Could not derive a valid macOS executable name from: $original_name"
+    exit 1
+  fi
+
+  printf '%s' "$sanitized_name"
+}
+
 if [[ ! -d "$publish_dir" ]]; then
   echo "Publish directory does not exist: $publish_dir"
   exit 1
@@ -83,6 +99,8 @@ else
     exit 1
   fi
 
+  bundle_executable_name="$(sanitize_macos_executable_name "$executable_name")"
+
   app_name="CrowsNestMQTT.app"
   app_root="$staging_dir/$app_name"
   app_contents="$app_root/Contents"
@@ -99,7 +117,12 @@ else
     if [[ "$entry_name" == *.app ]]; then
       continue
     fi
-    cp -R "$entry" "$app_macos/$entry_name"
+    target_name="$entry_name"
+    if [[ "$entry_name" == "$executable_name" ]]; then
+      target_name="$bundle_executable_name"
+    fi
+
+    cp -R "$entry" "$app_macos/$target_name"
   done
   shopt -u nullglob dotglob
 
@@ -111,7 +134,7 @@ else
   <key>CFBundleDevelopmentRegion</key>
   <string>en</string>
   <key>CFBundleExecutable</key>
-  <string>${executable_name}</string>
+  <string>${bundle_executable_name}</string>
   <key>CFBundleIdentifier</key>
   <string>com.koepalex.crowsnestmqtt</string>
   <key>CFBundleInfoDictionaryVersion</key>
