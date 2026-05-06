@@ -203,3 +203,19 @@ jobs:
           ./zipped-releases/*.zip
           ./zipped-releases/*.dmg
           ./zipped-releases/*.msixbundle
+
+  bump_homebrew:
+    name: Bump Homebrew Cask
+    runs-on: ubuntu-latest
+    needs:
+      - determine_version
+      - release
+    if: github.ref_type == 'tag'
+    steps:
+      - name: Trigger homebrew-crowsnest bump
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          repository: koepalex/homebrew-crowsnest
+          event-type: bump-cask
+          client-payload: '{"version": "${{ needs.determine_version.outputs.semVer }}"}'

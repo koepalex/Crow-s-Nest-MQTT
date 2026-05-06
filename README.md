@@ -9,6 +9,19 @@ Whether you're a seasoned developer or a newcomer to IoT, Crow’s NestMQTT prov
 ### Microsoft Store (Recommended)
 Install from the Microsoft Store for the simplest experience. Packages are automatically signed by Microsoft—no additional setup required.
 
+### Homebrew (macOS)
+Install via [Homebrew](https://brew.sh/) using the custom tap:
+
+```bash
+brew tap koepalex/crowsnest
+brew install --cask crowsnestmqtt
+```
+
+To update:
+```bash
+brew upgrade --cask crowsnestmqtt
+```
+
 ### GitHub Releases (Sideloading)
 Download the `.msixbundle` or platform-specific `.msix` from [GitHub Releases](https://github.com/koepalex/Crow-s-Nest-MQTT/releases). These packages are unsigned, so Windows requires **Developer Mode** to be enabled before installation:
 
@@ -21,8 +34,8 @@ Alternatively, install via PowerShell:
 Add-AppxPackage -Path .\CrowsNestMqtt-1.0.0.msixbundle
 ```
 
-### Linux & macOS
-Download the platform-specific archive or `.dmg` from [GitHub Releases](https://github.com/koepalex/Crow-s-Nest-MQTT/releases) and run the executable directly—no installation step required.
+### Linux
+Download the platform-specific archive from [GitHub Releases](https://github.com/koepalex/Crow-s-Nest-MQTT/releases) and run the executable directly—no installation step required.
 
 ## Why using it?
 
