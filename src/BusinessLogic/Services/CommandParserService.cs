@@ -394,6 +394,14 @@ public class CommandParserService : ICommandParserService
                 }
                 return CommandResult.Failure("Invalid arguments for :publish. Expected: :publish [topic] [payload|@filepath]");
 
+            case "auto-log":
+            case "autolog":
+                if (arguments.Count <= 1)
+                {
+                    return CommandResult.SuccessCommand(new ParsedCommand(CommandType.AutoLog, arguments));
+                }
+                return CommandResult.Failure("Invalid arguments for :auto-log. Expected: :auto-log [topic-filter]");
+
             default:
                 return CommandResult.Failure($"Unknown command: '{commandKeyword}'");
         }

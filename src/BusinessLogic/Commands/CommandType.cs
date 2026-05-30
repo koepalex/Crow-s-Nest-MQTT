@@ -61,6 +61,8 @@ public enum CommandType
     GotoResponse,
     /// <summary> Publish a message to a topic. </summary>
     Publish,
+    /// <summary> Toggle automatic SQLite logging for a topic or topic filter. </summary>
+    AutoLog,
     /// <summary> Represents an unrecognized or invalid command. </summary>
     Unknown
 }

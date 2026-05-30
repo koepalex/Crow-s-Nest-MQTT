@@ -11,6 +11,28 @@ namespace CrowsNestMqtt.UnitTests.Services
         private readonly CommandParserService _parser = new CommandParserService();
         private readonly SettingsData _defaultSettings = new SettingsData("testhost", 1883); // Default settings for parsing
 
+        [Theory]
+        [InlineData(":auto-log")]
+        [InlineData(":auto-log sensors/#")]
+        [InlineData(":autolog sensors/#")]
+        public void ParseCommand_AutoLog_ValidArgs_ShouldSucceed(string input)
+        {
+            var result = CommandParserService.ParseCommand(input, _defaultSettings);
+
+            Assert.True(result.IsSuccess);
+            Assert.NotNull(result.ParsedCommand);
+            Assert.Equal(CommandType.AutoLog, result.ParsedCommand.Type);
+        }
+
+        [Fact]
+        public void ParseCommand_AutoLog_TooManyArgs_ShouldFail()
+        {
+            var result = CommandParserService.ParseCommand(":auto-log sensors/# extra", _defaultSettings);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("Invalid arguments for :auto-log. Expected: :auto-log [topic-filter]", result.ErrorMessage);
+        }
+
         // Tests for :setauthmode
         [Theory]
         [InlineData("anonymous")]
