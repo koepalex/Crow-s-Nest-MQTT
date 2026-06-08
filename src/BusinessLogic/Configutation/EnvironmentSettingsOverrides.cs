@@ -33,6 +33,8 @@ public sealed record EnvironmentSettingsOverrides
     public int? TimeoutPeriodSeconds { get; init; }
     public long? DefaultTopicBufferSizeBytes { get; init; }
     public IList<TopicBufferLimit>? TopicSpecificBufferLimits { get; init; }
+    public IList<AutoLogTopicRule>? AutoLogTopicRules { get; init; }
+    public long? AutoLogMaxDatabaseSizeBytes { get; init; }
 
     /// <summary>
     /// Whether any environment variable overrides were detected.
@@ -82,6 +84,8 @@ public sealed record EnvironmentSettingsOverrides
         var timeoutSeconds = ReadInt("TIMEOUT_SECONDS");
         var defaultBufferSize = ReadLong("DEFAULT_BUFFER_SIZE_BYTES");
         var topicLimits = ReadTopicBufferLimits("TOPIC_BUFFER_LIMITS");
+        var autoLogRules = ReadAutoLogTopicRules("AUTO_LOG_TOPIC_RULES");
+        var autoLogMaxDbSize = ReadLong("AUTO_LOG_MAX_DB_SIZE_BYTES");
         var authMode = ReadAuthMode();
 
         // Explicit CROWSNEST__ hostname/port override Aspire-derived values
@@ -96,7 +100,8 @@ public sealed record EnvironmentSettingsOverrides
             || exportFormat.HasValue || exportPath != null
             || maxTopicLimit.HasValue || parallelismDegree.HasValue
             || timeoutSeconds.HasValue || defaultBufferSize.HasValue
-            || topicLimits != null || authMode != null;
+            || topicLimits != null || autoLogRules != null || autoLogMaxDbSize.HasValue
+            || authMode != null;
 
         if (hasAny)
         {
@@ -121,6 +126,8 @@ public sealed record EnvironmentSettingsOverrides
             TimeoutPeriodSeconds = timeoutSeconds,
             DefaultTopicBufferSizeBytes = defaultBufferSize,
             TopicSpecificBufferLimits = topicLimits,
+            AutoLogTopicRules = autoLogRules,
+            AutoLogMaxDatabaseSizeBytes = autoLogMaxDbSize,
             HasOverrides = hasAny,
             IsAspireEnvironment = isAspire
         };
@@ -224,6 +231,22 @@ public sealed record EnvironmentSettingsOverrides
         {
             var limits = JsonSerializer.Deserialize<List<TopicBufferLimit>>(value);
             return limits;
+        }
+        catch (JsonException ex)
+        {
+            AppLogger.Error(ex, "Failed to parse {EnvVar} environment variable as JSON", Prefix + name);
+            return null;
+        }
+    }
+
+    private static IList<AutoLogTopicRule>? ReadAutoLogTopicRules(string name)
+    {
+        var value = ReadString(name);
+        if (value == null) return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<AutoLogTopicRule>>(value);
         }
         catch (JsonException ex)
         {

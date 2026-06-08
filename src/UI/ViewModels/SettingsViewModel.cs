@@ -30,6 +30,11 @@ using System.Linq; // For .Select
 [JsonSerializable(typeof(TopicBufferLimit))]
 [JsonSerializable(typeof(IList<TopicBufferLimit>))]
 [JsonSerializable(typeof(List<TopicBufferLimit>))] // For deserialization of SettingsData's property
+[JsonSerializable(typeof(AutoLogTopicRule))]
+[JsonSerializable(typeof(IList<AutoLogTopicRule>))]
+[JsonSerializable(typeof(List<AutoLogTopicRule>))]
+[JsonSerializable(typeof(ObservableCollection<AutoLogTopicRuleViewModel>))]
+[JsonSerializable(typeof(AutoLogTopicRuleViewModel))]
 [JsonSerializable(typeof(CrowsNestMqtt.UI.ViewModels.SettingsViewModel.AuthModeSelection))] // Added for enum
 public partial class SettingsViewModelJsonContext : JsonSerializerContext
 {
@@ -63,11 +68,16 @@ public class SettingsViewModel : ReactiveObject
     public ReadOnlyObservableCollection<ExportTypes> AvailableExportTypes => _availableExportTypes; // Changed type and name
 
     public ObservableCollection<TopicBufferLimitViewModel> TopicSpecificLimits { get; } = new();
+    public ObservableCollection<AutoLogTopicRuleViewModel> AutoLogTopicRules { get; } = new();
     private readonly ReadOnlyObservableCollection<AuthModeSelection> _availableAuthenticationModes;
     public ReadOnlyObservableCollection<AuthModeSelection> AvailableAuthenticationModes => _availableAuthenticationModes;
 
     public ReactiveCommand<Unit, Unit> AddTopicLimitCommand { get; }
     public ReactiveCommand<TopicBufferLimitViewModel, Unit> RemoveTopicLimitCommand { get; }
+    public ReactiveCommand<Unit, Unit> AddAutoLogTopicRuleCommand { get; }
+    public ReactiveCommand<AutoLogTopicRuleViewModel, Unit> RemoveAutoLogTopicRuleCommand { get; }
+
+    public event EventHandler? SettingsSaved;
 
 #pragma warning disable IDE0044 // Add readonly modifier
     private bool _isLoading = false; // Flag to prevent saving during initial load
@@ -119,6 +129,16 @@ public class SettingsViewModel : ReactiveObject
             }
         });
 
+        AddAutoLogTopicRuleCommand = ReactiveCommand.Create(() =>
+        {
+            AutoLogTopicRules.Add(new AutoLogTopicRuleViewModel { TopicFilter = "new/topic/filter", IsEnabled = true });
+        });
+
+        RemoveAutoLogTopicRuleCommand = ReactiveCommand.Create<AutoLogTopicRuleViewModel>(rule =>
+        {
+            AutoLogTopicRules.Remove(rule);
+        });
+
         // Observable for simple property changes
         var simplePropertiesChanged = Observable.CombineLatest(
             this.WhenAnyValue(x => x.Hostname),
@@ -136,12 +156,18 @@ public class SettingsViewModel : ReactiveObject
             this.WhenAnyValue(x => x.AuthenticationData),
             this.WhenAnyValue(x => x.UseTls),
             this.WhenAnyValue(x => x.SubscriptionQoS),
-            (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => Unit.Default);
+            this.WhenAnyValue(x => x.AutoLogMaxDatabaseSizeBytes),
+            (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => Unit.Default);
 
         // Observable for changes within the TopicSpecificLimits collection (add/remove)
         var collectionChanged = Observable.FromEventPattern<System.Collections.Specialized.NotifyCollectionChangedEventHandler, System.Collections.Specialized.NotifyCollectionChangedEventArgs>(
             h => TopicSpecificLimits.CollectionChanged += h,
             h => TopicSpecificLimits.CollectionChanged -= h)
+            .Select(_ => Unit.Default);
+
+        var autoLogCollectionChanged = Observable.FromEventPattern<System.Collections.Specialized.NotifyCollectionChangedEventHandler, System.Collections.Specialized.NotifyCollectionChangedEventArgs>(
+            h => AutoLogTopicRules.CollectionChanged += h,
+            h => AutoLogTopicRules.CollectionChanged -= h)
             .Select(_ => Unit.Default);
 
         // Observable for changes to properties of items within TopicSpecificLimits
@@ -166,12 +192,33 @@ public class SettingsViewModel : ReactiveObject
             })
             .Switch(); // Always use the latest set of merged item observables
 
+        var autoLogItemPropertiesChanged = Observable
+            .FromEventPattern<System.Collections.Specialized.NotifyCollectionChangedEventHandler, System.Collections.Specialized.NotifyCollectionChangedEventArgs>(
+                h => AutoLogTopicRules.CollectionChanged += h,
+                h => AutoLogTopicRules.CollectionChanged -= h)
+            .Select(pattern => pattern.EventArgs)
+            .StartWith((System.Collections.Specialized.NotifyCollectionChangedEventArgs?)null)
+            .Select(_ =>
+            {
+                if (!AutoLogTopicRules.Any())
+                {
+                    return Observable.Empty<Unit>();
+                }
+
+                return AutoLogTopicRules
+                    .Select(item => item.WhenAnyValue(i => i.TopicFilter, i => i.IsEnabled).Select(__ => Unit.Default))
+                    .Merge();
+            })
+            .Switch();
+
 
         // Merge all change signals
         Observable.Merge(
                 simplePropertiesChanged,
                 collectionChanged,
-                itemPropertiesChanged.StartWith(Unit.Default) // StartWith to ensure initial state is considered if items exist
+                autoLogCollectionChanged,
+                itemPropertiesChanged.StartWith(Unit.Default), // StartWith to ensure initial state is considered if items exist
+                autoLogItemPropertiesChanged.StartWith(Unit.Default)
             )
             .Throttle(TimeSpan.FromMilliseconds(500))
             .ObserveOn(RxSchedulers.TaskpoolScheduler)
@@ -301,10 +348,23 @@ public class SettingsViewModel : ReactiveObject
        get => _exportPath;
        set => this.RaiseAndSetIfChanged(ref _exportPath, value);
    }
+
+    private long _autoLogMaxDatabaseSizeBytes = 100 * 1024 * 1024;
+    public long AutoLogMaxDatabaseSizeBytes
+    {
+        get => _autoLogMaxDatabaseSizeBytes;
+        set => this.RaiseAndSetIfChanged(ref _autoLogMaxDatabaseSizeBytes, Math.Max(1, value));
+    }
+
     public SettingsData Into()
     {
         var topicLimits = TopicSpecificLimits
             .Select(vm => new TopicBufferLimit(vm.TopicFilter, vm.MaxSizeBytes))
+            .ToList();
+
+        var autoLogRules = AutoLogTopicRules
+            .Where(vm => !string.IsNullOrWhiteSpace(vm.TopicFilter))
+            .Select(vm => new AutoLogTopicRule(vm.TopicFilter.Trim(), vm.IsEnabled))
             .ToList();
 
         AuthenticationMode authModeSetting;
@@ -337,10 +397,12 @@ public class SettingsViewModel : ReactiveObject
             ExportFormat,
             ExportPath,
             UseTls,
-            SubscriptionQoS: SubscriptionQoS
+            SubscriptionQoS: SubscriptionQoS,
+            AutoLogMaxDatabaseSizeBytes: AutoLogMaxDatabaseSizeBytes
         )
         {
-            TopicSpecificBufferLimits = topicLimits
+            TopicSpecificBufferLimits = topicLimits,
+            AutoLogTopicRules = autoLogRules
         };
     }
 
@@ -356,7 +418,9 @@ public class SettingsViewModel : ReactiveObject
         ExportPath = settingsData.ExportPath;
         UseTls = settingsData.UseTls;
         SubscriptionQoS = settingsData.SubscriptionQoS;
+        AutoLogMaxDatabaseSizeBytes = settingsData.AutoLogMaxDatabaseSizeBytes;
         TopicSpecificLimits.Clear();
+        AutoLogTopicRules.Clear();
         
         // Ensure we always have the default '#' limit
         bool hasDefaultLimit = false;
@@ -376,6 +440,14 @@ public class SettingsViewModel : ReactiveObject
         if (!hasDefaultLimit)
         {
             TopicSpecificLimits.Insert(0, new TopicBufferLimitViewModel(new TopicBufferLimit("#", 1024 * 1024)));
+        }
+
+        if (settingsData.AutoLogTopicRules != null)
+        {
+            foreach (var rule in settingsData.AutoLogTopicRules)
+            {
+                AutoLogTopicRules.Add(new AutoLogTopicRuleViewModel(rule));
+            }
         }
 
         // Handle AuthMode and credentials
@@ -421,6 +493,7 @@ public class SettingsViewModel : ReactiveObject
         if (overrides.SubscriptionQoS.HasValue) SubscriptionQoS = overrides.SubscriptionQoS.Value;
         if (overrides.ExportFormat.HasValue) ExportFormat = overrides.ExportFormat.Value;
         if (overrides.ExportPath != null) ExportPath = overrides.ExportPath;
+        if (overrides.AutoLogMaxDatabaseSizeBytes.HasValue) AutoLogMaxDatabaseSizeBytes = overrides.AutoLogMaxDatabaseSizeBytes.Value;
 
         if (overrides.AuthMode != null)
         {
@@ -459,6 +532,15 @@ public class SettingsViewModel : ReactiveObject
             }
             EnsureDefaultTopicLimit();
         }
+
+        if (overrides.AutoLogTopicRules != null)
+        {
+            AutoLogTopicRules.Clear();
+            foreach (var rule in overrides.AutoLogTopicRules)
+            {
+                AutoLogTopicRules.Add(new AutoLogTopicRuleViewModel(rule));
+            }
+        }
     }
 
     // --- Persistence Methods ---
@@ -483,6 +565,7 @@ public class SettingsViewModel : ReactiveObject
             string json = JsonSerializer.Serialize(dataToSave, SettingsViewModelJsonContext.Default.SettingsData);
             File.WriteAllText(_settingsFilePath, json);
             AppLogger.Information("Settings saved to {FilePath}", _settingsFilePath);
+            SettingsSaved?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex)
         {

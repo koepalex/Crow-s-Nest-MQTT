@@ -180,6 +180,8 @@ namespace CrowsNestMqtt.UnitTests
                 Environment.SetEnvironmentVariable("CROWSNEST__AUTH_MODE", "userpass");
                 Environment.SetEnvironmentVariable("CROWSNEST__AUTH_USERNAME", "user1");
                 Environment.SetEnvironmentVariable("CROWSNEST__AUTH_PASSWORD", "pass1");
+                Environment.SetEnvironmentVariable("CROWSNEST__AUTO_LOG_TOPIC_RULES", "[{\"TopicFilter\":\"sensors/#\",\"IsEnabled\":true}]");
+                Environment.SetEnvironmentVariable("CROWSNEST__AUTO_LOG_MAX_DB_SIZE_BYTES", "2048");
 
                 // Act
                 var result = EnvironmentSettingsOverrides.Load();
@@ -194,6 +196,10 @@ namespace CrowsNestMqtt.UnitTests
                 Assert.Equal(600u, result.SessionExpiryIntervalSeconds);
                 Assert.True(result.UseTls);
                 Assert.Equal(2, result.SubscriptionQoS);
+                Assert.Equal(2048, result.AutoLogMaxDatabaseSizeBytes);
+                Assert.NotNull(result.AutoLogTopicRules);
+                Assert.Single(result.AutoLogTopicRules);
+                Assert.Equal("sensors/#", result.AutoLogTopicRules[0].TopicFilter);
                 Assert.IsType<UsernamePasswordAuthenticationMode>(result.AuthMode);
                 var userPass = (UsernamePasswordAuthenticationMode)result.AuthMode!;
                 Assert.Equal("user1", userPass.Username);
@@ -212,6 +218,8 @@ namespace CrowsNestMqtt.UnitTests
                 Environment.SetEnvironmentVariable("CROWSNEST__AUTH_MODE", null);
                 Environment.SetEnvironmentVariable("CROWSNEST__AUTH_USERNAME", null);
                 Environment.SetEnvironmentVariable("CROWSNEST__AUTH_PASSWORD", null);
+                Environment.SetEnvironmentVariable("CROWSNEST__AUTO_LOG_TOPIC_RULES", null);
+                Environment.SetEnvironmentVariable("CROWSNEST__AUTO_LOG_MAX_DB_SIZE_BYTES", null);
             }
         }
 

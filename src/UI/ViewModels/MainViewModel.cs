@@ -98,6 +98,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     // Publish window support (Feature 007)
     private readonly IPublishHistoryService? _publishHistoryService;
     private readonly IFileAutoCompleteService? _fileAutoCompleteService;
+    private readonly IAutoLogService _autoLogService;
     private PublishViewModel? _publishViewModel;
 
     // Topic normalization helper (single place)
@@ -162,6 +163,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 Log.Debug("SelectedNode changed. Raw='{Raw}' Normalized='{Norm}'", _selectedNode?.FullPath, _normalizedSelectedPath);
                 this.RaisePropertyChanged(nameof(IsDeleteButtonEnabled));
                 this.RaisePropertyChanged(nameof(IsExportAllButtonEnabled));
+                this.RaisePropertyChanged(nameof(IsAutoLogButtonEnabled));
+                this.RaisePropertyChanged(nameof(IsSelectedTopicAutoLogged));
                 CurrentSearchTerm = string.Empty;
 
                 // Immediate best-effort selection using current filtered snapshot
@@ -715,6 +718,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     public ReactiveCommand<object?, Unit> ExportMessageCommand { get; } // T020: Added command to export single message from row button
     public ReactiveCommand<Unit, Unit> ExportAllCommand { get; } // T021: Added command to export all messages from selected topic
     public ReactiveCommand<Unit, Unit> TogglePublishWindowCommand { get; } // Feature 007: Toggle publish window
+    public ReactiveCommand<Unit, Unit> ToggleAutoLogCommand { get; }
 
     // Interaction for requesting clipboard copy from the View
     public Interaction<string, Unit> CopyTextToClipboardInteraction { get; }
@@ -738,6 +742,17 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     /// </summary>
     public PublishViewModel? PublishViewModel => _publishViewModel;
 
+    public bool IsAutoLogButtonEnabled => SelectedNode != null;
+
+    public bool IsSelectedTopicAutoLogged
+    {
+        get
+        {
+            var topic = NormalizeTopic(SelectedNode?.FullPath);
+            return topic != null && _autoLogService.IsEnabledForTopic(topic);
+        }
+    }
+
     /// <summary>
     /// Gets or sets a value indicating whether the main application window currently has focus.
     /// This is used to conditionally enable the global hotkey.
@@ -753,7 +768,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     /// Sets up placeholder data and starts the UI update timer.
     /// </summary>
     // Constructor now requires ICommandParserService
-    public MainViewModel(ICommandParserService commandParserService, IMqttService? mqttService = null, IDeleteTopicService? deleteTopicService = null, IMessageCorrelationService? correlationService = null, IResponseIconService? iconService = null, EnvironmentSettingsOverrides? environmentOverrides = null, IScheduler? uiScheduler = null, IPublishHistoryService? publishHistoryService = null, IFileAutoCompleteService? fileAutoCompleteService = null)
+    public MainViewModel(ICommandParserService commandParserService, IMqttService? mqttService = null, IDeleteTopicService? deleteTopicService = null, IMessageCorrelationService? correlationService = null, IResponseIconService? iconService = null, EnvironmentSettingsOverrides? environmentOverrides = null, IScheduler? uiScheduler = null, IPublishHistoryService? publishHistoryService = null, IFileAutoCompleteService? fileAutoCompleteService = null, IAutoLogService? autoLogService = null)
     {
         _commandParserService = commandParserService ?? throw new ArgumentNullException(nameof(commandParserService)); // Store injected service
         _deleteTopicService = deleteTopicService; // Store injected delete topic service (optional)
@@ -761,6 +776,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         _iconService = iconService; // Store injected icon service (optional)
         _publishHistoryService = publishHistoryService; // Store injected publish history service (optional)
         _fileAutoCompleteService = fileAutoCompleteService; // Store injected file autocomplete service (optional)
+        _autoLogService = autoLogService ?? new AutoLogService();
         _uiScheduler = uiScheduler 
             ?? (Application.Current == null ? Scheduler.Immediate : RxSchedulers.MainThreadScheduler); // Use Immediate in non-Avalonia (plain unit test) context
         _testMode = Application.Current == null
@@ -770,7 +786,9 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                     || uiScheduler == Scheduler.Immediate; // If ImmediateScheduler is injected, we're definitely in test mode
         _syncContext = SynchronizationContext.Current; // Capture sync context
         Settings = new SettingsViewModel(environmentOverrides); // Instantiate settings with env overrides
+        Settings.SettingsSaved += OnSettingsSaved;
         _environmentOverrides = environmentOverrides;
+        UpdateAutoLogConfiguration();
         JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
         CopyTextToClipboardInteraction = new Interaction<string, Unit>(); // Initialize the interaction
         CopyImageToClipboardInteraction = new Interaction<Bitmap, Unit>(); // Initialize the image interaction
@@ -1087,6 +1105,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         ExportMessageCommand = ReactiveCommand.CreateFromTask<object?>(ExecuteExportMessageAsync); // T020: Initialize export message command
         ExportAllCommand = ReactiveCommand.Create(ExecuteExportAllCommand); // T021: Initialize export all command
         TogglePublishWindowCommand = ReactiveCommand.Create(TogglePublishWindow); // Feature 007: Initialize toggle publish window command
+        ToggleAutoLogCommand = ReactiveCommand.Create(ToggleAutoLogForSelectedTopic);
 
         // --- Property Change Reactions ---
 
@@ -1295,6 +1314,11 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         // Guard against calls during disposal
         if (_disposedValue)
             return;
+
+        if (batch != null && batch.Count > 0)
+        {
+            _ = _autoLogService.LogBatchAsync(batch, _cts.Token);
+        }
 
         if (IsPaused || batch == null || batch.Count == 0) return;
         ScheduleOnUi(() => ProcessMessageBatchOnUIThread(batch.ToList()));
@@ -3131,6 +3155,9 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 case CommandType.Publish:
                     HandlePublishCommand(command);
                     break;
+                case CommandType.AutoLog:
+                    HandleAutoLogCommand(command);
+                    break;
                 default:
                     StatusBarText = $"Error: Unknown command type '{command.Type}'.";
                     Log.Warning("Unknown command type encountered: {CommandType}", command.Type);
@@ -3169,8 +3196,79 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         { "deletetopic", (":deletetopic [topic-pattern] [--confirm]", "Deletes retained messages from a topic and its subtopics by publishing empty retained messages. Uses selected topic if no pattern specified.") },
         { "gotoresponse", (":gotoresponse", "Navigates to the response message for the currently selected MQTT v5 request message.") },
         { "settings", (":settings", "Toggles the visibility of the settings pane.") },
-        { "publish", (":publish [topic] [@file|text]", "Opens the publish window. Optionally pre-fills topic and payload from a file (@path) or inline text.") }
+        { "publish", (":publish [topic] [@file|text]", "Opens the publish window. Optionally pre-fills topic and payload from a file (@path) or inline text.") },
+        { "auto-log", (":auto-log [topic-filter]", "Toggles automatic SQLite logging for the selected topic or specified topic filter.") }
     };
+
+    private void OnSettingsSaved(object? sender, EventArgs e)
+    {
+        UpdateAutoLogConfiguration();
+        this.RaisePropertyChanged(nameof(IsSelectedTopicAutoLogged));
+    }
+
+    private void UpdateAutoLogConfiguration()
+    {
+        var settingsData = Settings.Into();
+        _autoLogService.UpdateConfiguration(
+            Settings.ExportPath,
+            settingsData.AutoLogTopicRules,
+            settingsData.AutoLogMaxDatabaseSizeBytes);
+    }
+
+    private void ToggleAutoLogForSelectedTopic()
+    {
+        var topic = NormalizeTopic(SelectedNode?.FullPath);
+        if (topic == null)
+        {
+            StatusBarText = "Error: No topic selected for :auto-log.";
+            return;
+        }
+
+        ToggleAutoLogRule(topic);
+    }
+
+    private void HandleAutoLogCommand(ParsedCommand command)
+    {
+        var topicFilter = command.Arguments.Count == 0
+            ? NormalizeTopic(SelectedNode?.FullPath)
+            : NormalizeTopic(command.Arguments[0]);
+
+        if (topicFilter == null)
+        {
+            StatusBarText = "Error: :auto-log requires a selected topic or argument <topic-filter>.";
+            return;
+        }
+
+        ToggleAutoLogRule(topicFilter);
+    }
+
+    private void ToggleAutoLogRule(string topicFilter)
+    {
+        var existing = Settings.AutoLogTopicRules.FirstOrDefault(rule =>
+            string.Equals(NormalizeTopic(rule.TopicFilter), topicFilter, StringComparison.OrdinalIgnoreCase));
+
+        bool enabled;
+        if (existing == null)
+        {
+            Settings.AutoLogTopicRules.Add(new AutoLogTopicRuleViewModel
+            {
+                TopicFilter = topicFilter,
+                IsEnabled = true
+            });
+            enabled = true;
+        }
+        else
+        {
+            existing.IsEnabled = !existing.IsEnabled;
+            enabled = existing.IsEnabled;
+        }
+
+        UpdateAutoLogConfiguration();
+        this.RaisePropertyChanged(nameof(IsSelectedTopicAutoLogged));
+        StatusBarText = enabled
+            ? $"Auto-log enabled for '{topicFilter}'."
+            : $"Auto-log disabled for '{topicFilter}'.";
+    }
 
     private void DisplayHelpInformation(string? commandName = null)
     {
@@ -4401,6 +4499,8 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                     _correlationService.CorrelationStatusChanged -= OnCorrelationStatusChanged;
                 }
 
+                Settings.SettingsSaved -= OnSettingsSaved;
+
                 // NOW dispose reactive subscriptions - they won't trigger event handlers anymore
                 _messageHistorySubscription?.Dispose();
                 _selectedMessageSubscription?.Dispose(); // Dispose the selected message subscription
@@ -4453,7 +4553,9 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 CopyPayloadCommand?.Dispose(); // Dispose the new command
                 DeleteTopicCommand?.Dispose(); // Dispose delete topic command
                 NavigateToResponseCommand?.Dispose(); // Dispose navigate to response command
-                                               // Interactions don't typically need explicit disposal unless they hold heavy resources
+                ToggleAutoLogCommand?.Dispose();
+                _autoLogService.Dispose();
+                                                // Interactions don't typically need explicit disposal unless they hold heavy resources
                 _cts.Dispose(); // Dispose the CancellationTokenSource itself
                 }
 

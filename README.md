@@ -129,6 +129,14 @@ Set per-topic message buffer limits to manage memory usage:
 - **Topic Filter**: MQTT topic or wildcard (e.g., `#` for all topics).
 - **Max Size (Bytes)**: Maximum buffer size for each topic.
 
+**5. SQLite Auto-Log**
+Automatically persist selected MQTT topics to a local SQLite database for external time-series querying:
+- **Auto-Log Rules**: MQTT topic filters using the same matching logic as topic buffer limits, including exact topics, `+`, and `#`.
+- **Max DB Size (Bytes)**: Maximum SQLite database size. Defaults to `104857600` (100 MB). When the database exceeds the limit, the oldest logged rows are discarded globally.
+- **Database Location**: The database is created inside the configured export path as `crowsnest-auto-log.sqlite`.
+- Tables are created lazily when the first matching message arrives.
+- Logging happens independently from UI pause/filter state and includes retained messages delivered by the broker.
+
 ### Viewers
 Crow's NestMQTT automatically render content of MQTT message as image when the content-type indicates an image
 ![](./doc/images/image-viewer.png)
@@ -195,7 +203,38 @@ Crow's Nest MQTT provides a command interface (likely accessible via a dedicated
 *   `:setauthdata <data>` - Set the authentication data for enhanced authentication (method-specific data).
 *   `:setusetls <true|false>` - Set whether to use TLS for the MQTT connection. When set to `true`, the client will connect using TLS, allow untrusted certificates, and ignore certificate errors.
 *   `:publish [topic] [@file|text]` - Open the publish window. Optionally pre-fill the topic (defaults to the selected topic) and payload from a file (`@path/to/file`) or inline text. The publish window is non-modal and supports all MQTT V5 properties.
+*   `:auto-log [topic-filter]` - Toggle SQLite auto-logging for the selected topic, or for the specified topic/filter. Uses the same filter semantics as topic buffer limits.
 *   `[search_term]` - Any text entered without a `:` prefix is treated as a search term to filter messages.
+
+## SQLite Auto-Log Schema
+
+Auto-log creates one table per concrete topic. Table names are stable and query-friendly:
+
+```text
+mqtt_<sanitized_topic>_<hash8>
+```
+
+For example, `factory/line1/temperature` becomes a table similar to `mqtt_factory_line1_temperature_a13f9c2b`.
+
+The exact topic-to-table mapping is stored in `_auto_log_topics`:
+
+```sql
+select topic, table_name, source_filter, created_at_utc, last_seen_at_utc
+from _auto_log_topics;
+```
+
+Each topic table stores time-series rows with receive time, MQTT metadata, user properties, payload size, and one payload representation based on content type: `payload_json`, `payload_text`, `payload_xml`, `payload_base64`, or `payload_blob`.
+
+For JSON payloads, Crow's NestMQTT adds generated/indexed columns for top-level scalar JSON fields. Example query:
+
+```sql
+select received_at_utc, json_temperature, json_unit
+from mqtt_factory_line1_temperature_a13f9c2b
+where json_temperature > 30
+order by received_at_utc desc;
+```
+
+The `_auto_log_entries` table tracks row age across all topic tables so the oldest logged rows can be discarded when the configured max database size is exceeded.
 
 ## Keyboard Navigation Shortcuts
 
@@ -257,6 +296,14 @@ When an Aspire endpoint environment variable is detected, the application:
       .AddExecutable("mqtt-client", Path.Combine(mqttViewerWorkingDirectory, "CrowsNestMqtt.App.exe"), mqttViewerWorkingDirectory)
       .WithReference(mqttBrokerEndpoint)
       .WaitFor(mqttBroker);
+
+  builder
+      .AddExecutable("mqtt-auto-log", Path.Combine(mqttViewerWorkingDirectory, "CrowsNestMqtt.App.exe"), mqttViewerWorkingDirectory)
+      .WithReference(mqttBrokerEndpoint)
+      .WithEnvironment("CROWSNEST__EXPORT_PATH", Path.Combine(mqttViewerWorkingDirectory, "exports"))
+      .WithEnvironment("CROWSNEST__AUTO_LOG_TOPIC_RULES", "[{\"TopicFilter\":\"sensors/#\",\"IsEnabled\":true}]")
+      .WithEnvironment("CROWSNEST__AUTO_LOG_MAX_DB_SIZE_BYTES", "104857600")
+      .WaitFor(mqttBroker);
 ```
 
 ## Environment Variable Configuration
@@ -295,6 +342,8 @@ This is useful for:
 | `CROWSNEST__TIMEOUT_SECONDS` | Operation timeout in seconds | int | `5` |
 | `CROWSNEST__DEFAULT_BUFFER_SIZE_BYTES` | Default per-topic buffer size | long | `1048576` |
 | `CROWSNEST__TOPIC_BUFFER_LIMITS` | Per-topic buffer limits (JSON array) | JSON | `[{"TopicFilter":"#","MaxSizeBytes":2097152}]` |
+| `CROWSNEST__AUTO_LOG_TOPIC_RULES` | SQLite auto-log topic rules (JSON array) | JSON | `[{"TopicFilter":"sensors/#","IsEnabled":true}]` |
+| `CROWSNEST__AUTO_LOG_MAX_DB_SIZE_BYTES` | Max SQLite auto-log DB size before oldest rows are discarded | long | `104857600` |
 
 ### Priority
 
@@ -321,6 +370,9 @@ export CROWSNEST__AUTH_USERNAME=svc-account
 export CROWSNEST__AUTH_PASSWORD=secret
 export CROWSNEST__CLIENT_ID=monitoring-client
 export CROWSNEST__KEEP_ALIVE_SECONDS=60
+export CROWSNEST__EXPORT_PATH=/tmp/crowsnest-exports
+export CROWSNEST__AUTO_LOG_TOPIC_RULES='[{"TopicFilter":"sensors/#","IsEnabled":true}]'
+export CROWSNEST__AUTO_LOG_MAX_DB_SIZE_BYTES=104857600
 ```
 
 ## Scripts

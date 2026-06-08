@@ -17,9 +17,11 @@ public record SettingsData(
     int MaxTopicLimit = 500,
     int ParallelismDegree = 4,
     int TimeoutPeriodSeconds = 5,
-    int SubscriptionQoS = 1)
+    int SubscriptionQoS = 1,
+    long AutoLogMaxDatabaseSizeBytes = 100 * 1024 * 1024)
 {
     public IList<TopicBufferLimit> TopicSpecificBufferLimits { get; init; } = new List<TopicBufferLimit>();
+    public IList<AutoLogTopicRule> AutoLogTopicRules { get; init; } = new List<AutoLogTopicRule>();
     /// <summary>
     /// Default buffer size in bytes for topics that don't match any specific rules.
     /// If null, uses the system default (1 MB). This only applies when no "#" wildcard rule is configured.
