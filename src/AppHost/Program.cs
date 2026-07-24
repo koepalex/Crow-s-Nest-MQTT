@@ -40,6 +40,7 @@ var sharedEnvVars = (IResourceBuilder<ProjectResource> rb) => rb
     .WithEnvironment("CROWSNEST__CLEAN_SESSION", "true")
     .WithEnvironment("CROWSNEST__SESSION_EXPIRY_SECONDS", "0")
     .WithEnvironment("CROWSNEST__SUBSCRIPTION_QOS", "1")
+    .WithEnvironment("CROWSNEST__SHOW_CONNECTION_DIALOG_ON_LAUNCH", "false")
     .WithEnvironment("CROWSNEST__TOPIC_BUFFER_LIMITS", """[{"TopicFilter":"#","MaxSizeBytes":11048576}]""");
 
 // Add CrowsNestMqtt as a project that auto-connects to the MQTT broker via TCP
@@ -149,6 +150,7 @@ azureInstance
     .WithEnvironment("CROWSNEST__CLEAN_SESSION", "true")
     .WithEnvironment("CROWSNEST__SESSION_EXPIRY_SECONDS", "0")
     .WithEnvironment("CROWSNEST__SUBSCRIPTION_QOS", "1")
+    .WithEnvironment("CROWSNEST__SHOW_CONNECTION_DIALOG_ON_LAUNCH", "false")
     .WithEnvironment("CROWSNEST__TOPIC_BUFFER_LIMITS", """[{"TopicFilter":"#","MaxSizeBytes":11048576}]""");
 
 // Add delayed test data sender that publishes sample data after broker is ready

@@ -667,6 +667,7 @@ private string _subscriptionTopic = "#";
             if (overrides.WebSocketProxyAddress != null) WebSocketProxyAddress = overrides.WebSocketProxyAddress;
             if (overrides.WebSocketProxyUsername != null) WebSocketProxyUsername = overrides.WebSocketProxyUsername;
             if (overrides.WebSocketProxyPassword != null) WebSocketProxyPassword = overrides.WebSocketProxyPassword;
+            if (overrides.ShowConnectionDialogOnLaunch.HasValue) ShowConnectionDialogOnLaunch = overrides.ShowConnectionDialogOnLaunch.Value;
 
             if (overrides.AuthMode != null)
             {
