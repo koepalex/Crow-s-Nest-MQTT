@@ -25,6 +25,14 @@ public static class DigitOnlyInput
     public static readonly AttachedProperty<bool> AllowEmptyProperty =
         AvaloniaProperty.RegisterAttached<TextBox, bool>("AllowEmpty", typeof(DigitOnlyInput));
 
+    /// <summary>Optional inclusive minimum value the entered number is clamped to.</summary>
+    public static readonly AttachedProperty<long?> MinValueProperty =
+        AvaloniaProperty.RegisterAttached<TextBox, long?>("MinValue", typeof(DigitOnlyInput));
+
+    /// <summary>Optional inclusive maximum value the entered number is clamped to.</summary>
+    public static readonly AttachedProperty<long?> MaxValueProperty =
+        AvaloniaProperty.RegisterAttached<TextBox, long?>("MaxValue", typeof(DigitOnlyInput));
+
     public static void SetEnable(TextBox element, bool value) => element.SetValue(EnableProperty, value);
 
     public static bool GetEnable(TextBox element) => element.GetValue(EnableProperty);
@@ -32,6 +40,14 @@ public static class DigitOnlyInput
     public static void SetAllowEmpty(TextBox element, bool value) => element.SetValue(AllowEmptyProperty, value);
 
     public static bool GetAllowEmpty(TextBox element) => element.GetValue(AllowEmptyProperty);
+
+    public static void SetMinValue(TextBox element, long? value) => element.SetValue(MinValueProperty, value);
+
+    public static long? GetMinValue(TextBox element) => element.GetValue(MinValueProperty);
+
+    public static void SetMaxValue(TextBox element, long? value) => element.SetValue(MaxValueProperty, value);
+
+    public static long? GetMaxValue(TextBox element) => element.GetValue(MaxValueProperty);
 
     static DigitOnlyInput()
     {
@@ -72,6 +88,24 @@ public static class DigitOnlyInput
             var removed = textBox.Text.Length - digitsOnly.Length;
             textBox.Text = digitsOnly;
             textBox.CaretIndex = Math.Max(0, caret - removed);
+            return;
+        }
+
+        // Clamp to the configured [MinValue, MaxValue] range, if any.
+        var min = GetMinValue(textBox);
+        var max = GetMaxValue(textBox);
+        if ((min.HasValue || max.HasValue) && long.TryParse(digitsOnly, out var value))
+        {
+            var clamped = value;
+            if (max.HasValue && clamped > max.Value) clamped = max.Value;
+            if (min.HasValue && clamped < min.Value) clamped = min.Value;
+
+            if (clamped != value)
+            {
+                var clampedText = clamped.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                textBox.Text = clampedText;
+                textBox.CaretIndex = clampedText.Length;
+            }
         }
     }
 }

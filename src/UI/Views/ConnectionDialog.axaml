@@ -42,6 +42,8 @@
             Grid.Column="1"
             MaxLength="5"
             behaviors:DigitOnlyInput.Enable="True"
+            behaviors:DigitOnlyInput.MinValue="1"
+            behaviors:DigitOnlyInput.MaxValue="65535"
             Text="{Binding Port, Mode=TwoWay}" />
 
         <!--  Use TLS  -->
