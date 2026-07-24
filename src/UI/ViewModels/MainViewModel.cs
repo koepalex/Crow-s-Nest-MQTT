@@ -706,7 +706,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     }
 
     // --- Commands ---
-    public ReactiveCommand<Unit, Unit> ConnectCommand { get; }
+    public ReactiveCommand<Unit, bool> ConnectCommand { get; }
     public ReactiveCommand<Unit, Unit> DisconnectCommand { get; }
     public ReactiveCommand<Unit, Unit> ClearHistoryCommand { get; }
     public ReactiveCommand<Unit, Unit> PauseResumeCommand { get; }
@@ -2523,7 +2523,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
     // --- Command Methods ---
 
-    private async Task ConnectAsync()
+    private async Task<bool> ConnectAsync()
     {
         Log.Information("Connect command executed.");
 
@@ -2534,7 +2534,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             if (!shouldConnect)
             {
                 Log.Information("Connection cancelled by user.");
-                return;
+                return false;
             }
         }
         catch (UnhandledInteractionException<Unit, bool>)
@@ -2544,6 +2544,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         }
 
         await ExecuteConnectAsync().ConfigureAwait(false);
+        return true;
     }
 
     /// <summary>
@@ -3682,7 +3683,17 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
             StatusBarText = $"Attempting to connect to {Settings.Hostname}:{Settings.Port}...";
             ConnectCommand.Execute().Subscribe(
-                _ => StatusBarText = $"Successfully initiated connection to {Settings.Hostname}:{Settings.Port}.",
+                connectionAttempted =>
+                {
+                    if (connectionAttempted)
+                    {
+                        StatusBarText = $"Successfully initiated connection to {Settings.Hostname}:{Settings.Port}.";
+                    }
+                    else
+                    {
+                        StatusBarText = "Connection cancelled.";
+                    }
+                },
                 ex =>
                 {
                     StatusBarText = $"Error initiating connection: {ex.Message}";
@@ -3718,7 +3729,17 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
                 StatusBarText = $"Attempting WebSocket connection to {Settings.Hostname}:{Settings.Port}...";
                 ConnectCommand.Execute().Subscribe(
-                    _ => StatusBarText = $"Successfully initiated WebSocket connection to {Settings.Hostname}:{Settings.Port}.",
+                    connectionAttempted =>
+                    {
+                        if (connectionAttempted)
+                        {
+                            StatusBarText = $"Successfully initiated WebSocket connection to {Settings.Hostname}:{Settings.Port}.";
+                        }
+                        else
+                        {
+                            StatusBarText = "Connection cancelled.";
+                        }
+                    },
                     ex =>
                     {
                         StatusBarText = $"Error initiating connection: {ex.Message}";
@@ -3759,7 +3780,17 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
             StatusBarText = $"Attempting to connect to {host}:{port}...";
             ConnectCommand.Execute().Subscribe(
-                _ => StatusBarText = $"Successfully initiated connection to {host}:{port}.",
+                connectionAttempted =>
+                {
+                    if (connectionAttempted)
+                    {
+                        StatusBarText = $"Successfully initiated connection to {host}:{port}.";
+                    }
+                    else
+                    {
+                        StatusBarText = "Connection cancelled.";
+                    }
+                },
                 ex =>
                 {
                     StatusBarText = $"Error initiating connection: {ex.Message}";
