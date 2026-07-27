@@ -3,6 +3,13 @@ namespace CrowsNestMqtt.BusinessLogic.Configuration;
 using System.Collections.Generic;
 using CrowsNestMqtt.BusinessLogic.Exporter;
 
+public enum AppTheme
+{
+    System,
+    Light,
+    Dark
+}
+
 public record SettingsData(
     string Hostname,
     int Port,
@@ -23,7 +30,9 @@ public record SettingsData(
     string SubscriptionTopic = "#",
     string? WebSocketProxyAddress = null,
     string? WebSocketProxyUsername = null,
-    string? WebSocketProxyPassword = null)
+    string? WebSocketProxyPassword = null,
+    bool ShowConnectionDialogOnLaunch = true,
+    AppTheme Theme = AppTheme.System)
 {
     public IList<TopicBufferLimit> TopicSpecificBufferLimits { get; init; } = new List<TopicBufferLimit>();
     /// <summary>

@@ -424,6 +424,34 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     /// </summary>
     public bool HasConnectionError => !string.IsNullOrEmpty(ConnectionStatusMessage) && IsDisconnected;
 
+    /// <summary>
+    /// Broker connection details rendered in the status bar while connected:
+    /// hostname, port, TLS usage, transport and authentication mode.
+    /// Empty when not connected.
+    /// </summary>
+    public string ConnectionInfoText
+    {
+        get
+        {
+            if (!IsConnected)
+            {
+                return string.Empty;
+            }
+
+            var authMode = Settings.SelectedAuthMode switch
+            {
+                SettingsViewModel.AuthModeSelection.Anonymous => "Anonymous",
+                SettingsViewModel.AuthModeSelection.UsernamePassword => "User/Password",
+                SettingsViewModel.AuthModeSelection.Enhanced => "Enhanced",
+                SettingsViewModel.AuthModeSelection.Azure => "Azure",
+                _ => Settings.SelectedAuthMode.ToString()
+            };
+
+            return $"{Settings.Hostname}:{Settings.Port} | TLS: {(Settings.UseTls ? "on" : "off")}"
+                + $" | Transport: {Settings.SelectedTransport} | Auth: {authMode}";
+        }
+    }
+
     private bool _isPaused;
     public bool IsPaused
     {
@@ -706,7 +734,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     }
 
     // --- Commands ---
-    public ReactiveCommand<Unit, Unit> ConnectCommand { get; }
+    public ReactiveCommand<Unit, bool> ConnectCommand { get; }
     public ReactiveCommand<Unit, Unit> DisconnectCommand { get; }
     public ReactiveCommand<Unit, Unit> ClearHistoryCommand { get; }
     public ReactiveCommand<Unit, Unit> PauseResumeCommand { get; }
@@ -725,6 +753,10 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     public Interaction<string, Unit> CopyTextToClipboardInteraction { get; }
     // Interaction for requesting image copy from the View
     public Interaction<Bitmap, Unit> CopyImageToClipboardInteraction { get; }
+    // Interaction for showing the settings dialog from the View
+    public Interaction<Unit, Unit> ShowSettingsInteraction { get; }
+    // Interaction for showing the connection dialog from the View (returns true if user wants to connect)
+    public Interaction<Unit, bool> ShowConnectionDialogInteraction { get; }
 
     /// <summary>
     /// Event raised when the publish window should be shown or focused.
@@ -808,10 +840,24 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 args.Cleaned,
                 string.Join("; ", args.Notes));
         };
+        Settings.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName is nameof(SettingsViewModel.Hostname)
+                or nameof(SettingsViewModel.Port)
+                or nameof(SettingsViewModel.UseTls)
+                or nameof(SettingsViewModel.SelectedTransport)
+                or nameof(SettingsViewModel.SelectedAuthMode))
+            {
+                this.RaisePropertyChanged(nameof(ConnectionInfoText));
+            }
+        };
+
         _environmentOverrides = environmentOverrides;
         JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
         CopyTextToClipboardInteraction = new Interaction<string, Unit>(); // Initialize the interaction
         CopyImageToClipboardInteraction = new Interaction<Bitmap, Unit>(); // Initialize the image interaction
+        ShowSettingsInteraction = new Interaction<Unit, Unit>(); // Initialize the settings dialog interaction
+        ShowConnectionDialogInteraction = new Interaction<Unit, bool>(); // Initialize the connection dialog interaction
 
         // Initialize the RawPayloadDocument on the Avalonia UI thread (TextDocument has thread affinity)
         // In test mode, create directly to avoid touching Dispatcher
@@ -1116,8 +1162,11 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         // --- Command Implementations ---
         // --- Command Implementations ---
         // Define CanExecute conditions for commands based on connection status
+        // Connecting is allowed while already connected: the engine disconnects the
+        // existing session first so changed settings are actually applied.
         var canConnect = this.WhenAnyValue(x => x.ConnectionStatus)
-                             .Select(status => status == ConnectionStatusState.Disconnected);
+                             .Select(status => status == ConnectionStatusState.Disconnected
+                                            || status == ConnectionStatusState.Connected);
 
         var canDisconnect = this.WhenAnyValue(x => x.ConnectionStatus)
                                 .Select(status => status == ConnectionStatusState.Connected || status == ConnectionStatusState.Connecting);
@@ -1321,6 +1370,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             this.RaisePropertyChanged(nameof(IsDisconnected));
             this.RaisePropertyChanged(nameof(IsDeleteButtonEnabled));
             this.RaisePropertyChanged(nameof(HasConnectionError));
+            this.RaisePropertyChanged(nameof(ConnectionInfoText));
 
             // Sync connection state to publish window if open
             if (_publishViewModel != null)
@@ -2517,10 +2567,55 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
     // --- Command Methods ---
 
-    private async Task ConnectAsync()
+    private async Task<bool> ConnectAsync()
     {
         Log.Information("Connect command executed.");
 
+        // Show connection dialog and wait for user confirmation
+        try
+        {
+            var shouldConnect = await ShowConnectionDialogInteraction.Handle(Unit.Default);
+            if (!shouldConnect)
+            {
+                Log.Information("Connection cancelled by user.");
+                return false;
+            }
+        }
+        catch (UnhandledInteractionException<Unit, bool>)
+        {
+            // No handler registered (e.g. in tests), proceed without dialog
+            Log.Debug("No connection dialog handler registered, proceeding directly.");
+        }
+
+        await ExecuteConnectAsync().ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>
+    /// Whether the application should connect automatically at launch without
+    /// user interaction (currently true when running under .NET Aspire, where the
+    /// broker endpoint is supplied via environment variables).
+    /// </summary>
+    public bool AutoConnectOnLaunch => _environmentOverrides?.IsAspireEnvironment == true;
+
+    /// <summary>
+    /// Performs the launch-time connection, honoring
+    /// <see cref="SettingsViewModel.ShowConnectionDialogOnLaunch"/>: when the dialog is
+    /// suppressed the connection is established directly with the configured settings.
+    /// </summary>
+    public Task ConnectOnLaunchAsync()
+    {
+        return Settings.ShowConnectionDialogOnLaunch
+            ? ConnectAsync()
+            : ExecuteConnectAsync();
+    }
+
+    /// <summary>
+    /// Executes the actual MQTT connection without showing the connection dialog.
+    /// Used by ConnectAsync (after dialog confirmation) and by startup auto-connect.
+    /// </summary>
+    internal async Task ExecuteConnectAsync()
+    {
         // Clear any previous error message before starting new connection
         ConnectionStatusMessage = null;
         this.RaisePropertyChanged(nameof(HasConnectionError));
@@ -2609,7 +2704,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             WebSocketProxyUsername = Settings.WebSocketProxyUsername,
             WebSocketProxyPassword = Settings.WebSocketProxyPassword
         };
-        
+
         _mqttService.UpdateSettings(connectionSettings);
 
         // Also update the UI-side message store limits to match
@@ -2630,7 +2725,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         {
             Log.Warning(ex, "Failed to update TopicMessageStore limits.");
         }
-        
+
         // The MqttEngine now manages its own cancellation token.
         // We just need to call the method.
         await _mqttService.ConnectAsync().ConfigureAwait(false);
@@ -2921,7 +3016,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
     private void OpenSettings()
     {
-        IsSettingsVisible = !IsSettingsVisible; // Toggle the visibility
+        IsSettingsVisible = !IsSettingsVisible;
         Log.Information("Settings Visible: {IsSettingsVisible}", IsSettingsVisible);
     }
 
@@ -3651,7 +3746,17 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
             StatusBarText = $"Attempting to connect to {Settings.Hostname}:{Settings.Port}...";
             ConnectCommand.Execute().Subscribe(
-                _ => StatusBarText = $"Successfully initiated connection to {Settings.Hostname}:{Settings.Port}.",
+                connectionAttempted =>
+                {
+                    if (connectionAttempted)
+                    {
+                        StatusBarText = $"Successfully initiated connection to {Settings.Hostname}:{Settings.Port}.";
+                    }
+                    else
+                    {
+                        StatusBarText = "Connection cancelled.";
+                    }
+                },
                 ex =>
                 {
                     StatusBarText = $"Error initiating connection: {ex.Message}";
@@ -3687,7 +3792,17 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
                 StatusBarText = $"Attempting WebSocket connection to {Settings.Hostname}:{Settings.Port}...";
                 ConnectCommand.Execute().Subscribe(
-                    _ => StatusBarText = $"Successfully initiated WebSocket connection to {Settings.Hostname}:{Settings.Port}.",
+                    connectionAttempted =>
+                    {
+                        if (connectionAttempted)
+                        {
+                            StatusBarText = $"Successfully initiated WebSocket connection to {Settings.Hostname}:{Settings.Port}.";
+                        }
+                        else
+                        {
+                            StatusBarText = "Connection cancelled.";
+                        }
+                    },
                     ex =>
                     {
                         StatusBarText = $"Error initiating connection: {ex.Message}";
@@ -3728,7 +3843,17 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
             StatusBarText = $"Attempting to connect to {host}:{port}...";
             ConnectCommand.Execute().Subscribe(
-                _ => StatusBarText = $"Successfully initiated connection to {host}:{port}.",
+                connectionAttempted =>
+                {
+                    if (connectionAttempted)
+                    {
+                        StatusBarText = $"Successfully initiated connection to {host}:{port}.";
+                    }
+                    else
+                    {
+                        StatusBarText = "Connection cancelled.";
+                    }
+                },
                 ex =>
                 {
                     StatusBarText = $"Error initiating connection: {ex.Message}";

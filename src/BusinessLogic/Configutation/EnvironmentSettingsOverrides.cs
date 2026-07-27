@@ -37,6 +37,7 @@ public sealed record EnvironmentSettingsOverrides
     public string? WebSocketProxyAddress { get; init; }
     public string? WebSocketProxyUsername { get; init; }
     public string? WebSocketProxyPassword { get; init; }
+    public bool? ShowConnectionDialogOnLaunch { get; init; }
 
     /// <summary>
     /// Whether any environment variable overrides were detected.
@@ -98,6 +99,7 @@ public sealed record EnvironmentSettingsOverrides
         var webSocketProxyAddress = ReadString("WEBSOCKET_PROXY_ADDRESS");
         var webSocketProxyUsername = ReadString("WEBSOCKET_PROXY_USERNAME");
         var webSocketProxyPassword = ReadString("WEBSOCKET_PROXY_PASSWORD");
+        var showConnectionDialogOnLaunch = ReadBool("SHOW_CONNECTION_DIALOG_ON_LAUNCH");
 
         // Explicit CROWSNEST__ hostname/port override Aspire-derived values
         if (envHostname != null) hostname = envHostname;
@@ -119,7 +121,8 @@ public sealed record EnvironmentSettingsOverrides
             || topicLimits != null || authMode != null
             || transport.HasValue || webSocketPath != null
             || webSocketProxyAddress != null || webSocketProxyUsername != null
-            || webSocketProxyPassword != null;
+            || webSocketProxyPassword != null
+            || showConnectionDialogOnLaunch.HasValue;
 
         if (hasAny)
         {
@@ -149,6 +152,7 @@ public sealed record EnvironmentSettingsOverrides
             WebSocketProxyAddress = webSocketProxyAddress,
             WebSocketProxyUsername = webSocketProxyUsername,
             WebSocketProxyPassword = webSocketProxyPassword,
+            ShowConnectionDialogOnLaunch = showConnectionDialogOnLaunch,
             HasOverrides = hasAny,
             IsAspireEnvironment = isAspire
         };

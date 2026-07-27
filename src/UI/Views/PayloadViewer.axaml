@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:CrowsNestMqtt.UI.ViewModels"
+             xmlns:b="using:CrowsNestMqtt.UI.Behaviors"
+             xmlns:ae="using:AvaloniaEdit"
+             xmlns:vw="using:CrowsNestMqtt.UI.Views"
+             xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
+             mc:Ignorable="d"
+             x:Class="CrowsNestMqtt.UI.Views.PayloadViewer"
+             x:DataType="vm:MainViewModel"
+             x:CompileBindings="False">
+    <!-- All viewers are kept alive and toggled via IsVisible to avoid
+         destroying/recreating the visual tree on every message selection. -->
+    <Panel VerticalAlignment="Stretch">
+        <!-- JSON Viewer -->
+        <TreeView IsVisible="{Binding IsJsonViewerVisible}" ItemsSource="{Binding JsonViewer.RootNodes}" MinWidth="200">
+            <TreeView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+            </TreeView.ItemsPanel>
+            <TreeView.Styles>
+                <Style Selector="TreeViewItem">
+                    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                </Style>
+            </TreeView.Styles>
+            <TreeView.ItemTemplate>
+                <TreeDataTemplate DataType="{x:Type vm:JsonNodeViewModel}" ItemsSource="{Binding Children}">
+                    <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Stretch">
+                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="Bold" Margin="0,0,4,0"/>
+                        <TextBlock Grid.Column="1" Text="{Binding ValueDisplay}" b:DynamicForegroundResource.Key="{Binding ValueBrushResourceKey}" HorizontalAlignment="Left"/>
+                    </Grid>
+                </TreeDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+
+        <!-- Raw Text Viewer -->
+        <ae:TextEditor IsVisible="{Binding IsRawTextViewerVisible}"
+                       Name="RawPayloadEditor"
+                       FontFamily="Consolas,Menlo,Monospace"
+                       FontSize="12"
+                       IsReadOnly="True"
+                       ShowLineNumbers="True"
+                       SyntaxHighlighting="{Binding PayloadSyntaxHighlighting}"
+                       Document="{Binding RawPayloadDocument, Mode=OneWay}"
+                       Padding="4"
+                       Loaded="RawPayloadEditor_Loaded"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       LineNumbersForeground="{DynamicResource TextFillColorSecondaryBrush}"/>
+
+        <!-- Image Viewer -->
+        <Image IsVisible="{Binding IsImageViewerVisible}" Source="{Binding ImagePayload}" Stretch="Uniform" Margin="5" />
+
+        <!-- Video Viewer -->
+        <vlc:VideoView IsVisible="{Binding IsVideoViewerVisible}"
+                       Name="VlcVideoView"
+                       MediaPlayer="{Binding VlcMediaPlayer}"
+                       HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch"
+                       Margin="4"/>
+
+        <!-- Hex Viewer -->
+        <vw:HexViewer IsVisible="{Binding IsHexViewerVisible}"
+                      Bytes="{Binding HexPayloadBytes, Mode=OneWay}"
+                      Margin="4"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"/>
+
+        <!-- JSON parse error overlay -->
+        <TextBlock Text="{Binding JsonViewer.JsonParseError}" Foreground="{DynamicResource SystemFillColorCritical}" Margin="8"
+                   IsVisible="{Binding ShowJsonParseError}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+    </Panel>
+</UserControl>

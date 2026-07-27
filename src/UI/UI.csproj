@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>CrowsNestMqtt.UI</RootNamespace>
     <AssemblyName>CrowsNestMqtt.UI</AssemblyName>
@@ -15,14 +15,17 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.AvaloniaEdit" />
+    <PackageReference Include="Avalonia.Markup.Xaml.Loader" PrivateAssets="All" />
+    <PackageReference Include="AvaloniaEdit.TextMate" />
+    <PackageReference Include="FluentAvaloniaUI" />
+    <PackageReference Include="HotAvalonia" PrivateAssets="All" Publish="True" />
     <PackageReference Include="ReactiveUI.Avalonia" />
     <PackageReference Include="Avalonia.Xaml.Behaviors" />
     <PackageReference Include="Avalonia.Xaml.Interactivity" />
     <PackageReference Include="Avalonia.Controls.DataGrid" />
     <PackageReference Include="FuzzySharp" />
     <PackageReference Include="LibVLCSharp.Avalonia" />
-    <PackageReference Include="ReactiveUI.Fody" />
-    <PackageReference Include="Avalonia.Themes.Fluent" /> 
+    <PackageReference Include="ReactiveUI.Fody" /> 
     <PackageReference Include="SharpHook" />
     <PackageReference Include="SharpHook.Reactive" /> 
     <PackageReference Include="Serilog" /> 
@@ -35,5 +38,9 @@
    <ProjectReference Include="../BusinessLogic/BusinessLogic.csproj" />
    <ProjectReference Include="../Utils/Utils.csproj" />
  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Converters\" />
+  </ItemGroup>
 
 </Project>

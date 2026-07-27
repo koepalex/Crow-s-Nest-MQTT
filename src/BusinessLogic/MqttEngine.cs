@@ -61,6 +61,8 @@ private MqttClientOptions? _currentOptions;
     private Timer? _tokenRefreshTimer;
     // Lead time before token expiry at which the refresh fires.
     internal static readonly TimeSpan TokenRefreshLeadTime = TimeSpan.FromMinutes(5);
+    // Upper bound for waiting on an existing session to close before re-connecting.
+    internal static readonly TimeSpan DisconnectBeforeConnectTimeout = TimeSpan.FromSeconds(5);
 
     // Track subscription error to preserve error message during disconnect
     private string? _pendingErrorMessage;
@@ -352,8 +354,25 @@ public async Task ConnectAsync(CancellationToken cancellationToken = default)
 {
     if (_client.IsConnected)
     {
-        LogMessage?.Invoke(this, "Already connected.");
-        return;
+        // A connect request while a session is active means the user wants to re-connect,
+        // typically after changing settings in the connection dialog. The underlying client
+        // silently ignores ConnectAsync while connected, so tear the session down first.
+        LogMessage?.Invoke(this, "Already connected. Disconnecting before reconnecting with the current settings.");
+
+        try
+        {
+            await DisconnectAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LogMessage?.Invoke(this, $"Error while disconnecting before reconnect: {ex.Message}");
+        }
+
+        await WaitForClientDisconnectedAsync(cancellationToken).ConfigureAwait(false);
     }
 
     // Cancel any previous attempts before starting a new one.
@@ -435,6 +454,26 @@ public async Task ConnectAsync(CancellationToken cancellationToken = default)
         // For any other exception, the OnClientDisconnected handler will be triggered by the library,
         // where it will log the error and set the state.
         LogMessage?.Invoke(this, $"Connection attempt failed: {ex.Message}");
+    }
+}
+
+/// <summary>
+/// Waits (bounded by <see cref="DisconnectBeforeConnectTimeout"/>) until the underlying
+/// client reports that it is no longer connected, so a subsequent connect attempt isn't
+/// swallowed by the still-active session.
+/// </summary>
+private async Task WaitForClientDisconnectedAsync(CancellationToken cancellationToken)
+{
+    var deadline = DateTimeOffset.UtcNow + DisconnectBeforeConnectTimeout;
+
+    while (_client.IsConnected && DateTimeOffset.UtcNow < deadline)
+    {
+        await Task.Delay(25, cancellationToken).ConfigureAwait(false);
+    }
+
+    if (_client.IsConnected)
+    {
+        LogMessage?.Invoke(this, "Client still reports a connection after the disconnect request; continuing with the connect attempt anyway.");
     }
 }
 

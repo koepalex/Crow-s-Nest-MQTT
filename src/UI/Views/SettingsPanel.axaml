@@ -1,0 +1,111 @@
+<UserControl
+    x:Class="CrowsNestMqtt.UI.Views.SettingsPanel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:behaviors="using:CrowsNestMqtt.UI.Behaviors"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:vm="using:CrowsNestMqtt.UI.ViewModels"
+    x:CompileBindings="False"
+    x:DataType="vm:MainViewModel"
+    mc:Ignorable="d">
+    <StackPanel Margin="8" Spacing="4">
+
+        <!--  Export Format  -->
+        <ui:FASettingsExpander Description="Format used when exporting messages" Header="Export Format">
+            <ui:FASettingsExpander.Footer>
+                <ComboBox
+                    MinWidth="220"
+                    ItemsSource="{Binding Settings.AvailableExportTypes}"
+                    SelectedItem="{Binding Settings.ExportFormat, Mode=TwoWay}" />
+            </ui:FASettingsExpander.Footer>
+        </ui:FASettingsExpander>
+
+        <!--  Export Path  -->
+        <ui:FASettingsExpander Description="File path for exported messages" Header="Export Path">
+            <ui:FASettingsExpander.Footer>
+                <TextBox MinWidth="300" Text="{Binding Settings.ExportPath, Mode=TwoWay}" />
+            </ui:FASettingsExpander.Footer>
+        </ui:FASettingsExpander>
+
+        <!--  Subscription QoS  -->
+        <ui:FASettingsExpander Description="Higher QoS preserves message delivery guarantees but reduces throughput" Header="Subscription QoS">
+            <ui:FASettingsExpander.Footer>
+                <ComboBox MinWidth="220" SelectedIndex="{Binding Settings.SubscriptionQoS, Mode=TwoWay}">
+                    <ComboBoxItem Content="0 - At Most Once" />
+                    <ComboBoxItem Content="1 - At Least Once (Default)" />
+                    <ComboBoxItem Content="2 - Exactly Once" />
+                </ComboBox>
+            </ui:FASettingsExpander.Footer>
+        </ui:FASettingsExpander>
+
+        <!--  Subscription Topic  -->
+        <ui:FASettingsExpander Description="Wildcard '#' works for open brokers (EMQX/Mosquitto). Azure Event Grid requires a filter that matches your Topic Space template (e.g. 'sensors/#' or 'devices/+/telemetry')." Header="Subscription Topic">
+            <ui:FASettingsExpander.Footer>
+                <TextBox MinWidth="220" PlaceholderText="#" Text="{Binding Settings.SubscriptionTopic, Mode=TwoWay}" />
+            </ui:FASettingsExpander.Footer>
+        </ui:FASettingsExpander>
+
+        <!--  Show Connection Dialog on Launch  -->
+        <ui:FASettingsExpander Description="Show the connection dialog when the application starts" Header="Show Connection Dialog on Launch">
+            <ui:FASettingsExpander.Footer>
+                <ToggleSwitch IsChecked="{Binding Settings.ShowConnectionDialogOnLaunch, Mode=TwoWay}" />
+            </ui:FASettingsExpander.Footer>
+        </ui:FASettingsExpander>
+
+        <!--  Application Theme  -->
+        <ui:FASettingsExpander Description="Choose the application color theme" Header="Application Theme">
+            <ui:FASettingsExpander.Footer>
+                <ComboBox
+                    MinWidth="220"
+                    ItemsSource="{Binding Settings.AvailableThemes}"
+                    SelectedItem="{Binding Settings.Theme, Mode=TwoWay}" />
+            </ui:FASettingsExpander.Footer>
+        </ui:FASettingsExpander>
+
+        <!--  Topic Buffer Limits  -->
+        <ui:FASettingsExpander
+            Description="Configure per-topic memory limits"
+            Header="Topic Buffer Limits"
+            IsExpanded="True">
+            <ui:FASettingsExpander.Footer>
+                <Button Command="{Binding Settings.AddTopicLimitCommand}" Content="Add New Limit" />
+            </ui:FASettingsExpander.Footer>
+            <ui:FASettingsExpander.Items>
+                <ItemsControl ItemsSource="{Binding Settings.TopicSpecificLimits}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:TopicBufferLimitViewModel}">
+                            <Grid
+                                Margin="4"
+                                ColumnDefinitions="*,Auto,Auto"
+                                ColumnSpacing="4">
+                                <TextBox
+                                    Grid.Column="0"
+                                    MinWidth="160"
+                                    PlaceholderText="Topic Filter (e.g., # or /some/topic)"
+                                    Text="{Binding TopicFilter, Mode=TwoWay}" />
+                                <TextBox
+                                    Grid.Column="1"
+                                    MinWidth="100"
+                                    PlaceholderText="Bytes"
+                                    behaviors:DigitOnlyInput.Enable="True"
+                                    Text="{Binding MaxSizeBytes, Mode=TwoWay}" />
+                                <Button
+                                    Grid.Column="2"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Command="{Binding $parent[ItemsControl].DataContext.Settings.RemoveTopicLimitCommand}"
+                                    CommandParameter="{Binding}"
+                                    IsEnabled="{Binding CanBeRemoved}">
+                                    <ui:FASymbolIcon Symbol="Delete" />
+                                </Button>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ui:FASettingsExpander.Items>
+        </ui:FASettingsExpander>
+
+    </StackPanel>
+</UserControl>

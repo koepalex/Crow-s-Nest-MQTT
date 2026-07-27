@@ -34,6 +34,7 @@ using System.Linq; // For .Select
 [JsonSerializable(typeof(IList<TopicBufferLimit>))]
 [JsonSerializable(typeof(List<TopicBufferLimit>))] // For deserialization of SettingsData's property
 [JsonSerializable(typeof(CrowsNestMqtt.UI.ViewModels.SettingsViewModel.AuthModeSelection))] // Added for enum
+[JsonSerializable(typeof(CrowsNestMqtt.BusinessLogic.Configuration.AppTheme))]
 public partial class SettingsViewModelJsonContext : JsonSerializerContext
 {
 }
@@ -69,6 +70,9 @@ public class SettingsViewModel : ReactiveObject
     public ObservableCollection<TopicBufferLimitViewModel> TopicSpecificLimits { get; } = new();
     private readonly ReadOnlyObservableCollection<AuthModeSelection> _availableAuthenticationModes;
     public ReadOnlyObservableCollection<AuthModeSelection> AvailableAuthenticationModes => _availableAuthenticationModes;
+
+    private readonly ReadOnlyObservableCollection<AppTheme> _availableThemes;
+    public ReadOnlyObservableCollection<AppTheme> AvailableThemes => _availableThemes;
 
     public ReactiveCommand<Unit, Unit> AddTopicLimitCommand { get; }
     public ReactiveCommand<TopicBufferLimitViewModel, Unit> RemoveTopicLimitCommand { get; }
@@ -145,7 +149,24 @@ public class SettingsViewModel : ReactiveObject
         set => this.RaiseAndSetIfChanged(ref _subscriptionQoS, Math.Clamp(value, 0, 2));
     }
 
-    private string _subscriptionTopic = "#";
+private bool _showConnectionDialogOnLaunch = true;
+/// <summary>
+/// Whether to show the connection dialog when the application starts. Default: true.
+/// </summary>
+public bool ShowConnectionDialogOnLaunch
+{
+    get => _showConnectionDialogOnLaunch;
+    set => this.RaiseAndSetIfChanged(ref _showConnectionDialogOnLaunch, value);
+}
+
+private AppTheme _theme = AppTheme.System;
+public AppTheme Theme
+{
+    get => _theme;
+    set => this.RaiseAndSetIfChanged(ref _theme, value);
+}
+
+private string _subscriptionTopic = "#";
     /// <summary>
     /// MQTT topic filter used for the initial subscription. Defaults to <c>#</c>
     /// (all topics), which works for permissive brokers like EMQX/Mosquitto.
@@ -189,23 +210,24 @@ public class SettingsViewModel : ReactiveObject
         });
 
         // Observable for simple property changes
-        var simplePropertiesChanged = Observable.CombineLatest(
-            this.WhenAnyValue(x => x.Hostname),
-            this.WhenAnyValue(x => x.Port),
-            this.WhenAnyValue(x => x.ClientId),
-            this.WhenAnyValue(x => x.KeepAliveIntervalSeconds),
-            this.WhenAnyValue(x => x.CleanSession),
-            this.WhenAnyValue(x => x.SessionExpiryIntervalSeconds),
-            this.WhenAnyValue(x => x.ExportFormat),
-            this.WhenAnyValue(x => x.ExportPath),
-            this.WhenAnyValue(x => x.SelectedAuthMode),
-            this.WhenAnyValue(x => x.AuthUsername),
-            this.WhenAnyValue(x => x.AuthPassword),
-            this.WhenAnyValue(x => x.AuthenticationMethod),
-            this.WhenAnyValue(x => x.AuthenticationData),
-            this.WhenAnyValue(x => x.UseTls),
-            this.WhenAnyValue(x => x.SubscriptionQoS),
-            (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => Unit.Default);
+        var simplePropertiesChanged = Observable.Merge(
+            this.WhenAnyValue(x => x.Hostname).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.Port).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.ClientId).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.KeepAliveIntervalSeconds).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.CleanSession).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.SessionExpiryIntervalSeconds).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.ExportFormat).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.ExportPath).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.SelectedAuthMode).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.AuthUsername).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.AuthPassword).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.AuthenticationMethod).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.AuthenticationData).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.UseTls).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.SubscriptionQoS).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.ShowConnectionDialogOnLaunch).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.Theme).Select(_ => Unit.Default));
 
         // Observable for transport-related property changes (and Azure scope /
         // subscription topic, kept here because the simplePropertiesChanged
@@ -278,6 +300,8 @@ public class SettingsViewModel : ReactiveObject
                 AuthModeSelection.Enhanced,
                 AuthModeSelection.Azure
             });
+        _availableThemes = new ReadOnlyObservableCollection<AppTheme>(
+            new ObservableCollection<AppTheme>(Enum.GetValues(typeof(AppTheme)).Cast<AppTheme>()));
 
         _availableTransports = new ReadOnlyObservableCollection<TransportProtocol>(
             new ObservableCollection<TransportProtocol>(Enum.GetValues(typeof(TransportProtocol)).Cast<TransportProtocol>()));
@@ -510,7 +534,9 @@ public class SettingsViewModel : ReactiveObject
             SubscriptionTopic: SubscriptionTopic,
             WebSocketProxyAddress: WebSocketProxyAddress,
             WebSocketProxyUsername: WebSocketProxyUsername,
-            WebSocketProxyPassword: WebSocketProxyPassword
+            WebSocketProxyPassword: WebSocketProxyPassword,
+            ShowConnectionDialogOnLaunch: ShowConnectionDialogOnLaunch,
+            Theme: Theme
         )
         {
             TopicSpecificBufferLimits = topicLimits
@@ -543,6 +569,8 @@ public class SettingsViewModel : ReactiveObject
             WebSocketProxyAddress = settingsData.WebSocketProxyAddress;
             WebSocketProxyUsername = settingsData.WebSocketProxyUsername;
             WebSocketProxyPassword = settingsData.WebSocketProxyPassword;
+            ShowConnectionDialogOnLaunch = settingsData.ShowConnectionDialogOnLaunch;
+            Theme = settingsData.Theme;
             TopicSpecificLimits.Clear();
 
             // Ensure we always have the default '#' limit
@@ -639,6 +667,7 @@ public class SettingsViewModel : ReactiveObject
             if (overrides.WebSocketProxyAddress != null) WebSocketProxyAddress = overrides.WebSocketProxyAddress;
             if (overrides.WebSocketProxyUsername != null) WebSocketProxyUsername = overrides.WebSocketProxyUsername;
             if (overrides.WebSocketProxyPassword != null) WebSocketProxyPassword = overrides.WebSocketProxyPassword;
+            if (overrides.ShowConnectionDialogOnLaunch.HasValue) ShowConnectionDialogOnLaunch = overrides.ShowConnectionDialogOnLaunch.Value;
 
             if (overrides.AuthMode != null)
             {

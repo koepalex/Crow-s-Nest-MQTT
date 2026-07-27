@@ -1,0 +1,299 @@
+<UserControl
+    x:Class="CrowsNestMqtt.UI.Views.ConnectionDialog"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:FluentAvalonia.UI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:behaviors="using:CrowsNestMqtt.UI.Behaviors"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:CrowsNestMqtt.UI.ViewModels"
+    x:CompileBindings="False"
+    x:DataType="vm:SettingsViewModel"
+    mc:Ignorable="d">
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+        <Grid.Styles>
+            <Style Selector="TextBlock">
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Margin" Value="0,0,4,0" />
+            </Style>
+            <Style Selector="TextBox, NumericUpDown, CheckBox, ComboBox">
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Margin" Value="0,0,0,4" />
+            </Style>
+        </Grid.Styles>
+
+        <!--  Hostname  -->
+        <TextBlock
+            Grid.Row="0"
+            Grid.Column="0"
+            Text="Hostname:" />
+        <TextBox
+            Grid.Row="0"
+            Grid.Column="1"
+            Text="{Binding Hostname, Mode=TwoWay}" />
+
+        <!--  Port  -->
+        <TextBlock
+            Grid.Row="1"
+            Grid.Column="0"
+            Text="Port:" />
+        <TextBox
+            Grid.Row="1"
+            Grid.Column="1"
+            MaxLength="5"
+            behaviors:DigitOnlyInput.Enable="True"
+            behaviors:DigitOnlyInput.MinValue="1"
+            behaviors:DigitOnlyInput.MaxValue="65535"
+            Text="{Binding Port, Mode=TwoWay}" />
+
+        <!--  Use TLS  -->
+        <TextBlock
+            Grid.Row="2"
+            Grid.Column="0"
+            Text="Use TLS:" />
+        <CheckBox
+            Grid.Row="2"
+            Grid.Column="1"
+            IsChecked="{Binding UseTls, Mode=TwoWay}" />
+
+        <!--  Client ID  -->
+        <TextBlock
+            Grid.Row="3"
+            Grid.Column="0"
+            Text="Client ID:" />
+        <TextBox
+            Grid.Row="3"
+            Grid.Column="1"
+            PlaceholderText="(auto-generated)"
+            Text="{Binding ClientId, Mode=TwoWay}" />
+
+        <!--  Keep Alive  -->
+        <TextBlock
+            Grid.Row="4"
+            Grid.Column="0"
+            Text="Keep Alive (s):" />
+        <TextBox
+            Grid.Row="4"
+            Grid.Column="1"
+            MinWidth="80"
+            behaviors:DigitOnlyInput.Enable="True"
+            Text="{Binding KeepAliveIntervalSeconds, Mode=TwoWay}" />
+
+        <!--  Clean Session  -->
+        <TextBlock
+            Grid.Row="5"
+            Grid.Column="0"
+            Text="Clean Session:" />
+        <CheckBox
+            Grid.Row="5"
+            Grid.Column="1"
+            IsChecked="{Binding CleanSession, Mode=TwoWay}" />
+
+        <!--  Session Expiry  -->
+        <TextBlock
+            Grid.Row="6"
+            Grid.Column="0"
+            Text="Session Expiry (s):" />
+        <Grid
+            Grid.Row="6"
+            Grid.Column="1"
+            VerticalAlignment="Center"
+            ColumnDefinitions="*,Auto">
+            <TextBox
+                Grid.Column="0"
+                behaviors:DigitOnlyInput.Enable="True"
+                behaviors:DigitOnlyInput.AllowEmpty="True"
+                PlaceholderText="(infinite)"
+                Text="{Binding SessionExpiryIntervalSeconds, Mode=TwoWay}" />
+            <controls:FAFontIcon
+                Grid.Column="1"
+                Margin="4,0,0,0"
+                VerticalAlignment="Center"
+                FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                FontSize="20"
+                Glyph="&#xE946;"
+                ToolTip.Tip="(0 = expires immediately, empty = infinite)" />
+        </Grid>
+
+        <!--  Transport Protocol  -->
+        <TextBlock
+            Grid.Row="7"
+            Grid.Column="0"
+            Text="Transport:" />
+        <ComboBox
+            Grid.Row="7"
+            Grid.Column="1"
+            MinWidth="220"
+            ItemsSource="{Binding AvailableTransports}"
+            SelectedItem="{Binding SelectedTransport, Mode=TwoWay}" />
+
+        <!--  WebSocket Path (Conditionally Visible)  -->
+        <TextBlock
+            Grid.Row="8"
+            Grid.Column="0"
+            IsVisible="{Binding IsWebSocketSelected}"
+            Text="WS Path:" />
+        <TextBox
+            Grid.Row="8"
+            Grid.Column="1"
+            IsVisible="{Binding IsWebSocketSelected}"
+            PlaceholderText="/mqtt"
+            Text="{Binding WebSocketPath, Mode=TwoWay}" />
+
+        <!--  WebSocket Proxy (Conditionally Visible)  -->
+        <TextBlock
+            Grid.Row="9"
+            Grid.Column="0"
+            IsVisible="{Binding IsWebSocketSelected}"
+            Text="WS Proxy:" />
+        <TextBox
+            Grid.Row="9"
+            Grid.Column="1"
+            IsVisible="{Binding IsWebSocketSelected}"
+            PlaceholderText="http://proxy:3128"
+            Text="{Binding WebSocketProxyAddress, Mode=TwoWay}" />
+
+        <TextBlock
+            Grid.Row="10"
+            Grid.Column="0"
+            IsVisible="{Binding IsWebSocketSelected}"
+            Text="Proxy User:" />
+        <TextBox
+            Grid.Row="10"
+            Grid.Column="1"
+            IsVisible="{Binding IsWebSocketSelected}"
+            PlaceholderText="(optional)"
+            Text="{Binding WebSocketProxyUsername, Mode=TwoWay}" />
+
+        <TextBlock
+            Grid.Row="11"
+            Grid.Column="0"
+            IsVisible="{Binding IsWebSocketSelected}"
+            Text="Proxy Password:" />
+        <TextBox
+            Grid.Row="11"
+            Grid.Column="1"
+            IsVisible="{Binding IsWebSocketSelected}"
+            PasswordChar="*"
+            PlaceholderText="(optional)"
+            Text="{Binding WebSocketProxyPassword, Mode=TwoWay}" />
+
+        <!--  Authentication Mode  -->
+        <TextBlock
+            Grid.Row="12"
+            Grid.Column="0"
+            Text="Auth Mode:" />
+        <ComboBox
+            Grid.Row="12"
+            Grid.Column="1"
+            MinWidth="220"
+            ItemsSource="{Binding AvailableAuthenticationModes}"
+            SelectedItem="{Binding SelectedAuthMode, Mode=TwoWay}" />
+
+        <!--  Auth Username (Conditionally Visible)  -->
+        <TextBlock
+            Grid.Row="13"
+            Grid.Column="0"
+            IsVisible="{Binding IsUsernamePasswordSelected}"
+            Text="Username:" />
+        <TextBox
+            Grid.Row="13"
+            Grid.Column="1"
+            IsVisible="{Binding IsUsernamePasswordSelected}"
+            PlaceholderText="Enter username"
+            Text="{Binding AuthUsername, Mode=TwoWay}" />
+
+        <!--  Auth Password (Conditionally Visible)  -->
+        <TextBlock
+            Grid.Row="14"
+            Grid.Column="0"
+            IsVisible="{Binding IsUsernamePasswordSelected}"
+            Text="Password:" />
+        <TextBox
+            Grid.Row="14"
+            Grid.Column="1"
+            IsVisible="{Binding IsUsernamePasswordSelected}"
+            PasswordChar="*"
+            PlaceholderText="Enter password"
+            Text="{Binding AuthPassword, Mode=TwoWay}" />
+
+        <!--  Enhanced Authentication Header  -->
+        <TextBlock
+            Grid.Row="15"
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            Margin="0,16,0,8"
+            FontSize="14"
+            FontWeight="Bold"
+            IsVisible="{Binding IsEnhancedAuthSelected}"
+            Text="Enhanced Authentication" />
+
+        <!--  Authentication Method  -->
+        <TextBlock
+            Grid.Row="16"
+            Grid.Column="0"
+            IsVisible="{Binding IsEnhancedAuthSelected}"
+            Text="Auth Method:" />
+        <TextBox
+            Grid.Row="16"
+            Grid.Column="1"
+            IsVisible="{Binding IsEnhancedAuthSelected}"
+            PlaceholderText="e.g., 'K8S-SAT'"
+            Text="{Binding AuthenticationMethod, Mode=TwoWay}" />
+
+        <!--  Authentication Data  -->
+        <TextBlock
+            Grid.Row="17"
+            Grid.Column="0"
+            IsVisible="{Binding IsEnhancedAuthSelected}"
+            Text="Auth Data:" />
+
+        <ScrollViewer
+            Grid.Row="17"
+            Grid.Column="1"
+            MaxWidth="420"
+            MaxHeight="200"
+            HorizontalScrollBarVisibility="Visible"
+            IsVisible="{Binding IsEnhancedAuthSelected}"
+            VerticalScrollBarVisibility="Hidden">
+
+            <TextBox
+                HorizontalAlignment="Stretch"
+                AcceptsReturn="True"
+                IsVisible="{Binding IsEnhancedAuthSelected}"
+                PlaceholderText="e.g., payload of Service Account Token"
+                Text="{Binding AuthenticationData, Mode=TwoWay}"
+                TextWrapping="NoWrap" />
+        </ScrollViewer>
+
+        <!--  Azure Authentication Header  -->
+        <TextBlock
+            Grid.Row="18"
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            Margin="0,16,0,8"
+            FontSize="14"
+            FontWeight="Bold"
+            IsVisible="{Binding IsAzureAuthSelected}"
+            Text="Azure Event Grid Authentication" />
+
+        <!--  Azure OAuth Scope  -->
+        <TextBlock
+            Grid.Row="19"
+            Grid.Column="0"
+            IsVisible="{Binding IsAzureAuthSelected}"
+            Text="OAuth Scope:" />
+        <StackPanel
+            Grid.Row="19"
+            Grid.Column="1"
+            IsVisible="{Binding IsAzureAuthSelected}"
+            Orientation="Vertical"
+            Spacing="2">
+            <TextBox PlaceholderText="https://eventgrid.azure.net/.default" Text="{Binding AuthenticationScope, Mode=TwoWay}" />
+            <TextBlock
+                FontSize="10"
+                Text="Uses DefaultAzureCredential (env vars → managed identity → VS → az CLI → interactive). Token is refreshed automatically before expiry."
+                TextWrapping="Wrap" />
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -112,6 +112,7 @@ namespace CrowsNestMqtt.UnitTests.UI
 
             // Act
             var result1 = viewLocator.Build(viewModel);
+            ClearFluentAvaloniaWindowRegistry(); // headless reuses the same HWND; clear so the second window can register
             var result2 = viewLocator.Build(viewModel);
 
             // Assert
