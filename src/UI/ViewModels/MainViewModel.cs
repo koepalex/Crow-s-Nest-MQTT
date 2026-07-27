@@ -424,6 +424,34 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     /// </summary>
     public bool HasConnectionError => !string.IsNullOrEmpty(ConnectionStatusMessage) && IsDisconnected;
 
+    /// <summary>
+    /// Broker connection details rendered in the status bar while connected:
+    /// hostname, port, TLS usage, transport and authentication mode.
+    /// Empty when not connected.
+    /// </summary>
+    public string ConnectionInfoText
+    {
+        get
+        {
+            if (!IsConnected)
+            {
+                return string.Empty;
+            }
+
+            var authMode = Settings.SelectedAuthMode switch
+            {
+                SettingsViewModel.AuthModeSelection.Anonymous => "Anonymous",
+                SettingsViewModel.AuthModeSelection.UsernamePassword => "User/Password",
+                SettingsViewModel.AuthModeSelection.Enhanced => "Enhanced",
+                SettingsViewModel.AuthModeSelection.Azure => "Azure",
+                _ => Settings.SelectedAuthMode.ToString()
+            };
+
+            return $"{Settings.Hostname}:{Settings.Port} | TLS: {(Settings.UseTls ? "on" : "off")}"
+                + $" | Transport: {Settings.SelectedTransport} | Auth: {authMode}";
+        }
+    }
+
     private bool _isPaused;
     public bool IsPaused
     {
@@ -812,6 +840,18 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 args.Cleaned,
                 string.Join("; ", args.Notes));
         };
+        Settings.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName is nameof(SettingsViewModel.Hostname)
+                or nameof(SettingsViewModel.Port)
+                or nameof(SettingsViewModel.UseTls)
+                or nameof(SettingsViewModel.SelectedTransport)
+                or nameof(SettingsViewModel.SelectedAuthMode))
+            {
+                this.RaisePropertyChanged(nameof(ConnectionInfoText));
+            }
+        };
+
         _environmentOverrides = environmentOverrides;
         JsonViewer = new JsonViewerViewModel(); // Instantiate JSON viewer VM
         CopyTextToClipboardInteraction = new Interaction<string, Unit>(); // Initialize the interaction
@@ -1327,6 +1367,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
             this.RaisePropertyChanged(nameof(IsDisconnected));
             this.RaisePropertyChanged(nameof(IsDeleteButtonEnabled));
             this.RaisePropertyChanged(nameof(HasConnectionError));
+            this.RaisePropertyChanged(nameof(ConnectionInfoText));
 
             // Sync connection state to publish window if open
             if (_publishViewModel != null)

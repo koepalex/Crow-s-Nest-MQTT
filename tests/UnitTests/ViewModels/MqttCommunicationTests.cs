@@ -137,6 +137,39 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         }
 
         [Fact]
+        public void ConnectionInfoText_ShouldBeEmpty_WhenNotConnected()
+        {
+            _mqttServiceMock.GetBufferedTopics().Returns(Array.Empty<string>());
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+
+            var args = new MqttConnectionStateChangedEventArgs(false, null, ConnectionStatusState.Disconnected, "Disconnected");
+            _mqttServiceMock.ConnectionStateChanged += Raise.EventWith(_mqttServiceMock, args);
+
+            Assert.Equal(string.Empty, viewModel.ConnectionInfoText);
+        }
+
+        [Fact]
+        public void ConnectionInfoText_ShouldShowBrokerDetails_WhenConnected()
+        {
+            _mqttServiceMock.GetBufferedTopics().Returns(Array.Empty<string>());
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+            viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword;
+            viewModel.Settings.Hostname = "broker.example.com";
+            viewModel.Settings.Port = 8883;
+            viewModel.Settings.UseTls = true;
+            viewModel.Settings.SelectedTransport = TransportProtocol.WebSocket;
+
+            var args = new MqttConnectionStateChangedEventArgs(true, null, ConnectionStatusState.Connected, "Connected");
+            _mqttServiceMock.ConnectionStateChanged += Raise.EventWith(_mqttServiceMock, args);
+
+            var info = viewModel.ConnectionInfoText;
+            Assert.Contains("broker.example.com:8883", info, StringComparison.Ordinal);
+            Assert.Contains("TLS: on", info, StringComparison.Ordinal);
+            Assert.Contains("Transport: WebSocket", info, StringComparison.Ordinal);
+            Assert.Contains("Auth: User/Password", info, StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void MessageReceived_ShouldHandleMessageAndUpdateTopicTree()
         {
             // Arrange

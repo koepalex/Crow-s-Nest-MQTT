@@ -549,65 +549,73 @@
             Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
             BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
             BorderThickness="0,1,0,0">
-            <StackPanel
-                Orientation="Horizontal"
-                Spacing="8"
-                TextElement.FontSize="12">
-                <TextBlock VerticalAlignment="Center" Text="Status:" />
-                <PathIcon
-                    Width="12"
-                    Height="12"
-                    VerticalAlignment="Center"
-                    Classes.IsConnected="{Binding IsConnected}"
-                    Classes.IsConnecting="{Binding IsConnecting}"
-                    Classes.IsDisconnected="{Binding IsDisconnected}"
-                    ToolTip.Tip="{Binding ConnectionStatus}">
-                    <PathIcon.Styles>
-                        <Style Selector="PathIcon.IsDisconnected">
-                            <Setter Property="Data" Value="{StaticResource plug_disconnected_regular}" />
-                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCritical}" />
-                        </Style>
-                        <Style Selector="PathIcon.IsConnecting">
-                            <Setter Property="Data" Value="{StaticResource plug_disconnected_regular}" />
-                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCaution}" />
-                        </Style>
-                        <Style Selector="PathIcon.IsConnected">
-                            <Setter Property="Data" Value="{StaticResource plug_connected_regular}" />
-                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
-                        </Style>
-                    </PathIcon.Styles>
-                </PathIcon>
-                <TextBlock VerticalAlignment="Center" Text="{Binding IsPaused, StringFormat='Paused: {0}'}" />
+            <DockPanel LastChildFill="True" TextElement.FontSize="12">
                 <TextBlock
+                    Margin="8,0,0,0"
                     VerticalAlignment="Center"
-                    FontStyle="Italic"
-                    Foreground="{DynamicResource SystemFillColorCaution}"
-                    IsVisible="{Binding IsTopicFilterActive}"
-                    Text="(Filtered)" />
-                <TextBlock
-                    VerticalAlignment="Center"
-                    FontStyle="Italic"
-                    Foreground="Gray"
-                    Text="{Binding StatusBarText}" />
-                <TextBlock
-                    VerticalAlignment="Center"
-                    FontStyle="Italic"
-                    Foreground="DodgerBlue"
-                    IsVisible="{Binding SearchStatusViewModel.IsVisible}"
-                    Text="{Binding SearchStatusViewModel.StatusText}" />
-                <TextBlock
-                    VerticalAlignment="Center"
-                    FontStyle="Italic"
-                    Foreground="{DynamicResource SystemFillColorCritical}"
-                    IsVisible="{Binding IsConnecting}"
-                    Text="{Binding ConnectionStatusMessage}" />
-                <TextBlock
-                    VerticalAlignment="Center"
-                    FontWeight="SemiBold"
-                    Foreground="{DynamicResource SystemFillColorCritical}"
-                    IsVisible="{Binding HasConnectionError}"
-                    Text="{Binding ConnectionStatusMessage}" />
-            </StackPanel>
+                    DockPanel.Dock="Right"
+                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                    IsVisible="{Binding IsConnected}"
+                    Text="{Binding ConnectionInfoText}"
+                    TextTrimming="CharacterEllipsis"
+                    ToolTip.Tip="{Binding ConnectionInfoText}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock VerticalAlignment="Center" Text="Status:" />
+                    <PathIcon
+                        Width="12"
+                        Height="12"
+                        VerticalAlignment="Center"
+                        Classes.IsConnected="{Binding IsConnected}"
+                        Classes.IsConnecting="{Binding IsConnecting}"
+                        Classes.IsDisconnected="{Binding IsDisconnected}"
+                        ToolTip.Tip="{Binding ConnectionStatus}">
+                        <PathIcon.Styles>
+                            <Style Selector="PathIcon.IsDisconnected">
+                                <Setter Property="Data" Value="{StaticResource plug_disconnected_regular}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCritical}" />
+                            </Style>
+                            <Style Selector="PathIcon.IsConnecting">
+                                <Setter Property="Data" Value="{StaticResource plug_disconnected_regular}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCaution}" />
+                            </Style>
+                            <Style Selector="PathIcon.IsConnected">
+                                <Setter Property="Data" Value="{StaticResource plug_connected_regular}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
+                            </Style>
+                        </PathIcon.Styles>
+                    </PathIcon>
+                    <TextBlock VerticalAlignment="Center" Text="{Binding IsPaused, StringFormat='Paused: {0}'}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontStyle="Italic"
+                        Foreground="{DynamicResource SystemFillColorCaution}"
+                        IsVisible="{Binding IsTopicFilterActive}"
+                        Text="(Filtered)" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontStyle="Italic"
+                        Foreground="Gray"
+                        Text="{Binding StatusBarText}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontStyle="Italic"
+                        Foreground="DodgerBlue"
+                        IsVisible="{Binding SearchStatusViewModel.IsVisible}"
+                        Text="{Binding SearchStatusViewModel.StatusText}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontStyle="Italic"
+                        Foreground="{DynamicResource SystemFillColorCritical}"
+                        IsVisible="{Binding IsConnecting}"
+                        Text="{Binding ConnectionStatusMessage}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontWeight="SemiBold"
+                        Foreground="{DynamicResource SystemFillColorCritical}"
+                        IsVisible="{Binding HasConnectionError}"
+                        Text="{Binding ConnectionStatusMessage}" />
+                </StackPanel>
+            </DockPanel>
         </Border>
 
         <!--  Settings Modal Overlay  -->
