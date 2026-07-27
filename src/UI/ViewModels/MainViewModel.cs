@@ -2589,6 +2589,25 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     }
 
     /// <summary>
+    /// Whether the application should connect automatically at launch without
+    /// user interaction (currently true when running under .NET Aspire, where the
+    /// broker endpoint is supplied via environment variables).
+    /// </summary>
+    public bool AutoConnectOnLaunch => _environmentOverrides?.IsAspireEnvironment == true;
+
+    /// <summary>
+    /// Performs the launch-time connection, honoring
+    /// <see cref="SettingsViewModel.ShowConnectionDialogOnLaunch"/>: when the dialog is
+    /// suppressed the connection is established directly with the configured settings.
+    /// </summary>
+    public Task ConnectOnLaunchAsync()
+    {
+        return Settings.ShowConnectionDialogOnLaunch
+            ? ConnectAsync()
+            : ExecuteConnectAsync();
+    }
+
+    /// <summary>
     /// Executes the actual MQTT connection without showing the connection dialog.
     /// Used by ConnectAsync (after dialog confirmation) and by startup auto-connect.
     /// </summary>

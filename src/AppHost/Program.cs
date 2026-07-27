@@ -32,64 +32,17 @@ var webSocketProxy = builder.AddContainer("websocket-proxy", "ubuntu/squid", "la
     .WithEndpoint(targetPort: 3128, name: "http", scheme: "http");
 var webSocketProxyEndpoint = webSocketProxy.GetEndpoint("http");
 
-// Shared settings for all CrowsNestMqtt instances
-var sharedEnvVars = (IResourceBuilder<ProjectResource> rb) => rb
-    .WithEnvironment("CROWSNEST__AUTH_MODE", "anonymous")
-    .WithEnvironment("CROWSNEST__CLIENT_ID", "")
-    .WithEnvironment("CROWSNEST__KEEP_ALIVE_SECONDS", "0")
-    .WithEnvironment("CROWSNEST__CLEAN_SESSION", "true")
-    .WithEnvironment("CROWSNEST__SESSION_EXPIRY_SECONDS", "0")
-    .WithEnvironment("CROWSNEST__SUBSCRIPTION_QOS", "1")
-    .WithEnvironment("CROWSNEST__SHOW_CONNECTION_DIALOG_ON_LAUNCH", "false")
-    .WithEnvironment("CROWSNEST__TOPIC_BUFFER_LIMITS", """[{"TopicFilter":"#","MaxSizeBytes":11048576}]""");
-
-// Add CrowsNestMqtt as a project that auto-connects to the MQTT broker via TCP
-var tcpInstance = builder.AddProject<Projects.CrowsNestMqtt_App>("crows-nest-mqtt")
-    .WithReference(mqttEndpoint)
-    .WaitFor(mqttBroker)
-    .WithEnvironment("CROWSNEST__HOSTNAME", mqttEndpoint.Property(EndpointProperty.Host))
-    .WithEnvironment("CROWSNEST__PORT", mqttEndpoint.Property(EndpointProperty.Port))
-    .WithEnvironment("CROWSNEST__USE_TLS", "false");
-sharedEnvVars(tcpInstance);
-
-// Add a second CrowsNestMqtt instance that connects via WebSocket
-var wsInstance = builder.AddProject<Projects.CrowsNestMqtt_App>("crows-nest-mqtt-ws")
-    .WithReference(wsEndpoint)
-    .WaitFor(mqttBroker)
-    .WithEnvironment("CROWSNEST__HOSTNAME", wsEndpoint.Property(EndpointProperty.Host))
-    .WithEnvironment("CROWSNEST__PORT", wsEndpoint.Property(EndpointProperty.Port))
-    .WithEnvironment("CROWSNEST__USE_TLS", "false")
-    .WithEnvironment("CROWSNEST__TRANSPORT", "WebSocket")
-    .WithEnvironment("CROWSNEST__WEBSOCKET_PATH", "/mqtt");
-sharedEnvVars(wsInstance);
-
-// Add a WebSocket instance that reaches the broker through the Squid forward proxy.
-// The broker hostname is its container resource name because Squid resolves the
-// destination inside the Aspire container network.
-var proxiedWsInstance = builder.AddProject<Projects.CrowsNestMqtt_App>("crows-nest-mqtt-ws-proxy")
-    .WithReference(wsEndpoint)
-    .WithReference(webSocketProxyEndpoint)
-    .WaitFor(mqttBroker)
-    .WaitFor(webSocketProxy)
-    .WithEnvironment("CROWSNEST__HOSTNAME", "mqtt")
-    .WithEnvironment("CROWSNEST__PORT", "8083")
-    .WithEnvironment("CROWSNEST__USE_TLS", "false")
-    .WithEnvironment("CROWSNEST__TRANSPORT", "WebSocket")
-    .WithEnvironment("CROWSNEST__WEBSOCKET_PATH", "/mqtt")
-    .WithEnvironment(
-        "CROWSNEST__WEBSOCKET_PROXY_ADDRESS",
-        ReferenceExpression.Create(
-            $"http://{webSocketProxyEndpoint.Property(EndpointProperty.Host)}:{webSocketProxyEndpoint.Property(EndpointProperty.Port)}"));
-sharedEnvVars(proxiedWsInstance);
-
-// Add a third CrowsNestMqtt instance that connects via TLS
-var tlsInstance = builder.AddProject<Projects.CrowsNestMqtt_App>("crows-nest-mqtt-tls")
-    .WithReference(mqttsEndpoint)
-    .WaitFor(mqttBroker)
-    .WithEnvironment("CROWSNEST__HOSTNAME", mqttsEndpoint.Property(EndpointProperty.Host))
-    .WithEnvironment("CROWSNEST__PORT", mqttsEndpoint.Property(EndpointProperty.Port))
-    .WithEnvironment("CROWSNEST__USE_TLS", "true");
-sharedEnvVars(tlsInstance);
+// Build configuration the AppHost itself was compiled with, so that
+// 'dotnet run --configuration Release' picks up Release outputs. Aspire's
+// Environment.EnvironmentName is "Development" by default and doesn't reflect
+// the actual build config, so infer it from where the AppHost assembly was
+// loaded from.
+var buildConfiguration =
+    Path.GetFileName(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar))
+        is "Release" or "release" ? "Release"
+        : Path.GetFileName(Path.GetDirectoryName(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar))!)
+            is "Release" or "release" ? "Release"
+        : "Debug";
 
 // -------------------------------------------------------------------------
 // Azure Event Grid emulation (local testing only, no real Azure resources).
@@ -103,15 +56,7 @@ const int mockEgPort = 51883; // Fixed so the client can reference it via env va
 var mockBrokerDllPath = Path.GetFullPath(Path.Combine(
     builder.AppHostDirectory,
     "..", "..", "tools", "MockAzureEventGridBroker", "bin",
-    // Match the AppHost's own build configuration so 'dotnet run --configuration
-    // Release' picks up the Release DLL. Aspire's Environment.EnvironmentName is
-    // "Development" by default and doesn't reflect the actual build config, so
-    // infer it from where the AppHost assembly itself was loaded from.
-    Path.GetFileName(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar))
-        is "Release" or "release" ? "Release"
-        : Path.GetFileName(Path.GetDirectoryName(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar))!)
-            is "Release" or "release" ? "Release"
-        : "Debug",
+    buildConfiguration,
     "net10.0",
     "CrowsNestMqtt.MockAzureEventGridBroker.dll"));
 var mockBrokerWorkingDir = Path.GetDirectoryName(mockBrokerDllPath)!;
@@ -132,26 +77,54 @@ var mockEgEndpoint = mockEgBroker.GetEndpoint("mqtts");
 
 var devJwt = CreateDevJwt();
 
-var azureInstance = builder.AddProject<Projects.CrowsNestMqtt_App>("crows-nest-mqtt-azure")
-    .WithReference(mockEgEndpoint)
-    .WaitFor(mockEgBroker)
-    .WithEnvironment("CROWSNEST__HOSTNAME", mockEgEndpoint.Property(EndpointProperty.Host))
-    .WithEnvironment("CROWSNEST__PORT", mockEgEndpoint.Property(EndpointProperty.Port))
-    .WithEnvironment("CROWSNEST__USE_TLS", "true")
-    .WithEnvironment("CROWSNEST__AUTH_MODE", "azure")
-    .WithEnvironment("CROWSNEST__AUTH_SCOPE", "https://eventgrid.azure.net/.default")
-    .WithEnvironment("CROWSNEST__AZURE_TOKEN_OVERRIDE", devJwt);
-// Note: sharedEnvVars(azureInstance) intentionally NOT invoked — it would
-// overwrite CROWSNEST__AUTH_MODE=azure with "anonymous". We still want the
-// buffer/session defaults, so we set them individually here:
-azureInstance
-    .WithEnvironment("CROWSNEST__CLIENT_ID", "")
-    .WithEnvironment("CROWSNEST__KEEP_ALIVE_SECONDS", "0")
-    .WithEnvironment("CROWSNEST__CLEAN_SESSION", "true")
-    .WithEnvironment("CROWSNEST__SESSION_EXPIRY_SECONDS", "0")
-    .WithEnvironment("CROWSNEST__SUBSCRIPTION_QOS", "1")
-    .WithEnvironment("CROWSNEST__SHOW_CONNECTION_DIALOG_ON_LAUNCH", "false")
-    .WithEnvironment("CROWSNEST__TOPIC_BUFFER_LIMITS", """[{"TopicFilter":"#","MaxSizeBytes":11048576}]""");
+// -------------------------------------------------------------------------
+// Client launch strategy: project resource vs. plain executable.
+// -------------------------------------------------------------------------
+// Visual Studio starts Aspire *project* resources through its own IDE
+// "run session" protocol instead of launching them itself. That protocol
+// currently fails for non-web (WinExe/Avalonia) projects, and it also cannot
+// start the same project more than once - this AppHost starts
+// CrowsNestMqtt.App five times. The symptom in the dashboard is:
+//   [sys] run session could not be started: IDE returned a response indicating failure
+// See https://github.com/microsoft/aspire/issues/13852 and
+//     https://github.com/microsoft/aspire/issues/11837.
+// Starting the already-built client executable directly bypasses the IDE
+// protocol and behaves exactly like the (working) `dotnet run` CLI flow. Use
+// Debug > Attach to Process to debug a client instance in that mode.
+// Force a mode with CROWSNEST_ASPIRE_CLIENT_LAUNCH=project|executable.
+var clientExecutablePath = Path.GetFullPath(Path.Combine(
+    builder.AppHostDirectory,
+    "..", "MainApp", "bin", buildConfiguration, "net10.0",
+    OperatingSystem.IsWindows() ? "CrowsNestMqtt.App.exe" : "CrowsNestMqtt.App"));
+
+var launchModeOverride = Environment.GetEnvironmentVariable("CROWSNEST_ASPIRE_CLIENT_LAUNCH");
+var launchClientsAsExecutable = launchModeOverride switch
+{
+    not null when launchModeOverride.Equals("executable", StringComparison.OrdinalIgnoreCase) => true,
+    not null when launchModeOverride.Equals("project", StringComparison.OrdinalIgnoreCase) => false,
+    // Visual Studio sets VSAPPIDNAME/VSAPPIDDIR for processes it launches.
+    _ => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("VSAPPIDNAME"))
+         || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("VSAPPIDDIR"))
+};
+
+if (launchClientsAsExecutable && !File.Exists(clientExecutablePath))
+{
+    Console.WriteLine(
+        $"[apphost] Client executable not found at '{clientExecutablePath}'; falling back to project resources.");
+    launchClientsAsExecutable = false;
+}
+
+if (launchClientsAsExecutable)
+{
+    AddClientInstances(name => builder.AddExecutable(
+        name,
+        clientExecutablePath,
+        Path.GetDirectoryName(clientExecutablePath)!));
+}
+else
+{
+    AddClientInstances(name => builder.AddProject<Projects.CrowsNestMqtt_App>(name));
+}
 
 // Add delayed test data sender that publishes sample data after broker is ready
 var toolsDir = Path.GetFullPath(Path.Combine(builder.AppHostDirectory, "..", "..", "tools"));
@@ -163,6 +136,90 @@ builder.AddExecutable("test-data-sender", "pwsh", toolsDir, "-File", "SendTestDa
     .WithEnvironment("MQTT_USE_TLS", "false");
 
 builder.Build().Run();
+
+// Creates every CrowsNestMqtt client instance using the supplied factory, which
+// produces either a project resource or an executable resource depending on the
+// selected launch strategy. Both resource kinds support environment variables,
+// endpoint references and wait dependencies, so the configuration is identical.
+void AddClientInstances<T>(Func<string, IResourceBuilder<T>> addClient)
+    where T : IResource, IResourceWithEnvironment, IResourceWithWaitSupport
+{
+    // Shared settings for all anonymous CrowsNestMqtt instances
+    static IResourceBuilder<TResource> WithSharedEnvironment<TResource>(IResourceBuilder<TResource> rb)
+        where TResource : IResource, IResourceWithEnvironment => rb
+        .WithEnvironment("CROWSNEST__AUTH_MODE", "anonymous")
+        .WithEnvironment("CROWSNEST__CLIENT_ID", "")
+        .WithEnvironment("CROWSNEST__KEEP_ALIVE_SECONDS", "0")
+        .WithEnvironment("CROWSNEST__CLEAN_SESSION", "true")
+        .WithEnvironment("CROWSNEST__SESSION_EXPIRY_SECONDS", "0")
+        .WithEnvironment("CROWSNEST__SUBSCRIPTION_QOS", "1")
+        .WithEnvironment("CROWSNEST__SHOW_CONNECTION_DIALOG_ON_LAUNCH", "false")
+        .WithEnvironment("CROWSNEST__TOPIC_BUFFER_LIMITS", """[{"TopicFilter":"#","MaxSizeBytes":11048576}]""");
+
+    // Auto-connects to the MQTT broker via TCP
+    WithSharedEnvironment(addClient("crows-nest-mqtt")
+        .WithReference(mqttEndpoint)
+        .WaitFor(mqttBroker)
+        .WithEnvironment("CROWSNEST__HOSTNAME", mqttEndpoint.Property(EndpointProperty.Host))
+        .WithEnvironment("CROWSNEST__PORT", mqttEndpoint.Property(EndpointProperty.Port))
+        .WithEnvironment("CROWSNEST__USE_TLS", "false"));
+
+    // Connects via WebSocket
+    WithSharedEnvironment(addClient("crows-nest-mqtt-ws")
+        .WithReference(wsEndpoint)
+        .WaitFor(mqttBroker)
+        .WithEnvironment("CROWSNEST__HOSTNAME", wsEndpoint.Property(EndpointProperty.Host))
+        .WithEnvironment("CROWSNEST__PORT", wsEndpoint.Property(EndpointProperty.Port))
+        .WithEnvironment("CROWSNEST__USE_TLS", "false")
+        .WithEnvironment("CROWSNEST__TRANSPORT", "WebSocket")
+        .WithEnvironment("CROWSNEST__WEBSOCKET_PATH", "/mqtt"));
+
+    // Reaches the broker through the Squid forward proxy. The broker hostname is
+    // its container resource name because Squid resolves the destination inside
+    // the Aspire container network.
+    WithSharedEnvironment(addClient("crows-nest-mqtt-ws-proxy")
+        .WithReference(wsEndpoint)
+        .WithReference(webSocketProxyEndpoint)
+        .WaitFor(mqttBroker)
+        .WaitFor(webSocketProxy)
+        .WithEnvironment("CROWSNEST__HOSTNAME", "mqtt")
+        .WithEnvironment("CROWSNEST__PORT", "8083")
+        .WithEnvironment("CROWSNEST__USE_TLS", "false")
+        .WithEnvironment("CROWSNEST__TRANSPORT", "WebSocket")
+        .WithEnvironment("CROWSNEST__WEBSOCKET_PATH", "/mqtt")
+        .WithEnvironment(
+            "CROWSNEST__WEBSOCKET_PROXY_ADDRESS",
+            ReferenceExpression.Create(
+                $"http://{webSocketProxyEndpoint.Property(EndpointProperty.Host)}:{webSocketProxyEndpoint.Property(EndpointProperty.Port)}")));
+
+    // Connects via TLS
+    WithSharedEnvironment(addClient("crows-nest-mqtt-tls")
+        .WithReference(mqttsEndpoint)
+        .WaitFor(mqttBroker)
+        .WithEnvironment("CROWSNEST__HOSTNAME", mqttsEndpoint.Property(EndpointProperty.Host))
+        .WithEnvironment("CROWSNEST__PORT", mqttsEndpoint.Property(EndpointProperty.Port))
+        .WithEnvironment("CROWSNEST__USE_TLS", "true"));
+
+    // Connects to the Azure Event Grid mock. Note: WithSharedEnvironment is
+    // intentionally NOT used here — it would overwrite CROWSNEST__AUTH_MODE=azure
+    // with "anonymous". The buffer/session defaults are set individually instead.
+    addClient("crows-nest-mqtt-azure")
+        .WithReference(mockEgEndpoint)
+        .WaitFor(mockEgBroker)
+        .WithEnvironment("CROWSNEST__HOSTNAME", mockEgEndpoint.Property(EndpointProperty.Host))
+        .WithEnvironment("CROWSNEST__PORT", mockEgEndpoint.Property(EndpointProperty.Port))
+        .WithEnvironment("CROWSNEST__USE_TLS", "true")
+        .WithEnvironment("CROWSNEST__AUTH_MODE", "azure")
+        .WithEnvironment("CROWSNEST__AUTH_SCOPE", "https://eventgrid.azure.net/.default")
+        .WithEnvironment("CROWSNEST__AZURE_TOKEN_OVERRIDE", devJwt)
+        .WithEnvironment("CROWSNEST__CLIENT_ID", "")
+        .WithEnvironment("CROWSNEST__KEEP_ALIVE_SECONDS", "0")
+        .WithEnvironment("CROWSNEST__CLEAN_SESSION", "true")
+        .WithEnvironment("CROWSNEST__SESSION_EXPIRY_SECONDS", "0")
+        .WithEnvironment("CROWSNEST__SUBSCRIPTION_QOS", "1")
+        .WithEnvironment("CROWSNEST__SHOW_CONNECTION_DIALOG_ON_LAUNCH", "false")
+        .WithEnvironment("CROWSNEST__TOPIC_BUFFER_LIMITS", """[{"TopicFilter":"#","MaxSizeBytes":11048576}]""");
+}
 
 // -------------------------------------------------------------------------
 // Development JWT synthesis for the Azure Event Grid emulation instance.

@@ -29,6 +29,16 @@ dotnet test tests/contract/Contract.Tests.csproj
 dotnet run --project src/AppHost/AppHost.csproj --launch-profile http 
 ```
 
+The AppHost starts five `CrowsNestMqtt.App` client instances. From the CLI they are
+started as Aspire *project* resources. Visual Studio cannot start them that way
+(its IDE "run session" protocol fails for WinExe projects and for the same project
+being started more than once, reported as
+`[sys] run session could not be started: IDE returned a response indicating failure`),
+so when the AppHost detects that it was launched by Visual Studio it starts the
+already-built client executable directly instead. Override the strategy with
+`CROWSNEST_ASPIRE_CLIENT_LAUNCH=project|executable`. In `executable` mode use
+Debug > Attach to Process to debug a client instance.
+
 ### Run Single Test
 ```powershell
 dotnet test tests/UnitTests/UnitTests.csproj --filter "ClassName.TestMethodName"

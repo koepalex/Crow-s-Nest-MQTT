@@ -237,5 +237,76 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             ));
             _mqttServiceMock.Received(1).ConnectAsync();
         }
+
+        [Fact]
+        public async Task ConnectOnLaunchAsync_WhenDialogDisabled_ConnectsWithoutShowingDialog()
+        {
+            // Arrange
+            using var viewModel = new MainViewModel(
+                _commandParserService,
+                _mqttServiceMock,
+                null,
+                null,
+                null,
+                new EnvironmentSettingsOverrides
+                {
+                    Hostname = "aspirehost",
+                    Port = 1883,
+                    ShowConnectionDialogOnLaunch = false,
+                    HasOverrides = true,
+                    IsAspireEnvironment = true
+                });
+
+            var dialogShown = false;
+            using var handler = viewModel.ShowConnectionDialogInteraction.RegisterHandler(interaction =>
+            {
+                dialogShown = true;
+                interaction.SetOutput(true);
+            });
+
+            // Act
+            await viewModel.ConnectOnLaunchAsync();
+
+            // Assert
+            Assert.False(dialogShown);
+            Assert.True(viewModel.AutoConnectOnLaunch);
+            _mqttServiceMock.Received(1).UpdateSettings(Arg.Is<MqttConnectionSettings>(s =>
+                s.Hostname == "aspirehost" && s.Port == 1883));
+            await _mqttServiceMock.Received(1).ConnectAsync();
+        }
+
+        [Fact]
+        public async Task ConnectOnLaunchAsync_WhenDialogEnabled_ShowsDialogBeforeConnecting()
+        {
+            // Arrange
+            using var viewModel = new MainViewModel(
+                _commandParserService,
+                _mqttServiceMock,
+                null,
+                null,
+                null,
+                new EnvironmentSettingsOverrides
+                {
+                    Hostname = "aspirehost",
+                    Port = 1883,
+                    ShowConnectionDialogOnLaunch = true,
+                    HasOverrides = true,
+                    IsAspireEnvironment = true
+                });
+
+            var dialogShown = false;
+            using var handler = viewModel.ShowConnectionDialogInteraction.RegisterHandler(interaction =>
+            {
+                dialogShown = true;
+                interaction.SetOutput(false);
+            });
+
+            // Act
+            await viewModel.ConnectOnLaunchAsync();
+
+            // Assert
+            Assert.True(dialogShown);
+            await _mqttServiceMock.DidNotReceive().ConnectAsync();
+        }
    }
 }

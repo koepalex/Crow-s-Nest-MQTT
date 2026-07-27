@@ -89,7 +89,9 @@ public partial class MainView : UserControl
             {
                 try
                 {
-                    if (!viewModel.Settings.ShowConnectionDialogOnLaunch)
+                    // Auto-connect environments (Aspire) handle the launch connection
+                    // themselves, so don't prompt or connect a second time here.
+                    if (viewModel.AutoConnectOnLaunch || !viewModel.Settings.ShowConnectionDialogOnLaunch)
                         return;
 
                     var shouldConnect = await viewModel.ShowConnectionDialogInteraction.Handle(Unit.Default);

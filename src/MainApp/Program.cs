@@ -132,9 +132,17 @@ class Program
                             .Subscribe(theme => app.ApplyTheme(theme));
                     }
 
-                    if (environmentOverrides?.IsAspireEnvironment == true)
+                    if (environmentOverrides?.IsAspireEnvironment == true
+                        && desktop.MainWindow.DataContext is MainViewModel aspireVm)
                     {
-                        (desktop.MainWindow.DataContext as MainViewModel)?.ConnectCommand.Execute().Subscribe();
+                        // Honor ShowConnectionDialogOnLaunch: when disabled (the Aspire default)
+                        // connect straight away instead of prompting the user. Deferred to the
+                        // Loaded priority so the view's interaction handlers are registered first.
+                        Avalonia.Threading.Dispatcher.UIThread.Post(
+                            () => _ = aspireVm.ConnectOnLaunchAsync().ContinueWith(
+                                t => Log.Error(t.Exception!, "Auto-connect on launch failed"),
+                                TaskContinuationOptions.OnlyOnFaulted),
+                            Avalonia.Threading.DispatcherPriority.Loaded);
                     }
 
                     // Subscribe to the ShutdownRequested event
