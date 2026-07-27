@@ -1162,8 +1162,11 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         // --- Command Implementations ---
         // --- Command Implementations ---
         // Define CanExecute conditions for commands based on connection status
+        // Connecting is allowed while already connected: the engine disconnects the
+        // existing session first so changed settings are actually applied.
         var canConnect = this.WhenAnyValue(x => x.ConnectionStatus)
-                             .Select(status => status == ConnectionStatusState.Disconnected);
+                             .Select(status => status == ConnectionStatusState.Disconnected
+                                            || status == ConnectionStatusState.Connected);
 
         var canDisconnect = this.WhenAnyValue(x => x.ConnectionStatus)
                                 .Select(status => status == ConnectionStatusState.Connected || status == ConnectionStatusState.Connecting);

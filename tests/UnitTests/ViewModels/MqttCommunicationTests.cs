@@ -108,6 +108,26 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         }
 
         [Fact]
+        public void ConnectAsync_WhileAlreadyConnected_ShouldStillTriggerConnect()
+        {
+            // Regression: re-running :connect (e.g. after changing settings in the
+            // connection dialog) while a session is active must forward the request to
+            // the MQTT service, which disconnects the existing session before connecting.
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+
+            _mqttServiceMock.ConnectionStateChanged += Raise.EventWith(
+                _mqttServiceMock,
+                new MqttConnectionStateChangedEventArgs(true, null, ConnectionStatusState.Connected));
+
+            Assert.Equal(ConnectionStatusState.Connected, viewModel.ConnectionStatus);
+
+            viewModel.ConnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();
+
+            _mqttServiceMock.Received(1).UpdateSettings(Arg.Any<MqttConnectionSettings>());
+            _mqttServiceMock.Received(1).ConnectAsync();
+        }
+
+        [Fact]
         public void DisconnectAsync_ShouldDisconnect()
         {
             // Arrange
