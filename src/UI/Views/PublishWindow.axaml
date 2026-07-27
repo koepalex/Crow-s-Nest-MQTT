@@ -1,190 +1,366 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:vm="using:CrowsNestMqtt.UI.ViewModels"
-        xmlns:ae="using:AvaloniaEdit"
-        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="700"
-        x:Class="CrowsNestMqtt.UI.Views.PublishWindow"
-        x:DataType="vm:PublishViewModel"
-        x:CompileBindings="False"
-        Title="Publish Message"
-        Width="600" Height="700"
-        MinWidth="450" MinHeight="500"
-        CanResize="True"
-        WindowStartupLocation="CenterOwner">
+<Window
+    x:Class="CrowsNestMqtt.UI.Views.PublishWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ae="using:AvaloniaEdit"
+    xmlns:behaviors="using:CrowsNestMqtt.UI.Behaviors"
+    xmlns:controls="using:FluentAvalonia.UI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:CrowsNestMqtt.UI.ViewModels"
+    Title="Publish Message"
+    Width="600"
+    Height="700"
+    MinWidth="450"
+    MinHeight="500"
+    d:DesignHeight="700"
+    d:DesignWidth="600"
+    x:CompileBindings="False"
+    x:DataType="vm:PublishViewModel"
+    CanResize="True"
+    Icon="avares://CrowsNestMqtt.App/Assets/icon.ico"
+    WindowStartupLocation="CenterOwner"
+    mc:Ignorable="d">
 
-  <Window.KeyBindings>
-    <KeyBinding Gesture="Escape" Command="{Binding CloseCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-    <KeyBinding Gesture="Ctrl+Shift+M" Command="{Binding CloseCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-    <KeyBinding Gesture="Alt+P" Command="{Binding PublishCommand}" />
-    <KeyBinding Gesture="Ctrl+Return" Command="{Binding PublishCommand}" />
-  </Window.KeyBindings>
+    <Window.KeyBindings>
+        <KeyBinding Command="{Binding CloseCommand, RelativeSource={RelativeSource AncestorType=Window}}" Gesture="Escape" />
+        <KeyBinding Command="{Binding CloseCommand, RelativeSource={RelativeSource AncestorType=Window}}" Gesture="Ctrl+Shift+M" />
+        <KeyBinding Command="{Binding PublishCommand}" Gesture="Alt+P" />
+        <KeyBinding Command="{Binding PublishCommand}" Gesture="Ctrl+Return" />
+    </Window.KeyBindings>
 
-  <DockPanel Margin="12">
+    <Window.Styles>
+        <!--  Consistent label column inside the property cards  -->
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.CardHeader">
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+        </Style>
+        <Style Selector="Border.CardHeader > TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="LineHeight" Value="20" />
+        </Style>
+    </Window.Styles>
 
-    <!-- Status bar at the bottom -->
-    <Border DockPanel.Dock="Bottom" Margin="0,8,0,0"
-            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-            CornerRadius="4" Padding="8,4">
-      <TextBlock Text="{Binding StatusText}" FontSize="12" Opacity="0.8" />
-    </Border>
+    <Grid RowDefinitions="*,Auto,Auto">
 
-    <!-- Action buttons at the bottom -->
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
-                HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
-      <Button Content="📂 Load File" Command="{Binding LoadFileCommand}" />
-      <Button Content="Clear" Command="{Binding ClearCommand}" />
-      <Button Content="Publish" Command="{Binding PublishCommand}"
-              Classes="accent" FontWeight="Bold" />
-    </StackPanel>
+        <!--  Scrollable main content  -->
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="8,8,8,0" Spacing="8">
 
-    <!-- Scrollable main content -->
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-      <StackPanel Spacing="10">
+                <!--  Message Card: history + topic  -->
+                <Border Classes="Card">
+                    <Grid RowDefinitions="Auto,Auto">
+                        <Border Grid.Row="0" Classes="CardHeader">
+                            <TextBlock Text="Message" />
+                        </Border>
+                        <Grid
+                            Grid.Row="1"
+                            Margin="8"
+                            ColumnDefinitions="110,*"
+                            RowDefinitions="Auto,Auto"
+                            RowSpacing="8">
+                            <TextBlock
+                                Grid.Row="0"
+                                Grid.Column="0"
+                                Classes="FieldLabel"
+                                Text="History" />
+                            <ComboBox
+                                Grid.Row="0"
+                                Grid.Column="1"
+                                HorizontalAlignment="Stretch"
+                                ItemsSource="{Binding HistoryEntries}"
+                                PlaceholderText="Previously published messages"
+                                SelectedItem="{Binding SelectedHistoryEntry, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DisplaySummary}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
 
-        <!-- History -->
-        <DockPanel>
-          <TextBlock DockPanel.Dock="Left" Text="History:" VerticalAlignment="Center"
-                     Width="110" />
-          <ComboBox ItemsSource="{Binding HistoryEntries}"
-                    SelectedItem="{Binding SelectedHistoryEntry, Mode=TwoWay}"
-                    HorizontalAlignment="Stretch">
-            <ComboBox.ItemTemplate>
-              <DataTemplate>
-                <TextBlock Text="{Binding DisplaySummary}" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
-        </DockPanel>
+                            <TextBlock
+                                Grid.Row="1"
+                                Grid.Column="0"
+                                Classes="FieldLabel"
+                                Text="Topic" />
+                            <TextBox
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                PlaceholderText="e.g. sensor/temperature"
+                                Text="{Binding Topic, Mode=TwoWay}" />
+                        </Grid>
+                    </Grid>
+                </Border>
 
-        <!-- Topic -->
-        <DockPanel>
-          <TextBlock DockPanel.Dock="Left" Text="Topic:" VerticalAlignment="Center"
-                     Width="110" />
-          <TextBox Text="{Binding Topic, Mode=TwoWay}"
-                   PlaceholderText="e.g. sensor/temperature" />
-        </DockPanel>
+                <!--  Payload Card  -->
+                <Border Classes="Card">
+                    <Grid RowDefinitions="Auto,*">
+                        <Border Grid.Row="0" Classes="CardHeader">
+                            <TextBlock Text="Payload" />
+                        </Border>
+                        <Panel Grid.Row="1" MinHeight="180">
+                            <ae:TextEditor
+                                x:Name="PayloadEditor"
+                                Margin="4"
+                                Background="Transparent"
+                                Document="{Binding PayloadDocument, Mode=TwoWay}"
+                                FontFamily="Consolas,Menlo,Monospace"
+                                FontSize="12"
+                                Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                IsVisible="{Binding !IsPayloadReadOnly}"
+                                LineNumbersForeground="{DynamicResource TextFillColorSecondaryBrush}"
+                                ShowLineNumbers="True"
+                                SyntaxHighlighting="{Binding SyntaxHighlighting}"
+                                WordWrap="True" />
+                            <TextBlock
+                                Margin="8"
+                                VerticalAlignment="Center"
+                                FontFamily="Consolas,Menlo,Monospace"
+                                FontSize="12"
+                                IsVisible="{Binding IsPayloadReadOnly}"
+                                Text="{Binding FileInfoDisplay}"
+                                TextWrapping="Wrap" />
+                        </Panel>
+                    </Grid>
+                </Border>
 
-        <!-- Payload Editor -->
-        <TextBlock Text="Payload:" Margin="0,4,0,2" />
-        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
-                BorderThickness="1" CornerRadius="4" MinHeight="180">
-          <Panel>
-            <ae:TextEditor Name="PayloadEditor"
-                           FontFamily="Consolas,Menlo,Monospace"
-                           FontSize="12"
-                           ShowLineNumbers="True"
-                           WordWrap="True"
-                           Background="Black"
-                           Foreground="White"
-                           LineNumbersForeground="Gray"
-                           IsVisible="{Binding !IsPayloadReadOnly}"
-                           Document="{Binding PayloadDocument, Mode=TwoWay}"
-                           SyntaxHighlighting="{Binding SyntaxHighlighting}" />
-            <TextBlock Text="{Binding FileInfoDisplay}"
-                       IsVisible="{Binding IsPayloadReadOnly}"
-                       FontFamily="Consolas,Menlo,Monospace"
-                       FontSize="12"
-                       Margin="8"
-                       VerticalAlignment="Center" />
-          </Panel>
-        </Border>
+                <!--  Delivery Options Card  -->
+                <Border Classes="Card">
+                    <Grid RowDefinitions="Auto,Auto">
+                        <Border Grid.Row="0" Classes="CardHeader">
+                            <TextBlock Text="Delivery Options" />
+                        </Border>
+                        <Grid
+                            Grid.Row="1"
+                            Margin="8"
+                            ColumnDefinitions="110,Auto,110,Auto,*">
+                            <TextBlock
+                                Grid.Column="0"
+                                Classes="FieldLabel"
+                                Text="QoS" />
+                            <ComboBox
+                                Grid.Column="1"
+                                MinWidth="120"
+                                VerticalAlignment="Center"
+                                ItemsSource="{Binding QoSLevels}"
+                                SelectedIndex="{Binding SelectedQoS, Mode=TwoWay}" />
 
-        <!-- QoS and Retain row -->
-        <Grid ColumnDefinitions="110,*,Auto,Auto">
-          <TextBlock Text="QoS:" VerticalAlignment="Center" />
-          <ComboBox Grid.Column="1" ItemsSource="{Binding QoSLevels}"
-                    SelectedIndex="{Binding SelectedQoS, Mode=TwoWay}"
-                    MinWidth="80" />
-          <TextBlock Grid.Column="2" Text="Retain:" VerticalAlignment="Center"
-                     Margin="16,0,8,0" />
-          <CheckBox Grid.Column="3" IsChecked="{Binding Retain, Mode=TwoWay}" />
-        </Grid>
+                            <TextBlock
+                                Grid.Column="2"
+                                Margin="24,0,0,0"
+                                Classes="FieldLabel"
+                                Text="Retain" />
+                            <ToggleSwitch
+                                Grid.Column="3"
+                                VerticalAlignment="Center"
+                                IsChecked="{Binding Retain, Mode=TwoWay}" />
+                        </Grid>
+                    </Grid>
+                </Border>
 
-        <!-- V5 Properties Expander -->
-        <Button Command="{Binding ToggleV5PropertiesCommand}"
-                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                Padding="8,6">
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <TextBlock Text="▶" FontSize="10" VerticalAlignment="Center">
-              <TextBlock.IsVisible>
-                <Binding Path="IsV5PropertiesExpanded"
-                         Converter="{x:Static BoolConverters.Not}" />
-              </TextBlock.IsVisible>
-            </TextBlock>
-            <TextBlock Text="▼" FontSize="10" VerticalAlignment="Center"
-                       IsVisible="{Binding IsV5PropertiesExpanded}" />
-            <TextBlock Text="MQTT V5 Properties" FontWeight="SemiBold" />
-          </StackPanel>
-        </Button>
+                <!--  MQTT V5 Properties Card  -->
+                <Border Classes="Card" ClipToBounds="True">
+                    <Expander
+                        Padding="0"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        HorizontalContentAlignment="Stretch"
+                        IsExpanded="{Binding IsV5PropertiesExpanded, Mode=TwoWay}">
+                        <Expander.Header>
+                            <TextBlock
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                Text="MQTT V5 Properties" />
+                        </Expander.Header>
 
-        <StackPanel IsVisible="{Binding IsV5PropertiesExpanded}" Spacing="8"
-                    Margin="12,0,0,0">
+                        <StackPanel Margin="8" Spacing="8">
+                            <Grid
+                                ColumnDefinitions="150,*"
+                                RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                RowSpacing="8">
+                                <!--  Content Type  -->
+                                <TextBlock
+                                    Grid.Row="0"
+                                    Grid.Column="0"
+                                    Classes="FieldLabel"
+                                    Text="Content Type" />
+                                <TextBox
+                                    Grid.Row="0"
+                                    Grid.Column="1"
+                                    PlaceholderText="e.g. application/json"
+                                    Text="{Binding ContentType, Mode=TwoWay}" />
 
-          <!-- Content Type -->
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Left" Text="Content Type:" Width="150"
-                       VerticalAlignment="Center" />
-            <TextBox Text="{Binding ContentType, Mode=TwoWay}"
-                     PlaceholderText="e.g. application/json" />
-          </DockPanel>
+                                <!--  Payload Format Indicator  -->
+                                <TextBlock
+                                    Grid.Row="1"
+                                    Grid.Column="0"
+                                    Classes="FieldLabel"
+                                    Text="Payload Format" />
+                                <ComboBox
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    ItemsSource="{Binding PayloadFormatOptions}"
+                                    SelectedIndex="{Binding PayloadFormatIndicator, Mode=TwoWay}" />
 
-          <!-- Payload Format Indicator -->
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Left" Text="Payload Format:" Width="150"
-                       VerticalAlignment="Center" />
-            <ComboBox ItemsSource="{Binding PayloadFormatOptions}"
-                      SelectedIndex="{Binding PayloadFormatIndicator, Mode=TwoWay}" />
-          </DockPanel>
+                                <!--  Response Topic  -->
+                                <TextBlock
+                                    Grid.Row="2"
+                                    Grid.Column="0"
+                                    Classes="FieldLabel"
+                                    Text="Response Topic" />
+                                <TextBox
+                                    Grid.Row="2"
+                                    Grid.Column="1"
+                                    PlaceholderText="Optional response topic"
+                                    Text="{Binding ResponseTopic, Mode=TwoWay}" />
 
-          <!-- Response Topic -->
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Left" Text="Response Topic:" Width="150"
-                       VerticalAlignment="Center" />
-            <TextBox Text="{Binding ResponseTopic, Mode=TwoWay}"
-                     PlaceholderText="Optional response topic" />
-          </DockPanel>
+                                <!--  Correlation Data  -->
+                                <TextBlock
+                                    Grid.Row="3"
+                                    Grid.Column="0"
+                                    Classes="FieldLabel"
+                                    Text="Correlation Data" />
+                                <TextBox
+                                    Grid.Row="3"
+                                    Grid.Column="1"
+                                    PlaceholderText="Hex or UTF-8 string"
+                                    Text="{Binding CorrelationData, Mode=TwoWay}" />
 
-          <!-- Correlation Data -->
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Left" Text="Correlation Data:" Width="150"
-                       VerticalAlignment="Center" />
-            <TextBox Text="{Binding CorrelationData, Mode=TwoWay}"
-                     PlaceholderText="Hex or UTF-8 string" />
-          </DockPanel>
+                                <!--  Message Expiry Interval  -->
+                                <TextBlock
+                                    Grid.Row="4"
+                                    Grid.Column="0"
+                                    Classes="FieldLabel"
+                                    Text="Expiry (seconds)" />
+                                <Grid
+                                    Grid.Row="4"
+                                    Grid.Column="1"
+                                    ColumnDefinitions="*,Auto">
+                                    <TextBox
+                                        Grid.Column="0"
+                                        MaxLength="10"
+                                        PlaceholderText="0 = no expiry"
+                                        Text="{Binding MessageExpiryInterval, Mode=TwoWay}"
+                                        behaviors:DigitOnlyInput.Enable="True"
+                                        behaviors:DigitOnlyInput.MaxValue="4294967295"
+                                        behaviors:DigitOnlyInput.MinValue="0" />
+                                    <controls:FAFontIcon
+                                        Grid.Column="1"
+                                        Margin="4,0,0,0"
+                                        VerticalAlignment="Center"
+                                        FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                                        FontSize="20"
+                                        Glyph="&#xE946;"
+                                        ToolTip.Tip="Message expiry interval in seconds. 0 means the message never expires." />
+                                </Grid>
+                            </Grid>
 
-          <!-- Message Expiry Interval -->
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Left" Text="Expiry (seconds):" Width="150"
-                       VerticalAlignment="Center" />
-            <NumericUpDown Value="{Binding MessageExpiryInterval, Mode=TwoWay}"
-                           Minimum="0" Maximum="4294967295"
-                           FormatString="0" PlaceholderText="0 = no expiry" />
-          </DockPanel>
+                            <!--  User Properties  -->
+                            <TextBlock
+                                Margin="0,4,0,0"
+                                FontWeight="SemiBold"
+                                Text="User Properties" />
+                            <ItemsControl ItemsSource="{Binding UserProperties}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid
+                                            Margin="0,2"
+                                            ColumnDefinitions="*,*,Auto"
+                                            ColumnSpacing="4">
+                                            <TextBox
+                                                Grid.Column="0"
+                                                PlaceholderText="Name"
+                                                Text="{Binding Name, Mode=TwoWay}" />
+                                            <TextBox
+                                                Grid.Column="1"
+                                                PlaceholderText="Value"
+                                                Text="{Binding Value, Mode=TwoWay}" />
+                                            <Button
+                                                Grid.Column="2"
+                                                Padding="6"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Command="{Binding DataContext.RemoveUserPropertyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip.Tip="Remove property">
+                                                <PathIcon
+                                                    Width="14"
+                                                    Height="14"
+                                                    Data="{StaticResource delete_regular}" />
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button
+                                HorizontalAlignment="Left"
+                                Command="{Binding AddUserPropertyCommand}"
+                                ToolTip.Tip="Add a user property">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <controls:FASymbolIcon FontSize="16" Symbol="Add" />
+                                    <TextBlock Text="Add Property" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Expander>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
 
-          <!-- User Properties -->
-          <TextBlock Text="User Properties:" FontWeight="SemiBold" Margin="0,4,0,2" />
-          <ItemsControl ItemsSource="{Binding UserProperties}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Grid ColumnDefinitions="*,*,Auto" Margin="0,2">
-                  <TextBox Grid.Column="0" Text="{Binding Name, Mode=TwoWay}"
-                           PlaceholderText="Name" Margin="0,0,4,0" />
-                  <TextBox Grid.Column="1" Text="{Binding Value, Mode=TwoWay}"
-                           PlaceholderText="Value" Margin="4,0,4,0" />
-                  <Button Grid.Column="2" Content="✕" Padding="6,4"
-                          Command="{Binding DataContext.RemoveUserPropertyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                          CommandParameter="{Binding}" />
-                </Grid>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-          <Button Content="+ Add Property" Command="{Binding AddUserPropertyCommand}"
-                  HorizontalAlignment="Left" Padding="8,4" />
+        <!--  Action buttons  -->
+        <StackPanel
+            Grid.Row="1"
+            Margin="8"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal"
+            Spacing="8">
+            <Button Command="{Binding LoadFileCommand}" ToolTip.Tip="Load payload from file">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <controls:FASymbolIcon FontSize="16" Symbol="OpenFile" />
+                    <TextBlock Text="Load File" />
+                </StackPanel>
+            </Button>
+            <Button Command="{Binding ClearCommand}" ToolTip.Tip="Reset the form">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <controls:FASymbolIcon FontSize="16" Symbol="Clear" />
+                    <TextBlock Text="Clear" />
+                </StackPanel>
+            </Button>
+            <Button
+                Classes="accent"
+                Command="{Binding PublishCommand}"
+                ToolTip.Tip="Publish (Ctrl+Enter)">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon
+                        Width="14"
+                        Height="14"
+                        Data="{StaticResource send_regular}" />
+                    <TextBlock FontWeight="SemiBold" Text="Publish" />
+                </StackPanel>
+            </Button>
         </StackPanel>
 
-      </StackPanel>
-    </ScrollViewer>
-  </DockPanel>
+        <!--  Status Bar  -->
+        <Border
+            Grid.Row="2"
+            Height="32"
+            Padding="16,0"
+            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+            BorderThickness="0,1,0,0">
+            <TextBlock
+                VerticalAlignment="Center"
+                FontSize="12"
+                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                Text="{Binding StatusText}"
+                TextTrimming="CharacterEllipsis" />
+        </Border>
+    </Grid>
 </Window>
