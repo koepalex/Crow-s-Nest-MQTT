@@ -318,7 +318,7 @@ public sealed class PublishViewModelTests : IDisposable
         await vm.PublishCommand.Execute();
 
         Assert.Contains("successfully", vm.StatusText);
-        _historyService.Received(1).AddEntry(Arg.Is<MqttPublishRequest>(r => r.Topic == "test/topic"));
+        _historyService.Received(1).AddEntry(Arg.Is<MqttPublishRequest>(r => r!.Topic == "test/topic"));
     }
 
     [Fact]

@@ -169,7 +169,7 @@ internal sealed class MockMqttService : IMqttService
             var result = vm.GetFullMessage();
 
             Assert.Null(result);
-            statusBarService.Received(1).ShowStatus(Arg.Is<string>(msg => msg.Contains(topic)));
+            statusBarService.Received(1).ShowStatus(Arg.Is<string>(msg => msg!.Contains(topic)));
         }
 
         [Fact]

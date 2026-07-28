@@ -255,7 +255,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
 
             // Assert
             _mqttServiceMock.Received(1).UpdateSettings(Arg.Is<MqttConnectionSettings>(s =>
-                s.Hostname == expectedHostname && s.Port == expectedPort
+                s!.Hostname == expectedHostname && s.Port == expectedPort
             ));
             _mqttServiceMock.Received(1).ConnectAsync();
         }
@@ -293,7 +293,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.False(dialogShown);
             Assert.True(viewModel.AutoConnectOnLaunch);
             _mqttServiceMock.Received(1).UpdateSettings(Arg.Is<MqttConnectionSettings>(s =>
-                s.Hostname == "aspirehost" && s.Port == 1883));
+                s!.Hostname == "aspirehost" && s.Port == 1883));
             await _mqttServiceMock.Received(1).ConnectAsync();
         }
 
