@@ -13,7 +13,7 @@ namespace CrowsNestMqtt.Integration.Tests;
 /// Integration tests for Export All Messages feature.
 /// Tests T023-T028: End-to-end validation of bulk export functionality.
 /// </summary>
-public class ExportAllMessagesIntegrationTests : IDisposable
+public sealed class ExportAllMessagesIntegrationTests : IDisposable
 {
     private readonly ITestOutputHelper _output;
     private readonly string _testDirectory;
@@ -276,7 +276,7 @@ public class ExportAllMessagesIntegrationTests : IDisposable
 
     // Helper methods
 
-    private List<MqttApplicationMessage> CreateTestMessages(int count, string topicPrefix)
+    private static List<MqttApplicationMessage> CreateTestMessages(int count, string topicPrefix)
     {
         var messages = new List<MqttApplicationMessage>();
 
@@ -288,7 +288,7 @@ public class ExportAllMessagesIntegrationTests : IDisposable
         return messages;
     }
 
-    private MqttApplicationMessage CreateTestMessage(string topic, string payload, int id)
+    private static MqttApplicationMessage CreateTestMessage(string topic, string payload, int id)
     {
         return new MqttApplicationMessage
         {
@@ -306,7 +306,7 @@ public class ExportAllMessagesIntegrationTests : IDisposable
         };
     }
 
-    private int CountOccurrences(string text, string pattern)
+    private static int CountOccurrences(string text, string pattern)
     {
         int count = 0;
         int index = 0;

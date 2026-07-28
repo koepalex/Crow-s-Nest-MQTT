@@ -1,13 +1,14 @@
-/// <summary>
-/// Integration tests for topic search functionality.
-/// Tests TopicSearchService with realistic topic data.
-/// Validates FR-001 through FR-007.
-/// </summary>
+// <summary>
+// Integration tests for topic search functionality.
+// Tests TopicSearchService with realistic topic data.
+// Validates FR-001 through FR-007.
+// </summary>
 namespace CrowsNestMQTT.Tests.Integration.Navigation;
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CrowsNestMqtt.UI.Services;
 using Xunit;
 using CrowsNestMQTT.BusinessLogic.Navigation;
 
@@ -158,7 +159,7 @@ public class TopicSearchIntegrationTests
         // Assert - Active context updated to new search
         Assert.NotSame(firstSearch, secondSearch);
         Assert.Same(secondSearch, service.ActiveSearchContext);
-        Assert.Equal("device", service.ActiveSearchContext.SearchTerm);
+        Assert.Equal("device", service.ActiveSearchContext!.SearchTerm);
     }
 
     [Fact]

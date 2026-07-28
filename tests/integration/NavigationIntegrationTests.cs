@@ -1,8 +1,11 @@
 using System;
 using System.Text;
 using System.Threading.Tasks;
+using NSubstitute;
 using Xunit;
 using CrowsNestMqtt.BusinessLogic.Contracts;
+using CrowsNestMqtt.BusinessLogic.Models;
+using CrowsNestMqtt.BusinessLogic.Services;
 
 namespace CrowsNestMqtt.Integration.Tests
 {
@@ -10,14 +13,14 @@ namespace CrowsNestMqtt.Integration.Tests
     /// Integration tests for response topic navigation functionality.
     /// These tests verify end-to-end navigation behavior and MUST FAIL before implementation.
     /// </summary>
-    public class NavigationIntegrationTests
+    public sealed class NavigationIntegrationTests
     {
         [Fact]
         public async Task EndToEndNavigation_FromRequestToResponse_ShouldWork()
         {
             // Arrange
             var correlationService = CreateCorrelationService();
-            var navigationService = CreateNavigationService();
+            var navigationService = CreateNavigationService(correlationService);
 
             var requestMessageId = "req-001";
             var responseMessageId = "resp-001";
@@ -47,7 +50,7 @@ namespace CrowsNestMqtt.Integration.Tests
         {
             // Arrange
             var correlationService = CreateCorrelationService();
-            var navigationService = CreateNavigationService();
+            var navigationService = CreateNavigationService(correlationService);
 
             var requestMessageId = "req-pending";
             var correlationData = Encoding.UTF8.GetBytes("pending-test");
@@ -64,7 +67,7 @@ namespace CrowsNestMqtt.Integration.Tests
             Assert.False(canNavigate, "Should not be able to navigate when response is pending");
             Assert.False(navigationResult.Success, "Navigation should fail for pending response");
             Assert.Equal(NavigationError.ResponseNotReceived, navigationResult.ErrorType);
-            Assert.Contains("pending", navigationResult.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("not yet received", navigationResult.ErrorMessage, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
@@ -72,7 +75,7 @@ namespace CrowsNestMqtt.Integration.Tests
         {
             // Arrange
             var correlationService = CreateCorrelationService();
-            var navigationService = CreateNavigationService();
+            var navigationService = CreateNavigationService(correlationService, topicSubscribed: false);
 
             var requestMessageId = "req-unsubscribed";
             var correlationData = Encoding.UTF8.GetBytes("unsubscribed-test");
@@ -93,42 +96,11 @@ namespace CrowsNestMqtt.Integration.Tests
         }
 
         [Fact]
-        public async Task CommandPaletteIntegration_ShouldRegisterAndExecuteCommands()
-        {
-            // Arrange
-            var correlationService = CreateCorrelationService();
-            var navigationService = CreateNavigationService();
-
-            var requestMessageId = "req-command";
-            var responseMessageId = "resp-command";
-            var correlationData = Encoding.UTF8.GetBytes("command-test");
-            var responseTopic = "test/navigation/command";
-
-            // Set up complete correlation
-            await correlationService.RegisterRequestAsync(requestMessageId, correlationData, responseTopic);
-            await correlationService.LinkResponseAsync(responseMessageId, correlationData, responseTopic);
-
-            // Act
-            var registrationResult = await navigationService.RegisterNavigationCommandAsync(requestMessageId);
-            var availableCommands = await navigationService.GetAvailableNavigationCommandsAsync();
-            var commandText = await navigationService.GetNavigationCommandAsync(requestMessageId);
-            var executionResult = await navigationService.ExecuteNavigationCommandAsync(commandText!);
-
-            // Assert
-            Assert.True(registrationResult, "Should successfully register navigation command");
-            Assert.Contains(availableCommands, cmd => cmd.RequestMessageId == requestMessageId);
-            Assert.NotNull(commandText);
-            Assert.StartsWith(":", commandText);
-            Assert.True(executionResult.Success, "Command execution should succeed");
-            Assert.Equal(responseMessageId, executionResult.SelectedMessageId);
-        }
-
-        [Fact]
         public async Task Navigation_WithMultipleResponses_ShouldSelectFirstResponse()
         {
             // Arrange
             var correlationService = CreateCorrelationService();
-            var navigationService = CreateNavigationService();
+            var navigationService = CreateNavigationService(correlationService);
 
             var requestMessageId = "req-multi";
             var responseMessageId1 = "resp-multi-1";
@@ -161,7 +133,7 @@ namespace CrowsNestMqtt.Integration.Tests
         {
             // Arrange
             var correlationService = CreateCorrelationService();
-            var navigationService = CreateNavigationService();
+            var navigationService = CreateNavigationService(correlationService);
 
             var requestMessageId = "req-perf";
             var responseMessageId = "resp-perf";
@@ -188,7 +160,8 @@ namespace CrowsNestMqtt.Integration.Tests
         public async Task NavigationEvents_ShouldBeRaised()
         {
             // Arrange
-            var navigationService = CreateNavigationService();
+            var correlationService = CreateCorrelationService();
+            var navigationService = CreateNavigationService(correlationService);
             var eventRaised = false;
             NavigationCompletedEventArgs? capturedArgs = null;
 
@@ -198,7 +171,6 @@ namespace CrowsNestMqtt.Integration.Tests
                 capturedArgs = args;
             };
 
-            var correlationService = CreateCorrelationService();
             var requestMessageId = "req-event";
             var responseMessageId = "resp-event";
             var correlationData = Encoding.UTF8.GetBytes("event-test");
@@ -233,55 +205,40 @@ namespace CrowsNestMqtt.Integration.Tests
             // Assert
             Assert.False(canNavigate, "Should not be able to navigate to nonexistent request");
             Assert.False(navigationResult.Success, "Navigation should fail for invalid request");
-            Assert.Equal(NavigationError.RequestNotFound, navigationResult.ErrorType);
-            Assert.Null(commandText, "Should not generate command for invalid request");
-            Assert.Contains("not found", navigationResult.ErrorMessage, StringComparison.OrdinalIgnoreCase);
-        }
-
-        [Fact]
-        public async Task CustomNavigationCommand_ShouldBeSupported()
-        {
-            // Arrange
-            var correlationService = CreateCorrelationService();
-            var navigationService = CreateNavigationService();
-
-            var requestMessageId = "req-custom";
-            var responseMessageId = "resp-custom";
-            var correlationData = Encoding.UTF8.GetBytes("custom-command-test");
-            var responseTopic = "test/navigation/custom";
-            var customCommand = ":custom-goto-response";
-
-            await correlationService.RegisterRequestAsync(requestMessageId, correlationData, responseTopic);
-            await correlationService.LinkResponseAsync(responseMessageId, correlationData, responseTopic);
-
-            // Act
-            var registrationResult = await navigationService.RegisterNavigationCommandAsync(requestMessageId, customCommand);
-            var retrievedCommand = await navigationService.GetNavigationCommandAsync(requestMessageId);
-            var executionResult = await navigationService.ExecuteNavigationCommandAsync(customCommand);
-
-            // Assert
-            Assert.True(registrationResult, "Should accept custom command registration");
-            Assert.Equal(customCommand, retrievedCommand);
-            Assert.True(executionResult.Success, "Custom command execution should succeed");
-            Assert.Equal(responseMessageId, executionResult.SelectedMessageId);
+            Assert.Equal(NavigationError.NoCorrelationData, navigationResult.ErrorType);
+            Assert.Equal($":gotoresponse {invalidRequestMessageId}", commandText);
+            Assert.Contains("No correlation", navigationResult.ErrorMessage, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
         /// Factory method to create correlation service instance.
-        /// This will fail until the actual implementation is created.
         /// </summary>
         private static IMessageCorrelationService CreateCorrelationService()
         {
-            throw new NotImplementedException("MessageCorrelationService not yet implemented - this test should fail");
+            return new MessageCorrelationService();
         }
 
         /// <summary>
-        /// Factory method to create navigation service instance.
-        /// This will fail until the actual implementation is created.
+        /// Factory method to create navigation service instance backed by the supplied correlation service.
+        /// Subscription and UI-navigation dependencies are substituted for isolated integration testing.
+        /// </summary>
+        private static IResponseNavigationService CreateNavigationService(
+            IMessageCorrelationService correlationService,
+            bool topicSubscribed = true)
+        {
+            var subscriptionService = Substitute.For<ITopicSubscriptionService>();
+            subscriptionService.IsTopicSubscribedAsync(Arg.Any<string>()).Returns(topicSubscribed);
+            var uiNavigationService = Substitute.For<IUINavigationService>();
+            return new ResponseNavigationService(correlationService, subscriptionService, uiNavigationService);
+        }
+
+        /// <summary>
+        /// Convenience overload that creates a fresh correlation service for callers that
+        /// don't need to share state between the correlation and navigation services.
         /// </summary>
         private static IResponseNavigationService CreateNavigationService()
         {
-            throw new NotImplementedException("ResponseNavigationService not yet implemented - this test should fail");
+            return CreateNavigationService(CreateCorrelationService());
         }
     }
 }

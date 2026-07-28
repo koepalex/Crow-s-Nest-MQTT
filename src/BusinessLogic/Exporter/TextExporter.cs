@@ -100,6 +100,12 @@ public class TextExporter : MessageExporterBase
 
     public override string? ExportToFile(MqttApplicationMessage msg, DateTime receivedTime, string exportFolderPath)
     {
+        if (msg == null)
+        {
+            AppLogger.Warning("Skipping export because message is null");
+            return null;
+        }
+
         try
         {
             var (textContent, _, _) = GenerateDetailedTextFromMessage(msg, receivedTime); // Discard the bool and payload string for file export

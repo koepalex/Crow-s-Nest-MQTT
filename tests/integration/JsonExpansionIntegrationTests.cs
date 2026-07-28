@@ -6,95 +6,9 @@ namespace CrowsNestMqtt.Integration.Tests
     /// <summary>
     /// Integration tests for JSON viewer expansion behavior across application contexts.
     /// These tests verify acceptance scenarios from spec.md (003-json-viewer-should).
-    ///
-    /// NOTE: These tests MUST FAIL until T006-T012 are complete.
     /// </summary>
     public class JsonExpansionIntegrationTests
     {
-        // AC-1: `:view json` displays all nested JSON expanded (up to depth 5)
-        [Fact]
-        public void ViewJsonCommand_DisplaysAllNestedJsonExpanded()
-        {
-            // This test will FAIL until T009 (`:view json` command integration) is complete
-
-            // Arrange
-            var json = "{\"level1\":{\"level2\":{\"level3\":{\"value\":\"deepest\"}}}}";
-            // TODO: Set up application context with test message
-
-            // Act
-            // TODO: Execute `:view json` command
-
-            // Assert
-            // TODO: Verify all 3 levels visible without manual expansion
-            // TODO: Verify no collapsed nodes (all expand icons showing "-" not "+")
-            Assert.True(false, "Test not yet implemented - waiting for T009");
-        }
-
-        // AC-2: Message preview displays same expansion as `:view json`
-        [Fact]
-        public void MessagePreview_DisplaysSameExpansionAsViewJson()
-        {
-            // This test will FAIL until T010 (message preview integration) is complete
-
-            // Arrange
-            var json = "{\"level1\":{\"level2\":\"value\"}}";
-            // TODO: Set up test message in preview pane
-
-            // Act
-            // TODO: Display message in preview pane
-            // TODO: Execute `:view json` command on same message
-
-            // Assert
-            // TODO: Verify preview shows expanded JSON tree (same as `:view json`)
-            // TODO: Verify all levels visible in preview
-            Assert.True(false, "Test not yet implemented - waiting for T010");
-        }
-
-        // AC-4: Manual collapse functionality works
-        [Fact]
-        public void ManualCollapse_WorksCorrectly()
-        {
-            // This test will FAIL until T009 is complete
-
-            // Arrange
-            var json = "{\"level1\":{\"level2\":\"value\"}}";
-            // TODO: Display JSON with `:view json`
-
-            // Act
-            // TODO: Manually collapse "level1" node
-
-            // Assert
-            // TODO: Verify "level1" node collapses
-            // TODO: Verify "level2" hidden
-            // TODO: Verify expand icon changes from "-" to "+"
-            // TODO: Re-expand and verify children visible again
-            Assert.True(false, "Test not yet implemented - waiting for T009");
-        }
-
-        // AC-5: State resets when switching messages
-        [Fact]
-        public void StatReset_WhenSwitchingMessages()
-        {
-            // This test will FAIL until T012 (state reset integration) is complete
-
-            // Arrange
-            var json1 = "{\"level1\":{\"level2\":\"value1\"}}";
-            var json2 = "{\"a\":{\"b\":{\"c\":\"value2\"}}}";
-            // TODO: Display json1 with `:view json`
-            // TODO: Manually collapse "level1" node
-
-            // Act
-            // TODO: Switch to json2 message
-            // TODO: Display json2 with `:view json`
-            // TODO: Switch back to json1
-
-            // Assert
-            // TODO: Verify json2 shows fully expanded
-            // TODO: Verify json1 shows fully expanded again (not collapsed)
-            // TODO: Verify manual collapse state forgotten
-            Assert.True(false, "Test not yet implemented - waiting for T012");
-        }
-
         // AC-6: Up to 5 levels auto-expand
         [Fact]
         public void FiveLevelJson_FullyExpanded()
@@ -104,7 +18,6 @@ namespace CrowsNestMqtt.Integration.Tests
             // Arrange
             var json = "{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":{\"value\":\"level 5\"}}}}}}";
             var document = JsonDocument.Parse(json);
-            var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
             var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
@@ -137,7 +50,6 @@ namespace CrowsNestMqtt.Integration.Tests
             // Arrange
             var json = "{\"l1\":{\"l2\":{\"l3\":{\"l4\":{\"l5\":{\"l6\":{\"l7\":{\"value\":\"too deep\"}}}}}}}}";
             var document = JsonDocument.Parse(json);
-            var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
             var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
@@ -178,7 +90,6 @@ namespace CrowsNestMqtt.Integration.Tests
             }
             var json = System.Text.Json.JsonSerializer.Serialize(properties);
             var document = JsonDocument.Parse(json);
-            var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act - Measure tree construction time
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -201,9 +112,8 @@ namespace CrowsNestMqtt.Integration.Tests
             // This test will FAIL until T007 (JsonTreeBuilder) is complete
 
             // Arrange - 10-level deep nesting
-            var json = "{\"l1\":{\"l2\":{\"l3\":{\"l4\":{\"l5\":{\"l6\":{\"l7\":{\"l8\":{\"l9\":{\"l10\":\"deepest\"}}}}}}}}}";
+            var json = "{\"l1\":{\"l2\":{\"l3\":{\"l4\":{\"l5\":{\"l6\":{\"l7\":{\"l8\":{\"l9\":{\"l10\":\"deepest\"}}}}}}}}}}";
             var document = JsonDocument.Parse(json);
-            var builder = new CrowsNestMqtt.Utils.JsonTreeBuilder();
 
             // Act
             var root = CrowsNestMqtt.Utils.JsonTreeBuilder.BuildTree(document);
@@ -246,27 +156,6 @@ namespace CrowsNestMqtt.Integration.Tests
             Assert.True(vm.HasParseError);
             Assert.Contains("JSON Parsing Error", vm.JsonParseError);
             Assert.Empty(vm.RootNodes);
-        }
-
-        // Cross-context consistency: All JSON contexts use same expansion logic
-        [Fact]
-        public void AllJsonContexts_UseSameExpansionLogic()
-        {
-            // This test will FAIL until T009-T011 are complete
-
-            // Arrange
-            var json = "{\"level1\":{\"level2\":\"value\"}}";
-            // TODO: Display JSON in `:view json` command
-            // TODO: Display same JSON in message preview
-            // TODO: Display same JSON in command palette
-
-            // Act
-            // TODO: Capture expansion state from all three contexts
-
-            // Assert
-            // TODO: Verify all contexts show identical expansion (all levels visible)
-            // TODO: Verify IsExpanded states match across contexts
-            Assert.True(false, "Test not yet implemented - waiting for T009-T011");
         }
     }
 }

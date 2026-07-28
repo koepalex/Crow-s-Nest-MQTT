@@ -11,7 +11,7 @@ namespace CrowsNestMqtt.Integration.Tests;
 /// Integration tests for MqttEngine.PublishAsync using an embedded MQTTnet.Server broker.
 /// Verifies publish + receive round-trip, MQTT V5 properties, QoS levels, and retain behaviour.
 /// </summary>
-public class PublishIntegrationTests : IClassFixture<MqttBrokerFixture>, IDisposable
+public sealed class PublishIntegrationTests : IClassFixture<MqttBrokerFixture>, IDisposable
 {
     private readonly MqttBrokerFixture _broker;
     private readonly ITestOutputHelper _output;
@@ -25,7 +25,7 @@ public class PublishIntegrationTests : IClassFixture<MqttBrokerFixture>, IDispos
 
         var settings = new MqttConnectionSettings
         {
-            Hostname = _broker.Hostname,
+            Hostname = MqttBrokerFixture.Hostname,
             Port = _broker.Port,
             ClientId = $"publish-test-{Guid.NewGuid():N}",
             CleanSession = true
@@ -232,7 +232,7 @@ public class PublishIntegrationTests : IClassFixture<MqttBrokerFixture>, IDispos
         // Arrange — create a separate engine with SubscriptionQoS = 2
         var settings = new MqttConnectionSettings
         {
-            Hostname = _broker.Hostname,
+            Hostname = MqttBrokerFixture.Hostname,
             Port = _broker.Port,
             ClientId = $"qos2-sub-test-{Guid.NewGuid():N}",
             CleanSession = true,
@@ -329,7 +329,7 @@ public class PublishIntegrationTests : IClassFixture<MqttBrokerFixture>, IDispos
         // Verify retain is stored by connecting a fresh engine and seeing if it gets delivered.
         var freshSettings = new MqttConnectionSettings
         {
-            Hostname = _broker.Hostname,
+            Hostname = MqttBrokerFixture.Hostname,
             Port = _broker.Port,
             ClientId = $"retain-verify-{Guid.NewGuid():N}",
             CleanSession = true
