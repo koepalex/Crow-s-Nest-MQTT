@@ -1,7 +1,7 @@
 using ReactiveUI;
 using System.Collections.ObjectModel;
 using System.Text.Json;
-using Avalonia.Media; // For Brushes
+using CrowsNestMqtt.UI.Theming;
 
 namespace CrowsNestMqtt.UI.ViewModels;
 
@@ -39,8 +39,12 @@ public class JsonNodeViewModel : ReactiveObject
     // Depth tracking for automatic expansion (1-based: root children = 1)
     public int Depth { get; set; }
 
-    // For Syntax Highlighting
-    public IBrush ValueBrush { get; }
+    /// <summary>
+    /// FluentAvalonia resource key used to highlight this value in the TreeView. The view binds
+    /// the foreground to this key reactively so colors stay correct across light/dark themes,
+    /// including runtime theme switches.
+    /// </summary>
+    public string ValueBrushResourceKey => JsonValueBrushResources.GetResourceKey(ValueKind);
 
     public JsonNodeViewModel(string name, JsonElement element, string jsonPath)
     {
@@ -48,9 +52,11 @@ public class JsonNodeViewModel : ReactiveObject
         ValueKind = element.ValueKind;
         JsonPath = jsonPath;
         ValueDisplay = GetValueDisplay(element);
-        ValueBrush = GetValueBrush(element.ValueKind);
 
-        // Note: Children are populated recursively by JsonViewerViewModel.PopulateNodes
+        // Note: Children are populated recursively by JsonViewerViewModel.PopulateNodes.
+        // Value highlighting is resolved in the view from ValueBrushResourceKey via a theme
+        // resource observable, so it stays theme-aware (light/dark) at runtime instead of
+        // binding hard-coded brushes here.
     }
 
     private static string GetValueDisplay(JsonElement element)
@@ -87,19 +93,5 @@ public class JsonNodeViewModel : ReactiveObject
             return value;
         }
         return value.Substring(0, MaxValueDisplayLength) + "…";
-    }
-
-    private static IBrush GetValueBrush(JsonValueKind kind)
-    {
-        // Basic syntax highlighting colors
-        return kind switch
-        {
-            JsonValueKind.String => Brushes.Green,
-            JsonValueKind.Number => Brushes.Blue,
-            JsonValueKind.True => Brushes.DarkOrange,
-            JsonValueKind.False => Brushes.DarkOrange,
-            JsonValueKind.Null => Brushes.Gray,
-            _ => Brushes.White // Default for keys, objects, arrays (visible on dark background)
-        };
     }
 }

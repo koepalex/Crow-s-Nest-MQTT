@@ -108,6 +108,26 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         }
 
         [Fact]
+        public void ConnectAsync_WhileAlreadyConnected_ShouldStillTriggerConnect()
+        {
+            // Regression: re-running :connect (e.g. after changing settings in the
+            // connection dialog) while a session is active must forward the request to
+            // the MQTT service, which disconnects the existing session before connecting.
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+
+            _mqttServiceMock.ConnectionStateChanged += Raise.EventWith(
+                _mqttServiceMock,
+                new MqttConnectionStateChangedEventArgs(true, null, ConnectionStatusState.Connected));
+
+            Assert.Equal(ConnectionStatusState.Connected, viewModel.ConnectionStatus);
+
+            viewModel.ConnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();
+
+            _mqttServiceMock.Received(1).UpdateSettings(Arg.Any<MqttConnectionSettings>());
+            _mqttServiceMock.Received(1).ConnectAsync();
+        }
+
+        [Fact]
         public void DisconnectAsync_ShouldDisconnect()
         {
             // Arrange
@@ -134,6 +154,39 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             // Assert
             Assert.Equal(ConnectionStatusState.Disconnected, viewModel.ConnectionStatus);
             Assert.False(viewModel.IsConnected);
+        }
+
+        [Fact]
+        public void ConnectionInfoText_ShouldBeEmpty_WhenNotConnected()
+        {
+            _mqttServiceMock.GetBufferedTopics().Returns(Array.Empty<string>());
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+
+            var args = new MqttConnectionStateChangedEventArgs(false, null, ConnectionStatusState.Disconnected, "Disconnected");
+            _mqttServiceMock.ConnectionStateChanged += Raise.EventWith(_mqttServiceMock, args);
+
+            Assert.Equal(string.Empty, viewModel.ConnectionInfoText);
+        }
+
+        [Fact]
+        public void ConnectionInfoText_ShouldShowBrokerDetails_WhenConnected()
+        {
+            _mqttServiceMock.GetBufferedTopics().Returns(Array.Empty<string>());
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+            viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.UsernamePassword;
+            viewModel.Settings.Hostname = "broker.example.com";
+            viewModel.Settings.Port = 8883;
+            viewModel.Settings.UseTls = true;
+            viewModel.Settings.SelectedTransport = TransportProtocol.WebSocket;
+
+            var args = new MqttConnectionStateChangedEventArgs(true, null, ConnectionStatusState.Connected, "Connected");
+            _mqttServiceMock.ConnectionStateChanged += Raise.EventWith(_mqttServiceMock, args);
+
+            var info = viewModel.ConnectionInfoText;
+            Assert.Contains("broker.example.com:8883", info, StringComparison.Ordinal);
+            Assert.Contains("TLS: on", info, StringComparison.Ordinal);
+            Assert.Contains("Transport: WebSocket", info, StringComparison.Ordinal);
+            Assert.Contains("Auth: User/Password", info, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -203,6 +256,77 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
                 s.Hostname == expectedHostname && s.Port == expectedPort
             ));
             _mqttServiceMock.Received(1).ConnectAsync();
+        }
+
+        [Fact]
+        public async Task ConnectOnLaunchAsync_WhenDialogDisabled_ConnectsWithoutShowingDialog()
+        {
+            // Arrange
+            using var viewModel = new MainViewModel(
+                _commandParserService,
+                _mqttServiceMock,
+                null,
+                null,
+                null,
+                new EnvironmentSettingsOverrides
+                {
+                    Hostname = "aspirehost",
+                    Port = 1883,
+                    ShowConnectionDialogOnLaunch = false,
+                    HasOverrides = true,
+                    IsAspireEnvironment = true
+                });
+
+            var dialogShown = false;
+            using var handler = viewModel.ShowConnectionDialogInteraction.RegisterHandler(interaction =>
+            {
+                dialogShown = true;
+                interaction.SetOutput(true);
+            });
+
+            // Act
+            await viewModel.ConnectOnLaunchAsync();
+
+            // Assert
+            Assert.False(dialogShown);
+            Assert.True(viewModel.AutoConnectOnLaunch);
+            _mqttServiceMock.Received(1).UpdateSettings(Arg.Is<MqttConnectionSettings>(s =>
+                s.Hostname == "aspirehost" && s.Port == 1883));
+            await _mqttServiceMock.Received(1).ConnectAsync();
+        }
+
+        [Fact]
+        public async Task ConnectOnLaunchAsync_WhenDialogEnabled_ShowsDialogBeforeConnecting()
+        {
+            // Arrange
+            using var viewModel = new MainViewModel(
+                _commandParserService,
+                _mqttServiceMock,
+                null,
+                null,
+                null,
+                new EnvironmentSettingsOverrides
+                {
+                    Hostname = "aspirehost",
+                    Port = 1883,
+                    ShowConnectionDialogOnLaunch = true,
+                    HasOverrides = true,
+                    IsAspireEnvironment = true
+                });
+
+            var dialogShown = false;
+            using var handler = viewModel.ShowConnectionDialogInteraction.RegisterHandler(interaction =>
+            {
+                dialogShown = true;
+                interaction.SetOutput(false);
+            });
+
+            // Act
+            await viewModel.ConnectOnLaunchAsync();
+
+            // Assert
+            Assert.True(dialogShown);
+            await _mqttServiceMock.DidNotReceive().ConnectAsync();
         }
    }
 }

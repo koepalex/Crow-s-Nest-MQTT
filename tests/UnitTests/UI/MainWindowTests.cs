@@ -124,6 +124,7 @@ namespace CrowsNestMqtt.UnitTests.UI
         {
             // Act
             var mainWindow1 = new MainWindow();
+            ClearFluentAvaloniaWindowRegistry(); // headless reuses the same HWND; clear so the second window can register
             var mainWindow2 = new MainWindow();
 
             // Assert

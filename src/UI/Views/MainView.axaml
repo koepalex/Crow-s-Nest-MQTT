@@ -1,659 +1,697 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:vm="using:CrowsNestMqtt.UI.ViewModels"
-             xmlns:i="using:Avalonia.Xaml.Interactivity"
-             xmlns:ia="using:Avalonia.Xaml.Interactions.Core"
-             xmlns:ae="using:AvaloniaEdit"
-             xmlns:aeControls="using:AvaloniaEdit.TextMate"
-             xmlns:vw="using:CrowsNestMqtt.UI.Views"
-             xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
-             x:Class="CrowsNestMqtt.UI.Views.MainView"
-             x:DataType="vm:MainViewModel"
-             x:CompileBindings="False">
- <UserControl.Resources>
-   <StreamGeometry x:Key="plug_connected_regular">M234.83,21.17a4,4,0,0,0-5.66,0L173.94,76.4l-8.2-8.2a28,28,0,0,0-39.6,0L100,94.34l-9.17-9.17a4,4,0,0,0-5.66,5.66L94.34,100,68.2,126.14a28,28,0,0,0,0,39.6l8.2,8.2L21.17,229.17a4,4,0,0,0,5.66,5.66L82.06,179.6l8.2,8.2a28,28,0,0,0,39.6,0L156,161.66l9.17,9.17a4,4,0,0,0,5.66-5.66L161.66,156l26.14-26.14a28,28,0,0,0,0-39.6l-8.2-8.2,55.23-55.23A4,4,0,0,0,234.83,21.17Zm-110.63,161a20,20,0,0,1-28.28,0L73.86,160.08a20,20,0,0,1,0-28.28L100,105.66,150.34,156Zm57.94-57.94L156,150.34,105.66,100,131.8,73.86a20,20,0,0,1,28.28,0l22.06,22.06A20,20,0,0,1,182.14,124.2ZM92.29,33.49a4,4,0,1,1,7.42-3l8,20a4,4,0,0,1-2.22,5.2A3.91,3.91,0,0,1,104,56a4,4,0,0,1-3.71-2.51Zm-64,61a4,4,0,0,1,5.2-2.22l20,8A4,4,0,0,1,52,108a3.91,3.91,0,0,1-1.49-.29l-20-8A4,4,0,0,1,28.29,94.51Zm199.42,67A4,4,0,0,1,224,164a3.91,3.91,0,0,1-1.49-.29l-20-8a4,4,0,1,1,3-7.42l20,8A4,4,0,0,1,227.71,161.49Zm-64,61a4,4,0,0,1-2.22,5.2A3.91,3.91,0,0,1,160,228a4,4,0,0,1-3.71-2.51l-8-20a4,4,0,0,1,7.42-3Z</StreamGeometry>
-   <StreamGeometry x:Key="plug_disconnected_regular">M22.7399 6.32717C24.3781 8.48282 24.2132 11.571 22.2453 13.5389L20.3007 15.4835C20.0078 15.7764 19.533 15.7764 19.2401 15.4835L12.5226 8.76595C12.2297 8.47306 12.2297 7.99818 12.5226 7.70529L14.4671 5.76075C16.4352 3.79268 19.5237 3.62792 21.6793 5.26646L24.7238 2.22166C25.0167 1.92875 25.4916 1.92873 25.7845 2.22161C26.0774 2.51449 26.0774 2.98936 25.7845 3.28227L22.7399 6.32717ZM19.7704 13.8925L21.1846 12.4783C22.7467 10.9162 22.7467 8.3835 21.1846 6.82141C19.6225 5.25931 17.0899 5.25931 15.5278 6.82141L14.1135 8.23562L19.7704 13.8925Z M12.7778 11.215C13.0707 11.5079 13.0707 11.9828 12.7778 12.2757L10.6514 14.402L13.5982 17.3489L15.7238 15.2234C16.0167 14.9305 16.4916 14.9305 16.7844 15.2234C17.0773 15.5163 17.0773 15.9912 16.7844 16.284L14.6589 18.4095L15.4858 19.2364C15.7787 19.5293 15.7787 20.0042 15.4858 20.2971L13.5412 22.2416C11.5732 24.2096 8.48484 24.3745 6.32918 22.7361L3.28475 25.7808C2.99187 26.0737 2.517 26.0737 2.22409 25.7808C1.93118 25.488 1.93116 25.0131 2.22404 24.7202L5.26853 21.6754C3.63025 19.5197 3.79509 16.4314 5.76306 14.4635L7.7076 12.5189C8.0005 12.226 8.47537 12.226 8.76826 12.5189L9.59072 13.3414L11.7172 11.215C12.0101 10.9221 12.485 10.9221 12.7778 11.215ZM6.83028 21.1875C8.3929 22.7431 10.9207 22.7409 12.4806 21.181L13.8948 19.7668L8.23793 14.1099L6.82372 15.5241C5.26383 17.084 5.26163 19.6117 6.81709 21.1743L6.82366 21.1808L6.83028 21.1875Z</StreamGeometry>
-  <StreamGeometry x:Key="settings_regular">M14 9.50006C11.5147 9.50006 9.5 11.5148 9.5 14.0001C9.5 16.4853 11.5147 18.5001 14 18.5001C15.3488 18.5001 16.559 17.9066 17.3838 16.9666C18.0787 16.1746 18.5 15.1365 18.5 14.0001C18.5 13.5401 18.431 13.0963 18.3028 12.6784C17.7382 10.8381 16.0253 9.50006 14 9.50006ZM11 14.0001C11 12.3432 12.3431 11.0001 14 11.0001C15.6569 11.0001 17 12.3432 17 14.0001C17 15.6569 15.6569 17.0001 14 17.0001C12.3431 17.0001 11 15.6569 11 14.0001Z M21.7093 22.3948L19.9818 21.6364C19.4876 21.4197 18.9071 21.4515 18.44 21.7219C17.9729 21.9924 17.675 22.4693 17.6157 23.0066L17.408 24.8855C17.3651 25.273 17.084 25.5917 16.7055 25.682C14.9263 26.1061 13.0725 26.1061 11.2933 25.682C10.9148 25.5917 10.6336 25.273 10.5908 24.8855L10.3834 23.0093C10.3225 22.4731 10.0112 21.9976 9.54452 21.7281C9.07783 21.4586 8.51117 21.4269 8.01859 21.6424L6.29071 22.4009C5.93281 22.558 5.51493 22.4718 5.24806 22.1859C4.00474 20.8536 3.07924 19.2561 2.54122 17.5137C2.42533 17.1384 2.55922 16.7307 2.8749 16.4977L4.40219 15.3703C4.83721 15.0501 5.09414 14.5415 5.09414 14.0007C5.09414 13.4598 4.83721 12.9512 4.40162 12.6306L2.87529 11.5051C2.55914 11.272 2.42513 10.8638 2.54142 10.4882C3.08038 8.74734 4.00637 7.15163 5.24971 5.82114C5.51684 5.53528 5.93492 5.44941 6.29276 5.60691L8.01296 6.36404C8.50793 6.58168 9.07696 6.54881 9.54617 6.27415C10.0133 6.00264 10.3244 5.52527 10.3844 4.98794L10.5933 3.11017C10.637 2.71803 10.9245 2.39704 11.3089 2.31138C12.19 2.11504 13.0891 2.01071 14.0131 2.00006C14.9147 2.01047 15.8128 2.11485 16.6928 2.31149C17.077 2.39734 17.3643 2.71823 17.4079 3.11017L17.617 4.98937C17.7116 5.85221 18.4387 6.50572 19.3055 6.50663C19.5385 6.507 19.769 6.45838 19.9843 6.36294L21.7048 5.60568C22.0626 5.44818 22.4807 5.53405 22.7478 5.81991C23.9912 7.1504 24.9172 8.74611 25.4561 10.487C25.5723 10.8623 25.4386 11.2703 25.1228 11.5035L23.5978 12.6297C23.1628 12.95 22.9 13.4586 22.9 13.9994C22.9 14.5403 23.1628 15.0489 23.5988 15.3698L25.1251 16.4965C25.441 16.7296 25.5748 17.1376 25.4586 17.5131C24.9198 19.2536 23.9944 20.8492 22.7517 22.1799C22.4849 22.4657 22.0671 22.5518 21.7093 22.3948ZM16.263 22.1966C16.4982 21.4685 16.9889 20.8288 17.6884 20.4238C18.5702 19.9132 19.6536 19.8547 20.5841 20.2627L21.9281 20.8526C22.791 19.8538 23.4593 18.7013 23.8981 17.4552L22.7095 16.5778L22.7086 16.5771C21.898 15.98 21.4 15.0277 21.4 13.9994C21.4 12.9719 21.8974 12.0195 22.7073 11.4227L22.7085 11.4218L23.8957 10.545C23.4567 9.2988 22.7881 8.14636 21.9248 7.1477L20.5922 7.73425L20.5899 7.73527C20.1844 7.91463 19.7472 8.00722 19.3039 8.00663C17.6715 8.00453 16.3046 6.77431 16.1261 5.15465L16.1259 5.15291L15.9635 3.69304C15.3202 3.57328 14.6677 3.50872 14.013 3.50017C13.3389 3.50891 12.6821 3.57367 12.0377 3.69328L11.8751 5.15452C11.7625 6.16272 11.1793 7.05909 10.3019 7.56986C9.41937 8.0856 8.34453 8.14844 7.40869 7.73694L6.07273 7.14893C5.20949 8.14751 4.54092 9.29983 4.10196 10.5459L5.29181 11.4233C6.11115 12.0269 6.59414 12.9837 6.59414 14.0007C6.59414 15.0173 6.11142 15.9742 5.29237 16.5776L4.10161 17.4566C4.54002 18.7044 5.2085 19.8585 6.07205 20.8587L7.41742 20.2682C8.34745 19.8613 9.41573 19.9215 10.2947 20.4292C11.174 20.937 11.7593 21.832 11.8738 22.84L11.8744 22.8445L12.0362 24.3088C13.3326 24.5638 14.6662 24.5638 15.9626 24.3088L16.1247 22.8418C16.1491 22.6217 16.1955 22.4055 16.263 22.1966Z</StreamGeometry>
-    <StreamGeometry x:Key="copy_regular">M5.50280381,4.62704038 L5.5,6.75 L5.5,17.2542087 C5.5,19.0491342 6.95507456,20.5042087 8.75,20.5042087 L17.3662868,20.5044622 C17.057338,21.3782241 16.2239751,22.0042087 15.2444057,22.0042087 L8.75,22.0042087 C6.12664744,22.0042087 4,19.8775613 4,17.2542087 L4,6.75 C4,5.76928848 4.62744523,4.93512464 5.50280381,4.62704038 Z M17.75,2 C18.9926407,2 20,3.00735931 20,4.25 L20,17.25 C20,18.4926407 18.9926407,19.5 17.75,19.5 L8.75,19.5 C7.50735931,19.5 6.5,18.4926407 6.5,17.25 L6.5,4.25 C6.5,3.00735931 7.50735931,2 8.75,2 L17.75,2 Z M17.75,3.5 L8.75,3.5 C8.33578644,3.5 8,3.83578644 8,4.25 L8,17.25 C8,17.6642136 8.33578644,18 8.75,18 L17.75,18 C18.1642136,18 18.5,17.6642136 18.5,17.25 L18.5,4.25 C18.5,3.83578644 18.1642136,3.5 17.75,3.5 Z</StreamGeometry>
-    <StreamGeometry x:Key="delete_regular">M10 2.5C8.61929 2.5 7.5 3.61929 7.5 5V6H4C3.44772 6 3 6.44772 3 7C3 7.55228 3.44772 8 4 8H5V19C5 20.6569 6.34315 22 8 22H16C17.6569 22 19 20.6569 19 19V8H20C20.5523 8 21 7.55228 21 7C21 6.44772 20.5523 6 20 6H16.5V5C16.5 3.61929 15.3807 2.5 14 2.5H10ZM14.5 6V5C14.5 4.72386 14.2761 4.5 14 4.5H10C9.72386 4.5 9.5 4.72386 9.5 5V6H14.5ZM7 8V19C7 19.5523 7.44772 20 8 20H16C16.5523 20 17 19.5523 17 19V8H7ZM9 10C9.55228 10 10 10.4477 10 11V17C10 17.5523 9.55228 18 9 18C8.44772 18 8 17.5523 8 17V11C8 10.4477 8.44772 10 9 10ZM15 10C15.5523 10 16 10.4477 16 11V17C16 17.5523 15.5523 18 15 18C14.4477 18 14 17.5523 14 17V11C14 10.4477 14.4477 10 15 10Z</StreamGeometry>
-    <!-- T021/T022: Export icons for export all and per-message export buttons -->
-    <StreamGeometry x:Key="export_regular">M12 2L12 14M12 14L8 10M12 14L16 10M3 14V18C3 19.1046 3.89543 20 5 20H19C20.1046 20 21 19.1046 21 18V14</StreamGeometry>
-    <!-- Response status icons -->
-    <StreamGeometry x:Key="clock_icon">M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z</StreamGeometry>
-    <StreamGeometry x:Key="arrow_icon">M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z</StreamGeometry>
-    <StreamGeometry x:Key="send_regular">M5.694 12 2.299 3.272c-.236-.607.356-1.188.942-.982l.093.04 18 9c.503.251.553.888.104 1.204l-.104.066-18 9c-.622.31-1.3-.285-1.035-.942l.035-.08L5.694 12 2.299 3.272 5.694 12ZM4.402 4.54l2.61 6.71h6.627a.75.75 0 0 1 .743.648l.007.102a.75.75 0 0 1-.648.743l-.102.007H7.01l-2.609 6.71L19.322 12 4.401 4.54Z</StreamGeometry>
-    <!-- Warning icon for expired messages -->
-    <StreamGeometry x:Key="warning_icon">M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2v-2zm0-6h2v4h-2v-4z</StreamGeometry>
-  </UserControl.Resources>
+<UserControl
+    x:Class="CrowsNestMqtt.UI.Views.MainView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ae="using:AvaloniaEdit"
+    xmlns:aeControls="using:AvaloniaEdit.TextMate"
+    xmlns:controls="using:FluentAvalonia.UI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:i="using:Avalonia.Xaml.Interactivity"
+    xmlns:ia="using:Avalonia.Xaml.Interactions.Core"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
+    xmlns:vm="using:CrowsNestMqtt.UI.ViewModels"
+    xmlns:vw="using:CrowsNestMqtt.UI.Views"
+    d:DesignHeight="600"
+    d:DesignWidth="800"
+    x:CompileBindings="False"
+    x:DataType="vm:MainViewModel"
+    mc:Ignorable="d">
+    <Design.DataContext>
+        <!--  This DataContext is used only for design-time IntelliSense.  -->
+        <!--  It is overridden at runtime by the ViewModel assigned in code-behind  -->
+        <vm:MainViewModel />
+    </Design.DataContext>
 
- <Design.DataContext>
-   <!-- This DataContext is used only for design-time IntelliSense. -->
-   <!-- It is overridden at runtime by the ViewModel assigned in code-behind -->
-   <vm:MainViewModel />
- </Design.DataContext>
+    <UserControl.Styles>
+        <!--  GridSplitters: 4px pill, transparent at rest, clearly highlighted on hover/drag  -->
+        <Style Selector="GridSplitter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
+        <Style Selector="GridSplitter:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SystemControlHighlightListLowBrush}" />
+        </Style>
+        <Style Selector="GridSplitter:pressed">
+            <Setter Property="Background" Value="{DynamicResource SystemControlHighlightListLowBrush}" />
+        </Style>
+        <!--  DataGrid headers blend into the surrounding card background  -->
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="SeparatorBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+        </Style>
+        <!--  Header bottom border (separator between column headers and rows)  -->
+        <Style Selector="DataGrid /template/ Rectangle#PART_ColumnHeadersAndRowsSeparator">
+            <Setter Property="Fill" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+        </Style>
+    </UserControl.Styles>
 
-  <!-- Changed RowDefinitions to Auto,Auto,*, removed ColumnDefinitions from top Grid -->
-  <!-- Use a root Panel for layering -->
-  <Panel>
-    <!-- Main layout Grid (without settings) -->
-    <Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="*">
- 
-      <!-- Top Command/Search Bar -->
-      <AutoCompleteBox x:Name="CommandAutoCompleteBox" Grid.Row="0"
-                       PlaceholderText="Enter command or search query..."
-                       Text="{Binding CommandText, Mode=TwoWay}"
-                       ItemsSource="{Binding CommandSuggestions}"
-                       FilterMode="StartsWith"
-                       MinimumPrefixLength="1"
-                       Margin="5">
-        <AutoCompleteBox.KeyBindings>
-          <KeyBinding Gesture="Enter" Command="{Binding SubmitInputCommand}" />
-        </AutoCompleteBox.KeyBindings>
-      </AutoCompleteBox>
- 
-      <!-- Buttons and Status Indicators -->
-      <!-- Use a Grid to push Settings button to the right -->
-      <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="5,0,5,5">
-          <!-- Left-aligned buttons and status -->
-          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5">
-              <Button Content="Connect" Command="{Binding ConnectCommand}" />
-              <Button Command="{Binding DisconnectCommand}" Classes.Connecting="{Binding IsConnecting}">
-                  <Button.Styles>
-                      <Style Selector="Button">
-                          <Setter Property="Content" Value="Disconnect"/>
-                      </Style>
-                      <Style Selector="Button.Connecting">
-                          <Setter Property="Content" Value="Cancel"/>
-                      </Style>
-                  </Button.Styles>
-              </Button>
-              <Button Content="Clear" Command="{Binding ClearHistoryCommand}" />
-              <Button x:Name="PauseResumeButton" Content="Pause/Resume" Command="{Binding PauseResumeCommand}" />
-              <Button x:Name="DeleteTopicButton"
-                      Command="{Binding DeleteTopicCommand}"
-                      ToolTip.Tip="Delete selected topic's retained messages"
-                      IsEnabled="{Binding IsDeleteButtonEnabled}"
-                      MinHeight="32"
-                      Padding="12,8"
-                      VerticalContentAlignment="Center"
-                      HorizontalContentAlignment="Center">
-                  <Button.Styles>
-                      <Style Selector="Button:disabled PathIcon">
-                          <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundDisabled}"/>
-                          <Setter Property="Opacity" Value="0.5"/>
-                      </Style>
-                  </Button.Styles>
-                  <PathIcon Data="{StaticResource delete_regular}" Width="16" Height="16"/>
-              </Button>
-              <!-- T021: Export All button for bulk message export -->
-              <Button x:Name="ExportAllButton"
-                      Command="{Binding ExportAllCommand}"
-                      ToolTip.Tip="Export all messages from selected topic (max 100)"
-                      IsEnabled="{Binding IsExportAllButtonEnabled}"
-                      MinHeight="32"
-                      Padding="12,8"
-                      VerticalContentAlignment="Center"
-                      HorizontalContentAlignment="Center">
-                  <Button.Styles>
-                      <Style Selector="Button:disabled PathIcon">
-                          <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundDisabled}"/>
-                          <Setter Property="Opacity" Value="0.5"/>
-                      </Style>
-                  </Button.Styles>
-                  <PathIcon Data="{StaticResource export_regular}" Width="16" Height="16"/>
-              </Button>
-              <!-- Publish button to open the non-modal publish window -->
-              <Button x:Name="PublishButton"
-                      Command="{Binding TogglePublishWindowCommand}"
-                      ToolTip.Tip="Open publish window (Ctrl+Shift+M)"
-                      MinHeight="32"
-                      Padding="12,8"
-                      VerticalContentAlignment="Center"
-                      HorizontalContentAlignment="Center">
-                  <PathIcon Data="{StaticResource send_regular}" Width="16" Height="16"/>
-              </Button>
-              <TextBlock Text="Status:" VerticalAlignment="Center" Margin="10,0,0,0"/>
-              <PathIcon VerticalAlignment="Center" Margin="5,0"
-                        ToolTip.Tip="{Binding ConnectionStatus}"
+    <!--  Main layout Grid (without settings)  -->
+    <Grid ColumnDefinitions="*" RowDefinitions="Auto,Auto,*,Auto">
+
+        <!--  Title Bar  -->
+        <Grid
+            x:Name="TitleBarGrid"
+            Grid.Row="0"
+            Height="48"
+            Background="Transparent"
+            ColumnDefinitions="Auto,Auto,*">
+            <!--  App Icon  -->
+            <Image
+                Grid.Column="0"
+                Width="16"
+                Height="16"
+                Margin="16,0,0,0"
+                VerticalAlignment="Center"
+                Source="avares://CrowsNestMqtt.App/Assets/icon.ico" />
+            <!--  App Title  -->
+            <TextBlock
+                Grid.Column="1"
+                Margin="12,0,0,0"
+                VerticalAlignment="Center"
+                FontSize="12"
+                Text="Crow's Nest MQTT" />
+            <!--  Search / Command Box  -->
+            <AutoCompleteBox
+                x:Name="CommandAutoCompleteBox"
+                Grid.Column="2"
+                Width="600"
+                Margin="16,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                FilterMode="StartsWith"
+                ItemsSource="{Binding CommandSuggestions}"
+                MinimumPrefixLength="1"
+                PlaceholderText="Enter command or search query..."
+                Text="{Binding CommandText, Mode=TwoWay}">
+                <AutoCompleteBox.KeyBindings>
+                    <KeyBinding Command="{Binding SubmitInputCommand}" Gesture="Enter" />
+                </AutoCompleteBox.KeyBindings>
+            </AutoCompleteBox>
+        </Grid>
+
+
+        <!--  Toolbar  -->
+        <Border
+            Grid.Row="1"
+            Margin="8,4,8,0"
+            Classes="Card">
+            <controls:FACommandBar DefaultLabelPosition="Right">
+                <controls:FACommandBar.PrimaryCommands>
+                    <controls:FACommandBarButton
+                        Command="{Binding ConnectCommand}"
+                        Label="Connect..."
+                        ToolTip.Tip="Connect">
+                        <controls:FACommandBarButton.IconSource>
+                            <controls:FAPathIconSource Data="{StaticResource plug_connected_regular}" />
+                        </controls:FACommandBarButton.IconSource>
+                    </controls:FACommandBarButton>
+                    <controls:FACommandBarButton
+                        Classes.Connecting="{Binding IsConnecting}"
+                        Command="{Binding DisconnectCommand}"
+                        ToolTip.Tip="Disconnect">
+                        <controls:FACommandBarButton.Styles>
+                            <Style Selector="controls|FACommandBarButton">
+                                <Setter Property="Label" Value="Disconnect" />
+                            </Style>
+                            <Style Selector="controls|FACommandBarButton.Connecting">
+                                <Setter Property="Label" Value="Cancel" />
+                            </Style>
+                        </controls:FACommandBarButton.Styles>
+                        <controls:FACommandBarButton.IconSource>
+                            <controls:FAPathIconSource Data="{StaticResource plug_disconnected_regular}" />
+                        </controls:FACommandBarButton.IconSource>
+                    </controls:FACommandBarButton>
+                    <controls:FACommandBarSeparator />
+                    <controls:FACommandBarButton
+                        Command="{Binding ClearHistoryCommand}"
+                        Label="Clear"
+                        ToolTip.Tip="Clear">
+                        <controls:FACommandBarButton.IconSource>
+                            <controls:FAFontIconSource FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE74D;" />
+                        </controls:FACommandBarButton.IconSource>
+                    </controls:FACommandBarButton>
+                    <controls:FACommandBarButton
+                        x:Name="PauseResumeButton"
+                        Command="{Binding PauseResumeCommand}"
+                        Label="Pause/Resume"
+                        ToolTip.Tip="Pause/Resume">
+                        <controls:FACommandBarButton.IconSource>
+                            <controls:FAFontIconSource FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE769;" />
+                        </controls:FACommandBarButton.IconSource>
+                    </controls:FACommandBarButton>
+                    <controls:FACommandBarSeparator />
+                    <controls:FACommandBarButton
+                        x:Name="DeleteTopicButton"
+                        Command="{Binding DeleteTopicCommand}"
+                        IsEnabled="{Binding IsDeleteButtonEnabled}"
+                        Label="Delete Topic"
+                        ToolTip.Tip="Delete selected topic's retained messages">
+                        <controls:FACommandBarButton.IconSource>
+                            <controls:FAPathIconSource Data="{StaticResource delete_regular}" />
+                        </controls:FACommandBarButton.IconSource>
+                    </controls:FACommandBarButton>
+                    <controls:FACommandBarSeparator />
+                    <controls:FACommandBarButton
+                        x:Name="ExportAllButton"
+                        Command="{Binding ExportAllCommand}"
+                        IsEnabled="{Binding IsExportAllButtonEnabled}"
+                        Label="Export All"
+                        ToolTip.Tip="Export all messages from selected topic (max 100)">
+                        <controls:FACommandBarButton.IconSource>
+                            <controls:FAFontIconSource FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE72D;" />
+                        </controls:FACommandBarButton.IconSource>
+                    </controls:FACommandBarButton>
+                    <controls:FACommandBarButton
+                        x:Name="PublishButton"
+                        Command="{Binding TogglePublishWindowCommand}"
+                        Label="Publish"
+                        ToolTip.Tip="Open publish window (Ctrl+Shift+M)">
+                        <controls:FACommandBarButton.IconSource>
+                            <controls:FAPathIconSource Data="{StaticResource send_regular}" />
+                        </controls:FACommandBarButton.IconSource>
+                    </controls:FACommandBarButton>
+                    <controls:FACommandBarSeparator />
+                    <controls:FACommandBarButton Command="{Binding OpenSettingsCommand}" Label="Settings">
+                        <controls:FACommandBarButton.IconSource>
+                            <controls:FAPathIconSource Data="{StaticResource settings_regular}" />
+                        </controls:FACommandBarButton.IconSource>
+                    </controls:FACommandBarButton>
+                </controls:FACommandBar.PrimaryCommands>
+            </controls:FACommandBar>
+        </Border>
+
+        <!--  Main Content Area using DockPanel  -->
+        <Grid
+            Grid.Row="2"
+            ColumnDefinitions="*,Auto"
+            RowDefinitions="*">
+
+            <!--  Main Content Grid (Fills Remaining Space)  -->
+            <Grid
+                Grid.Row="0"
+                Grid.Column="0"
+                ColumnDefinitions="1*,Auto,3*">
+                <!--  Left Panel: Topic List (Card)  -->
+                <Border
+                    Grid.Column="0"
+                    MinWidth="200"
+                    Margin="8,8,0,8"
+                    Classes="Card">
+                    <Grid RowDefinitions="Auto,*">
+                        <Border
+                            Grid.Row="0"
+                            Padding="8"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="0,0,0,1">
+                            <TextBlock
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                LineHeight="20"
+                                Text="Topics" />
+                        </Border>
+                        <TreeView
+                            x:Name="TopicTreeView"
+                            Grid.Row="1"
+                            HorizontalAlignment="Stretch"
+                            Background="Transparent"
+                            Focusable="True"
+                            ItemsSource="{Binding TopicTreeNodes}"
+                            ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                            ScrollViewer.VerticalScrollBarVisibility="Auto"
+                            SelectedItem="{Binding SelectedNode, Mode=TwoWay}">
+                            <TreeView.ItemTemplate>
+                                <TreeDataTemplate DataType="{x:Type vm:NodeViewModel}" ItemsSource="{Binding Children}">
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            Text="{Binding Name}"
+                                            TextWrapping="NoWrap" />
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                            Text="{Binding MessageCount}" />
+                                    </StackPanel>
+                                </TreeDataTemplate>
+                            </TreeView.ItemTemplate>
+                            <TreeView.Styles>
+                                <!--  Style the internal ScrollViewer in TreeView  -->
+                                <Style Selector="TreeView > ScrollViewer">
+                                    <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+                                    <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+                                </Style>
+                                <Style x:DataType="vm:NodeViewModel" Selector="TreeViewItem">
+                                    <Setter Property="IsVisible" Value="{Binding IsVisible}" />
+                                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                </Style>
+                            </TreeView.Styles>
+                        </TreeView>
+                    </Grid>
+                </Border>
+
+                <!--  Vertical Grid Splitter: 4px pill centred in an 8px gap (2px clear on each side)  -->
+                <GridSplitter
+                    Grid.Column="1"
+                    Width="4"
+                    Margin="2,8,2,8"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Stretch"
+                    Cursor="SizeWestEast"
+                    Focusable="True"
+                    IsTabStop="True"
+                    ResizeDirection="Columns" />
+
+                <!--  Right Panel: Details and History  -->
+                <!--  Moved this Grid to Column 2  -->
+                <!--  Right Panel: Details, JSON Viewer, and History  -->
+                <!--  Changed RowDefinitions: Details(Auto), Splitter(Auto), JsonViewer(*), Splitter(Auto), History(*)  -->
+                <Grid Grid.Column="2" RowDefinitions="*,Auto,*,Auto,*">
+                    <!--  Row layout: Details (*), Splitter, Payload (*), Splitter, History (*)  -->
+
+                    <!--  Row 0: Message Details (Metadata & User Properties)  -->
+                    <Grid
+                        Grid.Row="0"
+                        Margin="0,8,8,0"
+                        ColumnDefinitions="*,Auto,*">
+                        <!--  Column 0: Metadata  -->
+                        <Border Grid.Column="0" Classes="Card">
+                            <Grid Grid.Row="0" RowDefinitions="Auto,*">
+                                <Border
+                                    Padding="8"
+                                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="0,0,0,1">
+                                    <TextBlock
+                                        FontSize="14"
+                                        FontWeight="SemiBold"
+                                        LineHeight="20"
+                                        Text="Message Metadata" />
+                                </Border>
+                                <DataGrid
+                                    Grid.Row="1"
+                                    AutoGenerateColumns="False"
+                                    BorderThickness="0"
+                                    CanUserResizeColumns="True"
+                                    GridLinesVisibility="None"
+                                    IsReadOnly="True"
+                                    ItemsSource="{Binding MessageMetadata}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn
+                                            Width="Auto"
+                                            Binding="{Binding Key}"
+                                            Header="Key" />
+                                        <DataGridTextColumn
+                                            Width="*"
+                                            Binding="{Binding Value}"
+                                            Header="Value" />
+                                        <DataGridTemplateColumn Width="Auto" Header="">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate DataType="{x:Type vm:MetadataItem}">
+                                                    <Button
+                                                        Padding="4"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Classes.ResponseReceived="{Binding IconViewModel.IsResponseReceived, FallbackValue=False}"
+                                                        Command="{Binding $parent[DataGrid].DataContext.NavigateToResponseCommand}"
+                                                        CommandParameter="{Binding IconViewModel.RequestMessageId, FallbackValue={x:Null}}"
+                                                        Cursor="Hand"
+                                                        IsEnabled="{Binding IconViewModel.IsClickable, FallbackValue=False}"
+                                                        IsVisible="{Binding HasIcon}"
+                                                        ToolTip.Tip="{Binding IconViewModel.ToolTip, FallbackValue={x:Null}}">
+                                                        <PathIcon Width="16" Height="16">
+                                                            <PathIcon.Styles>
+                                                                <!--  Default: clock icon for pending  -->
+                                                                <Style Selector="PathIcon">
+                                                                    <Setter Property="Data" Value="{StaticResource clock_icon}" />
+                                                                    <Setter Property="Foreground" Value="#666666" />
+                                                                </Style>
+                                                                <!--  Arrow icon when response received  -->
+                                                                <Style Selector="Button.ResponseReceived PathIcon">
+                                                                    <Setter Property="Data" Value="{StaticResource arrow_icon}" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
+                                                                </Style>
+                                                                <Style Selector="Button:pointerover PathIcon">
+                                                                    <Setter Property="Foreground" Value="#333333" />
+                                                                </Style>
+                                                                <Style Selector="Button:disabled PathIcon">
+                                                                    <Setter Property="Foreground" Value="#CCCCCC" />
+                                                                </Style>
+                                                            </PathIcon.Styles>
+                                                        </PathIcon>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <!--  Warning icon column for expired messages  -->
+                                        <DataGridTemplateColumn Width="Auto" Header="">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate DataType="{x:Type vm:MetadataItem}">
+                                                    <Panel IsVisible="{Binding HasWarningIcon}">
+                                                        <PathIcon
+                                                            Width="16"
+                                                            Height="16"
+                                                            Data="{StaticResource warning_icon}"
+                                                            Foreground="{DynamicResource SystemFillColorCaution}"
+                                                            ToolTip.Tip="{Binding WarningIconViewModel.ToolTip, FallbackValue={x:Null}}" />
+                                                    </Panel>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+
+                        <!--  Column 1: Vertical Grid Splitter: 4px pill centred in an 8px gap  -->
+                        <GridSplitter
+                            Grid.Column="1"
+                            Width="4"
+                            Margin="2,0,2,0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Stretch"
+                            AutomationProperties.Name="Details Splitter"
+                            Cursor="SizeWestEast"
+                            Focusable="True"
+                            IsTabStop="True"
+                            ResizeDirection="Columns" />
+
+                        <!--  Column 2: User Properties  -->
+                        <Border Grid.Column="2" Classes="Card">
+                            <Grid RowDefinitions="Auto,*">
+                                <Border
+                                    Grid.Row="0"
+                                    Padding="8"
+                                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="0,0,0,1">
+                                    <TextBlock
+                                        FontSize="14"
+                                        FontWeight="SemiBold"
+                                        LineHeight="20"
+                                        Text="User Properties" />
+                                </Border>
+                                <DataGrid
+                                    Grid.Row="1"
+                                    AutoGenerateColumns="False"
+                                    BorderThickness="0"
+                                    CanUserResizeColumns="True"
+                                    GridLinesVisibility="None"
+                                    IsReadOnly="True"
+                                    ItemsSource="{Binding MessageUserProperties}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn
+                                            Width="Auto"
+                                            Binding="{Binding Key}"
+                                            Header="Key" />
+                                        <DataGridTextColumn
+                                            Width="*"
+                                            Binding="{Binding Value}"
+                                            Header="Value" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!--  Row 1: Horizontal Grid Splitter: 4px pill centred in an 8px gap (2px clear on each side)  -->
+                    <GridSplitter
+                        Grid.Row="1"
+                        Height="4"
+                        Margin="0,2,8,2"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="Section Splitter 1"
+                        Cursor="SizeNorthSouth"
+                        Focusable="True"
+                        IsTabStop="True"
+                        ResizeDirection="Rows" />
+
+                    <!--  Row 2: Payload Card  -->
+                    <Border
+                        Grid.Row="2"
+                        Margin="0,0,8,0"
+                        Classes="Card">
+                        <Grid RowDefinitions="Auto,*">
+                            <Border
+                                Grid.Row="0"
+                                Padding="8"
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="0,0,0,1">
+                                <TextBlock
+                                    FontSize="14"
+                                    FontWeight="SemiBold"
+                                    LineHeight="20"
+                                    Text="Payload" />
+                            </Border>
+                            <vw:PayloadViewer Grid.Row="1" MinHeight="80" />
+                        </Grid>
+                    </Border>
+
+                    <!--  Row 3: Horizontal Grid Splitter: 4px pill centred in an 8px gap  -->
+                    <GridSplitter
+                        Grid.Row="3"
+                        Height="4"
+                        Margin="0,2,8,2"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="Section Splitter 2"
+                        Cursor="SizeNorthSouth"
+                        Focusable="True"
+                        IsTabStop="True"
+                        ResizeDirection="Rows" />
+
+                    <!--  Row 4: Message History  -->
+                    <Border
+                        Grid.Row="4"
+                        Margin="0,0,8,8"
+                        Classes="Card">
+                        <Grid RowDefinitions="Auto,*">
+                            <Border
+                                Grid.Row="0"
+                                Padding="8"
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="0,0,0,1">
+                                <TextBlock
+                                    FontSize="14"
+                                    FontWeight="SemiBold"
+                                    LineHeight="20"
+                                    Text="Messages" />
+                            </Border>
+                            <ListBox
+                                x:Name="MessageHistoryListBox"
+                                Grid.Row="1"
+                                ItemsSource="{Binding FilteredMessageHistory}"
+                                SelectedItem="{Binding SelectedMessage, Mode=TwoWay}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:MessageViewModel">
+                                        <!--  Use DockPanel for layout: Time Left, Buttons Right, Payload Center  -->
+                                        <DockPanel MinWidth="300" LastChildFill="True">
+                                            <!--  Copy Button (Right Aligned)  -->
+                                            <Button
+                                                Margin="4,0,0,0"
+                                                Padding="4"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding $parent[ListBox].DataContext.CopyPayloadCommand}"
+                                                CommandParameter="{Binding}"
+                                                DockPanel.Dock="Right"
+                                                ToolTip.Tip="Copy Payload">
+                                                <PathIcon
+                                                    Width="12"
+                                                    Height="12"
+                                                    Data="{StaticResource copy_regular}" />
+                                            </Button>
+
+                                            <!--  T022: Export Button (Right Aligned, left of Copy Button)  -->
+                                            <Button
+                                                Margin="4,0,0,0"
+                                                Padding="4"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding $parent[ListBox].DataContext.ExportMessageCommand}"
+                                                CommandParameter="{Binding}"
+                                                DockPanel.Dock="Right"
+                                                ToolTip.Tip="Export this message">
+                                                <controls:FAFontIcon
+                                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                                    FontSize="12"
+                                                    Glyph="&#xE72D;" />
+                                            </Button>
+
+                                            <!--  DisplayText (Fills remaining space)  -->
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                Classes.Expired="{Binding IsExpired}"
+                                                Text="{Binding DisplayText}"
+                                                TextTrimming="CharacterEllipsis">
+                                                <TextBlock.Styles>
+                                                    <Style Selector="TextBlock.Expired">
+                                                        <Setter Property="TextDecorations" Value="Strikethrough" />
+                                                        <Setter Property="Foreground" Value="Gray" />
+                                                    </Style>
+                                                </TextBlock.Styles>
+                                            </TextBlock>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+            <!--  End of Main Content Grid  -->
+
+        </Grid>
+        <!--  End of Main Content Area DockPanel  -->
+
+        <!--  Status Bar  -->
+        <Border
+            Grid.Row="3"
+            Height="32"
+            Padding="8,0"
+            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+            BorderThickness="0,1,0,0">
+            <DockPanel LastChildFill="True" TextElement.FontSize="12">
+                <TextBlock
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    DockPanel.Dock="Right"
+                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                    IsVisible="{Binding IsConnected}"
+                    Text="{Binding ConnectionInfoText}"
+                    TextTrimming="CharacterEllipsis"
+                    ToolTip.Tip="{Binding ConnectionInfoText}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock VerticalAlignment="Center" Text="Status:" />
+                    <PathIcon
+                        Width="12"
+                        Height="12"
+                        VerticalAlignment="Center"
                         Classes.IsConnected="{Binding IsConnected}"
                         Classes.IsConnecting="{Binding IsConnecting}"
-                        Classes.IsDisconnected="{Binding IsDisconnected}">
-                  <PathIcon.Styles>
-                      <Style Selector="PathIcon.IsDisconnected">
-                          <Setter Property="Data" Value="{StaticResource plug_disconnected_regular}"/>
-                          <Setter Property="Foreground" Value="Red"/>
-                      </Style>
-                      <Style Selector="PathIcon.IsConnecting">
-                          <Setter Property="Data" Value="{StaticResource plug_disconnected_regular}"/>
-                          <Setter Property="Foreground" Value="Orange"/>
-                      </Style>
-                      <Style Selector="PathIcon.IsConnected">
-                          <Setter Property="Data" Value="{StaticResource plug_connected_regular}"/>
-                          <Setter Property="Foreground" Value="DarkGreen"/>
-                      </Style>
-                  </PathIcon.Styles>
-              </PathIcon>
-              <TextBlock Text="{Binding IsPaused, StringFormat='Paused: {0}'}" VerticalAlignment="Center" Margin="5,0"/>
-              <TextBlock Text="(Filtered)" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Orange" FontStyle="Italic" IsVisible="{Binding IsTopicFilterActive}"/>
-              <!-- Status Bar Text (selectable + wrappable so long lines like :azurewhoami can be copied) -->
-              <SelectableTextBlock Text="{Binding StatusBarText}"
-                                   VerticalAlignment="Center"
-                                   Margin="10,0,0,0"
-                                   Foreground="Gray"
-                                   FontStyle="Italic"
-                                   TextWrapping="Wrap"
-                                   MaxWidth="900" />
-              <!-- Search Status Indicator (FR-022, FR-023, FR-024) -->
-              <SelectableTextBlock Text="{Binding SearchStatusViewModel.StatusText}"
-                         VerticalAlignment="Center"
-                         Margin="10,0,0,0"
-                         Foreground="DodgerBlue"
-                         FontStyle="Italic"
-                         IsVisible="{Binding SearchStatusViewModel.IsVisible}" />
-              <!-- Connection Status Message (for Connecting/Disconnected with error) -->
-              <SelectableTextBlock Text="{Binding ConnectionStatusMessage}"
-                         VerticalAlignment="Center"
-                         Margin="10,0,0,0"
-                         Foreground="OrangeRed"
-                         FontStyle="Italic"
-                         TextWrapping="Wrap"
-                         MaxWidth="900"
-                         IsVisible="{Binding IsConnecting}" />
-              <!-- Connection Error Message (persists when disconnected due to error) -->
-              <SelectableTextBlock Text="{Binding ConnectionStatusMessage}"
-                         VerticalAlignment="Center"
-                         Margin="10,0,0,0"
-                         Foreground="Red"
-                         FontWeight="SemiBold"
-                         TextWrapping="Wrap"
-                         MaxWidth="900"
-                         IsVisible="{Binding HasConnectionError}" />
-             </StackPanel>
-
-          <!-- Right-aligned Settings button with Icon -->
-          <Button Grid.Column="1" Command="{Binding OpenSettingsCommand}" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip.Tip="Settings">
-              <PathIcon Data="{StaticResource settings_regular}" /> <!-- Use SymbolIcon for built-in icons -->
-          </Button>
-      </Grid>
- 
-      <!-- Main Content Area using DockPanel -->
-          <Grid Grid.Row="2" RowDefinitions="*" ColumnDefinitions="*,Auto">
-          <!-- Main Content Grid (Fills Remaining Space) -->
-          <!-- Changed ColumnDefinitions to add a splitter, removed DockPanel.Dock -->
-          <Grid Grid.Row="0" Grid.Column="0" ColumnDefinitions="1*,Auto,3*">
-              <!-- Left Panel: Topic List -->
-              <!-- Removed right border -->
-              <Panel Grid.Column="0" ClipToBounds="True">
-                  <Border BorderBrush="Gray" BorderThickness="0" MinWidth="200">
-                      <TreeView x:Name="TopicTreeView"
-                                ItemsSource="{Binding TopicTreeNodes}"
-                                SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
-                                ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                                ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                HorizontalAlignment="Stretch"
-                                Focusable="True"
-                                Margin="5">
-                          <TreeView.ItemTemplate>
-                              <TreeDataTemplate  DataType="{x:Type vm:NodeViewModel}" ItemsSource="{Binding Children}">
-                                  <StackPanel Orientation="Horizontal" Spacing="5">
-                                      <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextWrapping="NoWrap"/>
-                                      <Border Background="Gray" CornerRadius="3" Padding="3,1">
-                                          <TextBlock Text="{Binding MessageCount}" FontSize="10" Foreground="White" VerticalAlignment="Center"/>
-                                      </Border>
-                                  </StackPanel>
-                              </TreeDataTemplate >
-                          </TreeView.ItemTemplate>
-                          <TreeView.Styles>
-                              <!-- Style the internal ScrollViewer in TreeView -->
-                              <Style Selector="TreeView > ScrollViewer">
-                                  <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
-                                  <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
-                              </Style>
-                              <Style Selector="TreeViewItem" x:DataType="vm:NodeViewModel">
-                                  <Setter Property="IsVisible" Value="{Binding IsVisible}"/>
-                                  <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-                              </Style>
-                          </TreeView.Styles>
-                      </TreeView>
-                  </Border>
-              </Panel>
-
-              <!-- Vertical Grid Splitter -->
-              <GridSplitter Grid.Column="1"
-                            Width="5"
-                            VerticalAlignment="Stretch"
-                            HorizontalAlignment="Center"
-                            Background="LightGray"
-                            ResizeDirection="Columns"/>
-
-              <!-- Right Panel: Details and History -->
-              <!-- Moved this Grid to Column 2 -->
-              <!-- Right Panel: Details, JSON Viewer, and History -->
-              <!-- Changed RowDefinitions: Details(Auto), Splitter(Auto), JsonViewer(*), Splitter(Auto), History(*) -->
-              <Grid Grid.Column="2" RowDefinitions="*,Auto,*,Auto,*"> <!-- Row layout: Details (*), Splitter, Payload (*), Splitter, History (*) -->
-
-                  <!-- Row 0: Message Details (Metadata & User Properties) -->
-                  <!-- Removed ScrollViewer and Border, Grid now expands within Row 0 -->
-                  <Grid Grid.Row="0" RowDefinitions="Auto,*" ColumnDefinitions="*,*" Margin="5"> <!-- Added Margin -->
-                      <!-- Column 0: Metadata -->
-                      <TextBlock Grid.Row="0" Grid.Column="0" Text="Message Metadata" FontWeight="Bold"/>
-                      <DataGrid Grid.Row="1" Grid.Column="0" ItemsSource="{Binding MessageMetadata}"
-                                AutoGenerateColumns="False"
-                                IsReadOnly="True"
-                                CanUserResizeColumns="True"
-                                GridLinesVisibility="None"
-                                BorderThickness="0"
-                                Margin="0,0,5,0"> <!-- Add right margin for spacing -->
-                          <DataGrid.Columns>
-                              <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="Auto"/>
-                              <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*"/>
-                              <DataGridTemplateColumn Header="" Width="Auto">
-                                  <DataGridTemplateColumn.CellTemplate>
-                                      <DataTemplate DataType="{x:Type vm:MetadataItem}">
-                                          <Button Command="{Binding $parent[DataGrid].DataContext.NavigateToResponseCommand}"
-                                                  CommandParameter="{Binding IconViewModel.RequestMessageId}"
-                                                  IsVisible="{Binding HasIcon}"
-                                                  IsEnabled="{Binding IconViewModel.IsClickable}"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="4"
-                                                  ToolTip.Tip="{Binding IconViewModel.ToolTip}"
-                                                  Cursor="Hand"
-                                                  Classes.ResponseReceived="{Binding IconViewModel.IsResponseReceived}">
-                                              <PathIcon Width="16" Height="16">
-                                                  <PathIcon.Styles>
-                                                      <!-- Default: clock icon for pending -->
-                                                      <Style Selector="PathIcon">
-                                                          <Setter Property="Data" Value="{StaticResource clock_icon}"/>
-                                                          <Setter Property="Foreground" Value="#666666"/>
-                                                      </Style>
-                                                      <!-- Arrow icon when response received -->
-                                                      <Style Selector="Button.ResponseReceived PathIcon">
-                                                          <Setter Property="Data" Value="{StaticResource arrow_icon}"/>
-                                                          <Setter Property="Foreground" Value="Green"/>
-                                                      </Style>
-                                                      <Style Selector="Button:pointerover PathIcon">
-                                                          <Setter Property="Foreground" Value="#333333"/>
-                                                      </Style>
-                                                      <Style Selector="Button:disabled PathIcon">
-                                                          <Setter Property="Foreground" Value="#CCCCCC"/>
-                                                      </Style>
-                                                  </PathIcon.Styles>
-                                              </PathIcon>
-                                          </Button>
-                                      </DataTemplate>
-                                  </DataGridTemplateColumn.CellTemplate>
-                              </DataGridTemplateColumn>
-                              <!-- Warning icon column for expired messages -->
-                              <DataGridTemplateColumn Header="" Width="Auto">
-                                  <DataGridTemplateColumn.CellTemplate>
-                                      <DataTemplate DataType="{x:Type vm:MetadataItem}">
-                                          <Panel IsVisible="{Binding HasWarningIcon}">
-                                              <PathIcon Width="16" Height="16"
-                                                        Data="{StaticResource warning_icon}"
-                                                        Foreground="#DAA520"
-                                                        ToolTip.Tip="{Binding WarningIconViewModel.ToolTip}"/>
-                                          </Panel>
-                                      </DataTemplate>
-                                  </DataGridTemplateColumn.CellTemplate>
-                              </DataGridTemplateColumn>
-                          </DataGrid.Columns>
-                      </DataGrid>
-
-                      <!-- Column 1: User Properties -->
-                      <TextBlock Grid.Row="0" Grid.Column="1" Text="User Properties" FontWeight="Bold" IsVisible="{Binding HasUserProperties}"/>
-                      <DataGrid Grid.Row="1" Grid.Column="1" ItemsSource="{Binding MessageUserProperties}"
-                                AutoGenerateColumns="False"
-                                IsReadOnly="True"
-                                CanUserResizeColumns="True"
-                                GridLinesVisibility="None"
-                                BorderThickness="0"
-                                IsVisible="{Binding HasUserProperties}"
-                                Margin="5,0,0,0"> <!-- Add left margin for spacing -->
-                          <DataGrid.Columns>
-                              <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="Auto"/>
-                              <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*"/>
-                          </DataGrid.Columns>
-                      </DataGrid>
-                  </Grid>
-
-                  <!-- Row 1: Horizontal Grid Splitter -->
-                  <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows"
-                                Focusable="True" IsTabStop="True" Cursor="SizeNorthSouth"
-                                AutomationProperties.Name="Section Splitter 1"/>
-
-                  <!-- Row 2: Payload Viewers Container -->
-                  <Panel Grid.Row="2" Margin="5,0,5,0" IsVisible="{Binding IsAnyPayloadViewerVisible}" VerticalAlignment="Stretch" MinHeight="80">
-                      <!-- JSON Viewer (Conditionally Visible) -->
-                      <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsJsonViewerVisible}">
-                          <TreeView ItemsSource="{Binding JsonViewer.RootNodes}" MinWidth="200">
-                              <TreeView.ItemsPanel>
-                                  <ItemsPanelTemplate>
-                                      <VirtualizingStackPanel />
-                                  </ItemsPanelTemplate>
-                              </TreeView.ItemsPanel>
-                              <TreeView.Styles>
-                                  <Style Selector="TreeViewItem">
-                                      <Setter Property="HorizontalAlignment" Value="Stretch"/>
-                                      <!-- Bind IsExpanded to enable automatic expansion (FR-008) -->
-                                      <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-                                  </Style>
-                              </TreeView.Styles>
-                              <TreeView.ItemTemplate>
-                                  <TreeDataTemplate DataType="{x:Type vm:JsonNodeViewModel}" ItemsSource="{Binding Children}">
-                                      <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Stretch">
-                                          <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="Bold" Margin="0,0,5,0"/>
-                                          <TextBlock Grid.Column="1" Text="{Binding ValueDisplay}" Foreground="{Binding ValueBrush}" HorizontalAlignment="Left"/>
-                                      </Grid>
-                                  </TreeDataTemplate>
-                              </TreeView.ItemTemplate>
-                          </TreeView>
-                      </Border>
-
-                      <!-- Raw Text Viewer (Conditionally Visible) -->
-                      <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsRawTextViewerVisible}">
-                          <!-- Use AvaloniaEdit TextEditor -->
-                          <ae:TextEditor Name="RawPayloadEditor"
-                                         FontFamily="Consolas,Menlo,Monospace"
-                                         FontSize="12"
-                                         IsReadOnly="True"
-                                         ShowLineNumbers="True"
-                                         SyntaxHighlighting="{Binding PayloadSyntaxHighlighting}"
-                                         Document="{Binding RawPayloadDocument, Mode=OneWay}"
-                                         Padding="5"
-                                         Background="Black"
-                                         Foreground="White"
-                                         LineNumbersForeground="Gray"/>
-                      </Border>
-
-                      <!-- Image Viewer (Conditionally Visible) -->
-                      <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsImageViewerVisible}">
-                          <Image Source="{Binding ImagePayload}" Stretch="Uniform" Margin="5" />
-                      </Border>
-
-                      <!-- Video Viewer (Conditionally Visible) -->
-                      <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsVideoViewerVisible}">
-                          <vlc:VideoView Name="VlcVideoView"
-                                         MediaPlayer="{Binding VlcMediaPlayer}"
-                                         IsVisible="{Binding IsVideoViewerVisible}"
-                                         HorizontalAlignment="Stretch"
-                                         VerticalAlignment="Stretch"
-                                         Margin="5"/>
-                      </Border>
-
-                      <!-- Hex Viewer (Conditionally Visible) -->
-                      <Border BorderBrush="Gray" BorderThickness="1" IsVisible="{Binding IsHexViewerVisible}">
-                          <vw:HexViewer Bytes="{Binding HexPayloadBytes, Mode=OneWay}"
-                                        Margin="5"
-                                        HorizontalAlignment="Stretch"
-                                        VerticalAlignment="Stretch"/>
-                      </Border>
-
-                      <!-- Display message if JSON viewer is hidden but should be visible (e.g., parse error) -->
-                      <!-- This TextBlock might overlap if both viewers are hidden but error exists. Consider placing it outside the Panel or adjusting logic -->
-                      <TextBlock Text="{Binding JsonViewer.JsonParseError}" Foreground="Red" Margin="10"
-                                 IsVisible="{Binding ShowJsonParseError}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                  </Panel>
-
-                  <!-- Row 3: Horizontal Grid Splitter (Visible if either viewer is visible) -->
-                  <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" ResizeDirection="Rows" IsVisible="{Binding IsAnyPayloadViewerVisible}"
-                                Focusable="True" IsTabStop="True" Cursor="SizeNorthSouth"
-                                AutomationProperties.Name="Section Splitter 2"/>
-
-                  <!-- Row 4: Message History -->
-                  <ListBox x:Name="MessageHistoryListBox" Grid.Row="4"
-                           ItemsSource="{Binding FilteredMessageHistory}"
-                           SelectedItem="{Binding SelectedMessage, Mode=TwoWay}"
-                           Margin="5">
-                     <ListBox.ItemTemplate>
-                         <DataTemplate x:DataType="vm:MessageViewModel">
-                             <!-- Use DockPanel for layout: Time Left, Buttons Right, Payload Center -->
-                             <DockPanel LastChildFill="True" MinWidth="300">
-                                 <!-- Copy Button (Right Aligned) -->
-                                 <Button DockPanel.Dock="Right"
-                                         Command="{Binding $parent[ListBox].DataContext.CopyPayloadCommand}"
-                                         CommandParameter="{Binding}"
-                                         ToolTip.Tip="Copy Payload"
-                                         Padding="4" Margin="5,0,0,0" VerticalAlignment="Center">
-                                     <PathIcon Data="{StaticResource copy_regular}" Width="12" Height="12"/>
-                                 </Button>
-
-                                 <!-- T022: Export Button (Right Aligned, left of Copy Button) -->
-                                 <Button DockPanel.Dock="Right"
-                                         Command="{Binding $parent[ListBox].DataContext.ExportMessageCommand}"
-                                         CommandParameter="{Binding}"
-                                         ToolTip.Tip="Export this message"
-                                         Padding="4" Margin="5,0,0,0" VerticalAlignment="Center">
-                                     <PathIcon Data="{StaticResource export_regular}" Width="12" Height="12"/>
-                                 </Button>
-
-                                <!-- DisplayText (Fills remaining space) -->
-                                <TextBlock Text="{Binding DisplayText}"
-                                           TextTrimming="CharacterEllipsis"
-                                           VerticalAlignment="Center"
-                                           Classes.Expired="{Binding IsExpired}">
-                                    <TextBlock.Styles>
-                                        <Style Selector="TextBlock.Expired">
-                                            <Setter Property="TextDecorations" Value="Strikethrough"/>
-                                            <Setter Property="Foreground" Value="Gray"/>
-                                        </Style>
-                                    </TextBlock.Styles>
-                                </TextBlock>
-                             </DockPanel>
-                         </DataTemplate>
-                     </ListBox.ItemTemplate>
-                  </ListBox>
-
-              </Grid>
-          </Grid> <!-- End of Main Content Grid -->
-
-          <Panel Grid.Row="0" Grid.Column="1" IsVisible="{Binding IsSettingsVisible}" Background="{DynamicResource ApplicationBackgroundBrush}">
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="5">
-                <Grid.Styles>
-                    <Style Selector="TextBlock">
-                        <Setter Property="VerticalAlignment" Value="Center"/>
-                        <Setter Property="Margin" Value="0,0,5,0"/> <!-- Right margin for labels -->
-                    </Style>
-                    <Style Selector="TextBox, NumericUpDown, CheckBox, ComboBox">
-                        <Setter Property="VerticalAlignment" Value="Center"/>
-                        <Setter Property="Margin" Value="0,0,0,5"/> <!-- Bottom margin for controls -->
-                    </Style>
-                    <Style Selector="Grid > :nth-child(n)" x:SetterTargetType="Grid">
-                        <Setter Property="Grid.Column" Value="0"/> <!-- Default to first column -->
-                    </Style>
-                    <Style Selector="Grid > TextBox, Grid > NumericUpDown, Grid > CheckBox, Grid > Grid > ComboBox">
-                        <Setter Property="Grid.Column" Value="1"/> <!-- Inputs go to second column -->
-                    </Style>
-                    <Style Selector="Grid > StackPanel" x:SetterTargetType="Grid">
-                        <Setter Property="Grid.ColumnSpan" Value="2"/> <!-- Span StackPanels across columns -->
-                        <Setter Property="Grid.Column" Value="0"/>
-                    </Style>
-                </Grid.Styles>
-                <!-- Header -->
-                <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="MQTT Connectivity" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
-
-                <!-- Hostname -->
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Hostname:"/>
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Settings.Hostname, Mode=TwoWay}"/>
-
-                <!-- Port -->
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Port:"/>
-                <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding Settings.Port, Mode=TwoWay, StringFormat=N0}" ParsingNumberStyle="Integer" Minimum="1" Maximum="65535"/>
-
-                <!-- Use TLS -->
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Use TLS:"/>
-                <CheckBox Grid.Row="3" Grid.Column="1" IsChecked="{Binding Settings.UseTls, Mode=TwoWay}" Margin="10,0,0,0"/>
-
-                <!-- Transport Protocol -->
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="Transport:"/>
-                <ComboBox Grid.Row="4" Grid.Column="1"
-                            ItemsSource="{Binding Settings.AvailableTransports}"
-                            SelectedItem="{Binding Settings.SelectedTransport, Mode=TwoWay}"
-                            MinWidth="220"/>
-
-                <!-- WebSocket Path (Conditionally Visible) -->
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="WS Path:" IsVisible="{Binding Settings.IsWebSocketSelected}"/>
-                <TextBox Grid.Row="5" Grid.Column="1"
-                         Text="{Binding Settings.WebSocketPath, Mode=TwoWay}"
-                         PlaceholderText="/mqtt"
-                         IsVisible="{Binding Settings.IsWebSocketSelected}"/>
-
-                <!-- WebSocket Proxy (Conditionally Visible) -->
-                <TextBlock Grid.Row="6" Grid.Column="0" Text="WS Proxy:" IsVisible="{Binding Settings.IsWebSocketSelected}"/>
-                <TextBox Grid.Row="6" Grid.Column="1"
-                         Text="{Binding Settings.WebSocketProxyAddress, Mode=TwoWay}"
-                         PlaceholderText="http://proxy:3128"
-                         IsVisible="{Binding Settings.IsWebSocketSelected}"/>
-
-                <TextBlock Grid.Row="7" Grid.Column="0" Text="Proxy User:" IsVisible="{Binding Settings.IsWebSocketSelected}"/>
-                <TextBox Grid.Row="7" Grid.Column="1"
-                         Text="{Binding Settings.WebSocketProxyUsername, Mode=TwoWay}"
-                         PlaceholderText="(optional)"
-                         IsVisible="{Binding Settings.IsWebSocketSelected}"/>
-
-                <TextBlock Grid.Row="8" Grid.Column="0" Text="Proxy Password:" IsVisible="{Binding Settings.IsWebSocketSelected}"/>
-                <TextBox Grid.Row="8" Grid.Column="1"
-                         Text="{Binding Settings.WebSocketProxyPassword, Mode=TwoWay}"
-                         PlaceholderText="(optional)"
-                         PasswordChar="*"
-                         IsVisible="{Binding Settings.IsWebSocketSelected}"/>
-
-                <!-- Client ID -->
-                <TextBlock Grid.Row="9" Grid.Column="0" Text="Client ID:"/>
-                <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding Settings.ClientId, Mode=TwoWay}" PlaceholderText="(auto-generated)"/>
-
-                <!-- Keep Alive -->
-                <TextBlock Grid.Row="10" Grid.Column="0" Text="Keep Alive (s):"/>
-                <NumericUpDown Grid.Row="10" Grid.Column="1" Value="{Binding Settings.KeepAliveIntervalSeconds, Mode=TwoWay, StringFormat=N0}"  ParsingNumberStyle="Integer" MinWidth="80" Minimum="0"/>
-                
-                <!-- Clean Session -->
-                <TextBlock Grid.Row="11" Grid.Column="0" Text="Clean Session:"/>
-                <CheckBox Grid.Row="11" Grid.Column="1" IsChecked="{Binding Settings.CleanSession, Mode=TwoWay}" Margin="10,0,0,0"/>
-
-                <!-- Session Expiry -->
-                <TextBlock Grid.Row="12" Grid.Column="0" Text="Session Expiry (s):"/>
-                <StackPanel Grid.Row="12" Grid.Column="1" Orientation="Vertical" Spacing="5">
-                    <NumericUpDown Value="{Binding Settings.SessionExpiryIntervalSeconds, Mode=TwoWay}" MinWidth="120"  FormatString="N0" Minimum="0" PlaceholderText="(infinite)"/>
-                    <TextBlock Text="(0 = expires immediately, empty = infinite)" FontSize="10"/>
+                        Classes.IsDisconnected="{Binding IsDisconnected}"
+                        ToolTip.Tip="{Binding ConnectionStatus}">
+                        <PathIcon.Styles>
+                            <Style Selector="PathIcon.IsDisconnected">
+                                <Setter Property="Data" Value="{StaticResource plug_disconnected_regular}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCritical}" />
+                            </Style>
+                            <Style Selector="PathIcon.IsConnecting">
+                                <Setter Property="Data" Value="{StaticResource plug_disconnected_regular}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCaution}" />
+                            </Style>
+                            <Style Selector="PathIcon.IsConnected">
+                                <Setter Property="Data" Value="{StaticResource plug_connected_regular}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
+                            </Style>
+                        </PathIcon.Styles>
+                    </PathIcon>
+                    <TextBlock VerticalAlignment="Center" Text="{Binding IsPaused, StringFormat='Paused: {0}'}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontStyle="Italic"
+                        Foreground="{DynamicResource SystemFillColorCaution}"
+                        IsVisible="{Binding IsTopicFilterActive}"
+                        Text="(Filtered)" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontStyle="Italic"
+                        Foreground="Gray"
+                        Text="{Binding StatusBarText}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontStyle="Italic"
+                        Foreground="DodgerBlue"
+                        IsVisible="{Binding SearchStatusViewModel.IsVisible}"
+                        Text="{Binding SearchStatusViewModel.StatusText}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontStyle="Italic"
+                        Foreground="{DynamicResource SystemFillColorCritical}"
+                        IsVisible="{Binding IsConnecting}"
+                        Text="{Binding ConnectionStatusMessage}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontWeight="SemiBold"
+                        Foreground="{DynamicResource SystemFillColorCritical}"
+                        IsVisible="{Binding HasConnectionError}"
+                        Text="{Binding ConnectionStatusMessage}" />
                 </StackPanel>
+            </DockPanel>
+        </Border>
 
-                <!-- Authentication Mode -->
-                <TextBlock Grid.Row="13" Grid.Column="0" Text="Auth Mode:"/>
-                <ComboBox Grid.Row="13" Grid.Column="1"
-                            ItemsSource="{Binding Settings.AvailableAuthenticationModes}"
-                            SelectedItem="{Binding Settings.SelectedAuthMode, Mode=TwoWay}"
-                            MinWidth="220"/>
-
-                <!-- Auth Username (Conditionally Visible) -->
-                <TextBlock Grid.Row="14" Grid.Column="0" Text="Username:" IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
-                <TextBox Grid.Row="14" Grid.Column="1"
-                         Text="{Binding Settings.AuthUsername, Mode=TwoWay}"
-                         PlaceholderText="Enter username"
-                         IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
-
-                <!-- Auth Password (Conditionally Visible) -->
-                <TextBlock Grid.Row="15" Grid.Column="0" Text="Password:" IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
-                <TextBox  Grid.Row="15" Grid.Column="1"
-                             Text="{Binding Settings.AuthPassword, Mode=TwoWay}"
-                             PlaceholderText="Enter password" PasswordChar="*"
-                             IsVisible="{Binding Settings.IsUsernamePasswordSelected}"/>
-                
-                <!-- Enhanced Authentication Header -->
-                <TextBlock Grid.Row="16" Grid.Column="0" Grid.ColumnSpan="2" Text="Enhanced Authentication" FontWeight="Bold" FontSize="14" Margin="0,15,0,10" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
-
-                <!-- Authentication Method -->
-                <TextBlock Grid.Row="17" Grid.Column="0" Text="Auth Method:" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
-                <TextBox Grid.Row="17" Grid.Column="1" Text="{Binding Settings.AuthenticationMethod, Mode=TwoWay}" PlaceholderText="e.g., 'K8S-SAT'" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
-
-                <!-- Authentication Data -->
-                <TextBlock Grid.Row="18" Grid.Column="0" Text="Auth Data:" IsVisible="{Binding Settings.IsEnhancedAuthSelected}"/>
-                
-                <ScrollViewer                            
-                            Grid.Row="18"
-                            Grid.Column="1"
-                            IsVisible="{Binding Settings.IsEnhancedAuthSelected}"
-                            HorizontalScrollBarVisibility="Visible"
-                            VerticalScrollBarVisibility="Hidden"
-                            MaxHeight="200"
-                            MaxWidth="420">
-
-                    <TextBox 
-                            IsVisible="{Binding Settings.IsEnhancedAuthSelected}"
-                            Text="{Binding Settings.AuthenticationData, Mode=TwoWay}"
-                            PlaceholderText="e.g., payload of Service Account Token"
-                            AcceptsReturn="True"
-                            TextWrapping="NoWrap"          
-                            HorizontalAlignment="Stretch"/>
-                </ScrollViewer>
-
-                <!-- Azure Authentication Header -->
-                <TextBlock Grid.Row="19" Grid.Column="0" Grid.ColumnSpan="2" Text="Azure Event Grid Authentication" FontWeight="Bold" FontSize="14" Margin="0,15,0,10" IsVisible="{Binding Settings.IsAzureAuthSelected}"/>
-
-                <!-- Azure OAuth Scope -->
-                <TextBlock Grid.Row="20" Grid.Column="0" Text="OAuth Scope:" IsVisible="{Binding Settings.IsAzureAuthSelected}"/>
-                <StackPanel Grid.Row="20" Grid.Column="1" Orientation="Vertical" Spacing="2" IsVisible="{Binding Settings.IsAzureAuthSelected}">
-                    <TextBox Text="{Binding Settings.AuthenticationScope, Mode=TwoWay}" PlaceholderText="https://eventgrid.azure.net/.default"/>
-                    <TextBlock Text="Uses DefaultAzureCredential (env vars → managed identity → VS → az CLI → interactive). Token is refreshed automatically before expiry." FontSize="10" TextWrapping="Wrap"/>
-                </StackPanel>
-
-                <!-- General Settings Header -->
-                <TextBlock Grid.Row="21" Grid.Column="0" Grid.ColumnSpan="2" Text="General Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
-
-                <!-- Export Format -->
-                <TextBlock Grid.Row="22" Grid.Column="0" Text="Export Format:"/>
-                <ComboBox Grid.Row="22" Grid.Column="1" ItemsSource="{Binding Settings.AvailableExportTypes}" SelectedItem="{Binding Settings.ExportFormat, Mode=TwoWay}" MinWidth="220" />
-
-                <!-- Export Path -->
-                <TextBlock Grid.Row="23" Grid.Column="0" Text="Export Path:"/>
-                <TextBox Grid.Row="23" Grid.Column="1" Text="{Binding Settings.ExportPath, Mode=TwoWay}" />
-
-                <!-- Application Settings Header -->
-                <TextBlock Grid.Row="24" Grid.Column="0" Grid.ColumnSpan="2" Text="Application Settings" FontWeight="Bold" FontSize="14" Margin="0,15,0,10"/>
-
-                <!-- Subscription QoS -->
-                <TextBlock Grid.Row="25" Grid.Column="0" Text="Subscription QoS:"/>
-                <Grid Grid.Row="25" Grid.Column="1" RowDefinitions="Auto,Auto">
-                    <ComboBox Grid.Row="0" SelectedIndex="{Binding Settings.SubscriptionQoS, Mode=TwoWay}" MinWidth="120">
-                        <ComboBoxItem Content="0 - At Most Once"/>
-                        <ComboBoxItem Content="1 - At Least Once (Default)"/>
-                        <ComboBoxItem Content="2 - Exactly Once"/>
-                    </ComboBox>
-                    <TextBlock Grid.Row="1" Text="Higher QoS preserves message delivery guarantees but reduces throughput" FontSize="10" Margin="0,2,0,0"/>
+        <!--  Settings Modal Overlay  -->
+        <Border
+            Grid.Row="0"
+            Grid.RowSpan="99"
+            Grid.Column="0"
+            Grid.ColumnSpan="99"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Background="#80000000"
+            IsVisible="{Binding IsSettingsVisible}"
+            ZIndex="1000">
+            <Border
+                MaxWidth="768"
+                MaxHeight="640"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                BoxShadow="0 8 32 0 #40000000"
+                ClipToBounds="True"
+                CornerRadius="8">
+                <Grid RowDefinitions="Auto,*">
+                    <!--  Title bar  -->
+                    <Border Grid.Row="0">
+                        <DockPanel>
+                            <TextBlock
+                                Padding="16,8"
+                                VerticalAlignment="Center"
+                                DockPanel.Dock="Left"
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                Text="Settings" />
+                            <Button
+                                Width="46"
+                                Height="32"
+                                Margin="0,-2,0,0"
+                                Padding="8,4"
+                                HorizontalAlignment="Right"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                ClipToBounds="True"
+                                Command="{Binding OpenSettingsCommand}"
+                                CornerRadius="0 8 0 0"
+                                DockPanel.Dock="Right">
+                                <Button.Styles>
+                                    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                        <Setter Property="Background" Value="#E81123" />
+                                        <Setter Property="Foreground" Value="White" />
+                                    </Style>
+                                    <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+                                        <Setter Property="Background" Value="#F1707A" />
+                                        <Setter Property="Foreground" Value="White" />
+                                    </Style>
+                                </Button.Styles>
+                                <controls:FAFontIcon
+                                    FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                                    Foreground="{Binding $parent[Button].Foreground}"
+                                    Glyph="&#xE8BB;" />
+                            </Button>
+                        </DockPanel>
+                    </Border>
+                    <ScrollViewer
+                        Grid.Row="1"
+                        MaxHeight="500"
+                        Padding="24">
+                        <vw:SettingsPanel />
+                    </ScrollViewer>
                 </Grid>
+            </Border>
+        </Border>
 
-                <!-- Subscription Topic -->
-                <TextBlock Grid.Row="26" Grid.Column="0" Text="Subscription Topic:"/>
-                <StackPanel Grid.Row="26" Grid.Column="1" Orientation="Vertical" Spacing="2">
-                    <TextBox Text="{Binding Settings.SubscriptionTopic, Mode=TwoWay}" PlaceholderText="#"/>
-                    <TextBlock Text="Wildcard '#' works for open brokers (EMQX/Mosquitto). Azure Event Grid requires a filter that matches your Topic Space template (e.g. 'sensors/#' or 'devices/+/telemetry')." FontSize="10" TextWrapping="Wrap"/>
-                </StackPanel>
-
-                <!-- Topic Buffer Limits List -->
-                <ItemsControl Grid.Row="27" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding Settings.TopicSpecificLimits}" Margin="0,0,0,5">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate DataType="{x:Type vm:TopicBufferLimitViewModel}">
-                            <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto" Margin="0,2">
-                                <TextBox Grid.Column="0" Text="{Binding TopicFilter, Mode=TwoWay}" PlaceholderText="Topic Filter (e.g., # or /some/topic)" Margin="0,0,5,0" MinWidth="150"/>
-                                <NumericUpDown Grid.Column="1" Value="{Binding MaxSizeBytes, Mode=TwoWay, StringFormat=N0}" ParsingNumberStyle="Integer" Minimum="0" PlaceholderText="Bytes" Margin="0,0,5,0" MinWidth="100"/>
-                                <Button Grid.Column="2" Content="Remove" Command="{Binding $parent[ItemsControl].DataContext.Settings.RemoveTopicLimitCommand}" CommandParameter="{Binding}" Padding="5,2" IsEnabled="{Binding CanBeRemoved}"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-                <!-- Add New Limit Button -->
-                <Button Grid.Row="28" Grid.Column="0" Grid.ColumnSpan="2" Content="Add New Limit" Command="{Binding Settings.AddTopicLimitCommand}" HorizontalAlignment="Left" Margin="0,5,0,0"/>
-
-            </Grid>
-        </Panel>
-
-      </Grid> <!-- End of Main Content Area DockPanel -->
- 
-    </Grid> <!-- End of Main Layout Grid -->
-    
- 
-  </Panel>
+    </Grid>
+    <!--  End of Main Layout Grid  -->
 </UserControl>

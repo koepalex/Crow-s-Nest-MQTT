@@ -55,6 +55,33 @@ namespace CrowsNestMqtt.UnitTests.UI
         protected AvaloniaTestBase(AvaloniaFixture fixture)
         {
             Application = Avalonia.Application.Current ?? throw new InvalidOperationException("Application not initialized");
+
+            // FluentAvalonia's FAAppWindow registers each native window handle in a private
+            // static dictionary (Win32WindowManager._appWindowRegistry) and only removes the
+            // entry when the OS sends WM_DESTROY. Under the headless test platform that message
+            // never fires, so handles accumulate and constructing a second MainWindow throws
+            // "An item with the same key has already been added". Clear the registry before each
+            // test so window-creating tests start from a clean slate.
+            ClearFluentAvaloniaWindowRegistry();
+        }
+
+        /// <summary>
+        /// Clears FluentAvalonia's static Win32 window-handle registry via reflection to avoid
+        /// duplicate-key collisions when multiple FAAppWindow instances are created in headless tests.
+        /// </summary>
+        protected static void ClearFluentAvaloniaWindowRegistry()
+        {
+            var managerType = typeof(FluentAvalonia.UI.Windowing.FAAppWindow).Assembly
+                .GetType("FluentAvalonia.UI.Windowing.Win32WindowManager");
+
+            var registryField = managerType?.GetField(
+                "_appWindowRegistry",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+
+            if (registryField?.GetValue(null) is System.Collections.IDictionary registry)
+            {
+                registry.Clear();
+            }
         }
 
         /// <summary>
