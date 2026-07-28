@@ -14,7 +14,7 @@ namespace CrowsNestMqtt.UnitTests.BusinessLogic
         {
             // Arrange
             const bool isConnected = true;
-            var error = new Exception("Test error");
+            var error = new InvalidOperationException("Test error");
             const ConnectionStatusState status = ConnectionStatusState.Connected;
             const string reconnectInfo = "Reconnect attempt 1";
 

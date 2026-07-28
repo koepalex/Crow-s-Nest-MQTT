@@ -15,7 +15,7 @@ using Xunit;
 
 namespace CrowsNestMqtt.UnitTests.ViewModels;
 
-public class PublishViewModelTests : IDisposable
+public sealed class PublishViewModelTests : IDisposable
 {
     private readonly IMqttService _mqttService;
     private readonly IPublishHistoryService _historyService;
@@ -34,6 +34,8 @@ public class PublishViewModelTests : IDisposable
     public void Dispose()
     {
         RxSchedulers.MainThreadScheduler = _originalScheduler;
+        _mqttService.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     private PublishViewModel CreateViewModel() => new(_mqttService, _historyService);

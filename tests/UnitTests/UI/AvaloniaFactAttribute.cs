@@ -9,7 +9,7 @@ namespace CrowsNestMqtt.UnitTests.UI;
 /// shared AvaloniaFixture/AvaloniaCollection infrastructure.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
-public sealed class AvaloniaFactAttribute : FactAttribute
+internal sealed class AvaloniaFactAttribute : FactAttribute
 {
     public AvaloniaFactAttribute(
         [System.Runtime.CompilerServices.CallerFilePath] string? sourceFilePath = null,

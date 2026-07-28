@@ -29,7 +29,7 @@ public class BufferSizeMismatchTest
 
         // Simulate a large message similar to the one in the logs (2460512 bytes)
         var largePayload = new byte[2460512];
-        Random.Shared.NextBytes(largePayload);
+        System.Security.Cryptography.RandomNumberGenerator.Fill(largePayload);
 
         var testMessage = new MqttApplicationMessageBuilder()
             .WithTopic("test/viewer/image")

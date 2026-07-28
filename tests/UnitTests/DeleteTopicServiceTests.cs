@@ -175,16 +175,16 @@ public class DeleteTopicServiceTests
         using var cts = new CancellationTokenSource();
 
         // Setup topics
-        _mockMqttService.GetBufferedTopics().Returns(new[] { "sensor/temperature" });
+        _mockMqttService.GetBufferedTopics().Returns(["sensor/temperature"]);
         var message = new BufferedMqttMessage(Guid.NewGuid(), CreateRetainedMessage("sensor/temperature"));
-        _mockMqttService.GetBufferedMessagesForTopic("sensor/temperature").Returns(new[] { message });
+        _mockMqttService.GetBufferedMessagesForTopic("sensor/temperature").Returns([message]);
 
         // Mock publish to throw cancellation
         _mockMqttService.PublishAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<MQTTnet.Protocol.MqttQualityOfServiceLevel>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromCanceled(new CancellationToken(true)));
 
         // Cancel immediately
-        cts.Cancel();
+        await cts.CancelAsync();
 
         // Act
         var result = await service.DeleteTopicAsync(command, cts.Token);
@@ -357,7 +357,7 @@ public class DeleteTopicServiceTests
             Arg.Any<string>(),
             Arg.Any<MQTTnet.Protocol.MqttQualityOfServiceLevel>(),
             Arg.Any<CancellationToken>())
-            .Returns<Task>(x => throw new Exception("Something unexpected happened"));
+            .Returns<Task>(x => throw new InvalidOperationException("Something unexpected happened"));
 
         // Act
         var result = await service.DeleteTopicAsync(command, CancellationToken.None);
@@ -565,7 +565,7 @@ public class DeleteTopicServiceTests
         foreach (var topic in topics)
         {
             var msg = new BufferedMqttMessage(Guid.NewGuid(), CreateRetainedMessage(topic));
-            _mockMqttService.GetBufferedMessagesForTopic(topic).Returns(new[] { msg });
+            _mockMqttService.GetBufferedMessagesForTopic(topic).Returns([msg]);
         }
         // ClearRetainedMessageAsync succeeds by default (returns completed task)
 
@@ -592,7 +592,7 @@ public class DeleteTopicServiceTests
         foreach (var topic in topics)
         {
             var msg = new BufferedMqttMessage(Guid.NewGuid(), CreateRetainedMessage(topic));
-            _mockMqttService.GetBufferedMessagesForTopic(topic).Returns(new[] { msg });
+            _mockMqttService.GetBufferedMessagesForTopic(topic).Returns([msg]);
         }
 
         // Fail only for sensor/fail1
@@ -625,7 +625,7 @@ public class DeleteTopicServiceTests
         foreach (var topic in topics)
         {
             var msg = new BufferedMqttMessage(Guid.NewGuid(), CreateRetainedMessage(topic));
-            _mockMqttService.GetBufferedMessagesForTopic(topic).Returns(new[] { msg });
+            _mockMqttService.GetBufferedMessagesForTopic(topic).Returns([msg]);
         }
 
         // All calls fail
@@ -662,7 +662,7 @@ public class DeleteTopicServiceTests
         foreach (var topic in topics)
         {
             var msg = new BufferedMqttMessage(Guid.NewGuid(), CreateRetainedMessage(topic));
-            _mockMqttService.GetBufferedMessagesForTopic(topic).Returns(new[] { msg });
+            _mockMqttService.GetBufferedMessagesForTopic(topic).Returns([msg]);
         }
 
         // Act
@@ -687,7 +687,7 @@ public class DeleteTopicServiceTests
         foreach (var topic in allTopics)
         {
             var msg = new BufferedMqttMessage(Guid.NewGuid(), CreateRetainedMessage(topic));
-            _mockMqttService.GetBufferedMessagesForTopic(topic).Returns(new[] { msg });
+            _mockMqttService.GetBufferedMessagesForTopic(topic).Returns([msg]);
         }
 
         // Act
@@ -709,7 +709,7 @@ public class DeleteTopicServiceTests
         foreach (var topic in allTopics)
         {
             var msg = new BufferedMqttMessage(Guid.NewGuid(), CreateRetainedMessage(topic));
-            _mockMqttService.GetBufferedMessagesForTopic(topic).Returns(new[] { msg });
+            _mockMqttService.GetBufferedMessagesForTopic(topic).Returns([msg]);
         }
 
         // Act
@@ -726,7 +726,7 @@ public class DeleteTopicServiceTests
         var service = CreateService();
         var command = new DeleteTopicCommand { TopicPattern = "nonexistent/#" };
 
-        _mockMqttService.GetBufferedTopics().Returns(new[] { "other/topic1", "other/topic2" });
+        _mockMqttService.GetBufferedTopics().Returns(["other/topic1", "other/topic2"]);
         // No retained messages match the pattern
 
         // Act
@@ -751,7 +751,7 @@ public class DeleteTopicServiceTests
         foreach (var topic in allTopics)
         {
             var msg = new BufferedMqttMessage(Guid.NewGuid(), CreateRetainedMessage(topic));
-            _mockMqttService.GetBufferedMessagesForTopic(topic).Returns(new[] { msg });
+            _mockMqttService.GetBufferedMessagesForTopic(topic).Returns([msg]);
         }
 
         // Act
@@ -773,7 +773,7 @@ public class DeleteTopicServiceTests
         var command = new DeleteTopicCommand { TopicPattern = "sensor/#" };
 
         _mockMqttService.GetBufferedTopics()
-            .Returns<IEnumerable<string>>(x => throw new Exception("Service unavailable"));
+            .Returns<IEnumerable<string>>(x => throw new InvalidOperationException("Service unavailable"));
 
         // Act
         var result = await service.DeleteTopicAsync(command, CancellationToken.None);
@@ -790,11 +790,11 @@ public class DeleteTopicServiceTests
         var service = CreateService();
         var command = new DeleteTopicCommand { TopicPattern = "sensor/#" };
         using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
 
-        _mockMqttService.GetBufferedTopics().Returns(new[] { "sensor/a" });
+        _mockMqttService.GetBufferedTopics().Returns(["sensor/a"]);
         var msg = new BufferedMqttMessage(Guid.NewGuid(), CreateRetainedMessage("sensor/a"));
-        _mockMqttService.GetBufferedMessagesForTopic("sensor/a").Returns(new[] { msg });
+        _mockMqttService.GetBufferedMessagesForTopic("sensor/a").Returns([msg]);
 
         // Act
         var result = await service.DeleteTopicAsync(command, cts.Token);

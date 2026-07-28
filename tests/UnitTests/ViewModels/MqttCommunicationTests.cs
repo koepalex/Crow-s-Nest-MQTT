@@ -14,7 +14,7 @@ using System.Reflection;
 
 namespace CrowsNestMqtt.UnitTests.ViewModels
 {
-    public class MqttCommunicationTests : IDisposable
+    public sealed class MqttCommunicationTests : IDisposable
     {
         private readonly ICommandParserService _commandParserService;
         private readonly IMqttService _mqttServiceMock; // Changed to interface substitute
@@ -41,6 +41,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void Dispose()
         {
             SettingsViewModel._settingsFilePath = _originalSettingsFilePath;
+            _mqttServiceMock.Dispose();
             try
             {
                 var dir = Path.GetDirectoryName(_tempSettingsFilePath);
@@ -53,6 +54,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             {
                 // best-effort cleanup
             }
+            GC.SuppressFinalize(this);
         }
 
         [Fact]

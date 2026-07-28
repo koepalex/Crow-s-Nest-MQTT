@@ -11,9 +11,10 @@ using Xunit;
 
 namespace CrowsNestMqtt.UnitTests.UI
 {
-    public class AvaloniaFixture : IDisposable
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1515:Consider making public types internal", Justification = "Public because it is referenced by a protected constructor on the public AvaloniaTestBase, which propagates to test classes across the assembly.")]
+    public sealed class AvaloniaFixture : IDisposable
     {
-        private static int _initialized = 0;
+        private static int _initialized;
 
         public AvaloniaFixture()
         {
@@ -33,11 +34,14 @@ namespace CrowsNestMqtt.UnitTests.UI
         public void Dispose()
         {
             // No explicit disposal needed for Avalonia
+            GC.SuppressFinalize(this);
         }
     }
 
     [CollectionDefinition("Avalonia")]
-    public class AvaloniaCollection : ICollectionFixture<AvaloniaFixture>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Suffix 'Collection' matches xUnit's [CollectionDefinition] convention and is intentional infrastructure naming.")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1515:Consider making public types internal", Justification = "xUnit v3 rule xUnit1027 requires [CollectionDefinition] classes to be public.")]
+    public sealed class AvaloniaCollection : ICollectionFixture<AvaloniaFixture>
     {
         // This class has no code, and is never created. Its purpose is simply
         // to be the place to apply [CollectionDefinition] and all the
@@ -48,6 +52,7 @@ namespace CrowsNestMqtt.UnitTests.UI
     /// Base class for Avalonia UI tests that provides headless testing support
     /// </summary>
     [Collection("Avalonia")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1515:Consider making public types internal", Justification = "Public because concrete test classes deriving from this base live in child namespaces across the test assembly and are themselves public. Test infrastructure visibility is intentional.")]
     public abstract class AvaloniaTestBase
     {
         protected Application Application { get; private set; }

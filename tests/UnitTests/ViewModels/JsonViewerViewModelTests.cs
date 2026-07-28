@@ -480,7 +480,7 @@ namespace UnitTests.ViewModels
             for (int i = 0; i < childCount; i++)
             {
                 if (i > 0) sb.Append(',');
-                sb.Append('"').Append("k").Append(i).Append("\":").Append(i);
+                sb.Append('"').Append('k').Append(i).Append("\":").Append(i);
             }
             sb.Append("}}");
 

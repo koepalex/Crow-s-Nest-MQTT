@@ -16,7 +16,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels;
 /// SetUser, SetPass, SetAuthMode, SetAuthMethod, SetAuthData, SetUseTls, Publish, Settings,
 /// GotoResponse, DeleteTopic, Unknown command, and exception handling.
 /// </summary>
-public class DispatchCommandTests : IDisposable
+public sealed class DispatchCommandTests : IDisposable
 {
     private readonly ICommandParserService _commandParserService;
     private readonly IMqttService _mqttServiceMock;
@@ -35,6 +35,7 @@ public class DispatchCommandTests : IDisposable
     public void Dispose()
     {
         _viewModel.Dispose();
+        _mqttServiceMock.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -296,6 +297,8 @@ public class DispatchCommandTests : IDisposable
     [InlineData("Azure")] // case-insensitive
     public void DispatchCommand_SetAuthMethod_WithAuthModeName_ShouldRedirectUser(string modeName)
     {
+        ArgumentNullException.ThrowIfNull(modeName);
+
         // Regression: users frequently pick :setauthmethod from the alphabetically
         // sorted command palette when they meant :setauthmode. Rather than
         // silently writing an auth-mode name into the (mostly unused) enhanced-auth

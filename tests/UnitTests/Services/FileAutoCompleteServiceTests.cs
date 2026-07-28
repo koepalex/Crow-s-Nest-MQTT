@@ -3,7 +3,7 @@ using Xunit;
 
 namespace CrowsNestMqtt.UnitTests.Services;
 
-public class FileAutoCompleteServiceTests : IDisposable
+public sealed class FileAutoCompleteServiceTests : IDisposable
 {
     private readonly string _testDir;
     private readonly FileAutoCompleteService _service;
@@ -19,6 +19,7 @@ public class FileAutoCompleteServiceTests : IDisposable
     {
         if (Directory.Exists(_testDir))
             Directory.Delete(_testDir, recursive: true);
+        GC.SuppressFinalize(this);
     }
 
     private void CreateFile(string relativePath, string content = "test")

@@ -108,7 +108,7 @@ namespace CrowsNestMqtt.UnitTests.Utils
             Action<string, string> handler = (level, message) => logMessages.Add((level, message));
             
             AppLogger.OnLogMessage += handler;
-            var exception = new Exception("Test exception");
+            var exception = new InvalidOperationException("Test exception");
 
             try
             {

@@ -70,7 +70,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         // Debug: Output status message if test fails
         if (!result)
         {
-            throw new Exception($"TryLoadImage failed with message: {statusMessage}");
+            throw new InvalidOperationException($"TryLoadImage failed with message: {statusMessage}");
         }
         Assert.True(result);
         Assert.True(manager.IsImageViewerVisible);

@@ -7,7 +7,7 @@ using MQTTnet.Protocol;
 
 namespace UnitTests.Services;
 
-public class PublishHistoryServiceTests : IDisposable
+public sealed class PublishHistoryServiceTests : IDisposable
 {
     private readonly string _testDir;
     private readonly string _historyFilePath;
@@ -28,6 +28,7 @@ public class PublishHistoryServiceTests : IDisposable
     {
         if (Directory.Exists(_testDir))
             Directory.Delete(_testDir, recursive: true);
+        GC.SuppressFinalize(this);
     }
 
     private static MqttPublishRequest CreateTestRequest(string topic = "test/topic", string payload = "hello")
