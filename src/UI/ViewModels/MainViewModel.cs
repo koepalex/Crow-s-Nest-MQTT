@@ -4780,7 +4780,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"crowsnest_image_{Guid.NewGuid():N}.png");
                 using (var fs = System.IO.File.OpenWrite(tempPath))
                 {
-                    bitmap.Save(fs);
+                    bitmap.Save(fs, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
                 }
                 await CopyImageToClipboardInteraction.Handle(bitmap);
                 StatusBarText = $"Image written to temp file: {tempPath}. Path copied to clipboard. Paste the path into your application to access the image.";

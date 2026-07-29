@@ -341,7 +341,7 @@ public partial class MainView : UserControl
                     var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"crowsnest_image_{Guid.NewGuid():N}.png");
                     using (var fs = System.IO.File.OpenWrite(tempPath))
                     {
-                        bitmap.Save(fs);
+                        bitmap.Save(fs, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
                     }
 
                     // Put the path into the clipboard as text
