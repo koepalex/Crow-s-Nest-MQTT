@@ -64,7 +64,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
 
             // Act
-            viewModel.ConnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();
+            viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default).Subscribe();
 
             // Assert
             _mqttServiceMock.Received(1).UpdateSettings(Arg.Any<MqttConnectionSettings>());
@@ -82,7 +82,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             viewModel.Settings.Hostname = "myns.northeurope-1.ts.eventgrid.azure.net";
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
 
-            viewModel.ConnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();
+            viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default).Subscribe();
 
             _mqttServiceMock.DidNotReceive().ConnectAsync();
             _mqttServiceMock.DidNotReceive().UpdateSettings(Arg.Any<MqttConnectionSettings>());
@@ -103,7 +103,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             viewModel.Settings.ClientId = "some-client-id"; // silence the empty-client-id warning path
             viewModel.Settings.SubscriptionTopic = "test/topic"; // silence the '#' subscription warning path (last-write-wins on StatusBarText)
 
-            viewModel.ConnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();
+            viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default).Subscribe();
 
             _mqttServiceMock.Received(1).ConnectAsync();
             Assert.Contains("isn't an Event Grid", viewModel.StatusBarText ?? string.Empty, StringComparison.Ordinal);
@@ -123,7 +123,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
 
             Assert.Equal(ConnectionStatusState.Connected, viewModel.ConnectionStatus);
 
-            viewModel.ConnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();
+            viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default).Subscribe();
 
             _mqttServiceMock.Received(1).UpdateSettings(Arg.Any<MqttConnectionSettings>());
             _mqttServiceMock.Received(1).ConnectAsync();
@@ -136,7 +136,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
 
             // Act
-            viewModel.DisconnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();
+            viewModel.DisconnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default).Subscribe();
 
             // Assert
             _mqttServiceMock.Received(1).DisconnectAsync();
@@ -251,7 +251,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, new EnvironmentSettingsOverrides { Hostname = expectedHostname, Port = expectedPort, HasOverrides = true, IsAspireEnvironment = true });
 
             // Act
-            viewModel.ConnectCommand.Execute(System.Reactive.Unit.Default).Subscribe();
+            viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default).Subscribe();
 
             // Assert
             _mqttServiceMock.Received(1).UpdateSettings(Arg.Is<MqttConnectionSettings>(s =>

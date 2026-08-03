@@ -1,4 +1,5 @@
 using Xunit;
+using Avalonia.Headless.XUnit;
 using Avalonia.Controls;
 using CrowsNestMqtt.UI.Views;
 using CrowsNestMqtt.UI.ViewModels;
@@ -9,11 +10,7 @@ namespace CrowsNestMqtt.UnitTests.UI
     /// Tests for the MainWindow class using Avalonia headless testing
     /// </summary>
     public class MainWindowTests : AvaloniaTestBase
-    {
-        public MainWindowTests(AvaloniaFixture fixture) : base(fixture)
-        {
-        }
-        [AvaloniaFact]
+    {        [AvaloniaFact]
         public void MainWindow_Constructor_DoesNotThrow()
         {
             // Act & Assert

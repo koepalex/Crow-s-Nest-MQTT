@@ -10,17 +10,13 @@ namespace CrowsNestMqtt.UnitTests.ViewModels;
 
 public sealed class StatsViewModelTests : IDisposable
 {
-    private readonly IScheduler _originalScheduler;
 
     public StatsViewModelTests()
     {
-        _originalScheduler = RxSchedulers.MainThreadScheduler;
-        RxSchedulers.MainThreadScheduler = Scheduler.Immediate;
     }
 
     public void Dispose()
     {
-        RxSchedulers.MainThreadScheduler = _originalScheduler;
         GC.SuppressFinalize(this);
     }
 

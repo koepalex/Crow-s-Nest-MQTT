@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using CrowsNestMqtt.UI.ViewModels;
 using CrowsNestMqtt.UI.Views;
 using Xunit;
+using Avalonia.Headless.XUnit;
 
 namespace CrowsNestMqtt.UnitTests.UI
 {
@@ -11,10 +12,6 @@ namespace CrowsNestMqtt.UnitTests.UI
     /// </summary>
     public class SecondaryWindowsTests : AvaloniaTestBase
     {
-        public SecondaryWindowsTests(AvaloniaFixture fixture) : base(fixture)
-        {
-        }
-
         [AvaloniaFact]
         public void PublishWindow_Constructor_DoesNotThrow()
         {

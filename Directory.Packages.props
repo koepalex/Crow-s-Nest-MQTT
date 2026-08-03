@@ -12,7 +12,7 @@
     <PackageVersion Include="FluentAvaloniaUI" Version="3.0.2" />
     <PackageVersion Include="HotAvalonia" Version="3.1.4" />
     <PackageVersion Include="MessagePack" Version="3.1.8" />
-    <PackageVersion Include="ReactiveUI.Avalonia" Version="12.0.3" />
+    <PackageVersion Include="ReactiveUI.Avalonia" Version="12.1.0" />
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.18" Condition="'$(Configuration)' == 'Debug'" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.0.5" />
     <PackageVersion Include="GitVersion.MsBuild" Version="6.8.2" />
@@ -42,8 +42,8 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <PackageVersion Include="ReportGenerator" Version="5.5.11" />
-    <PackageVersion Include="Avalonia.Headless" Version="12.1.0" />
-    <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.0.2" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.1.1" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />

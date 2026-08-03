@@ -422,7 +422,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void HexViewer_AutoAndManualSwitch_ShouldDisplayHexForBinaryPayload()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
             byte[] binaryPayload = Enumerable.Range(0, 32).Select(i => (byte)i).ToArray();
             var messageId = Guid.NewGuid();
             var timestamp = DateTime.Now;
@@ -465,7 +465,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         public void SelectingTopicWithImage_ShouldShowImageAndHistory()
         {
             // Arrange
-            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
             var topic = "test/topic";
             var assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             if (assemblyPath == null) throw new DirectoryNotFoundException("Could not get assembly path.");

@@ -12,6 +12,7 @@ using CrowsNestMqtt.UI.Services;
 using MQTTnet.Packets;
 using MQTTnet.Protocol;
 using ReactiveUI;
+using RxVoid = ReactiveUI.Primitives.RxVoid;
 using Serilog;
 
 namespace CrowsNestMqtt.UI.ViewModels;
@@ -219,12 +220,12 @@ public class PublishViewModel : ReactiveObject, IDisposable
     }
 
     // --- Commands ---
-    public ReactiveCommand<Unit, Unit> PublishCommand { get; }
-    public ReactiveCommand<Unit, Unit> ClearCommand { get; }
-    public ReactiveCommand<Unit, Unit> LoadFileCommand { get; }
-    public ReactiveCommand<Unit, Unit> AddUserPropertyCommand { get; }
-    public ReactiveCommand<UserPropertyViewModel, Unit> RemoveUserPropertyCommand { get; }
-    public ReactiveCommand<Unit, Unit> ToggleV5PropertiesCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> PublishCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ClearCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> LoadFileCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> AddUserPropertyCommand { get; }
+    public ReactiveCommand<UserPropertyViewModel, RxVoid> RemoveUserPropertyCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleV5PropertiesCommand { get; }
 
     public PublishViewModel(
         IMqttService? mqttService = null,
@@ -251,7 +252,7 @@ public class PublishViewModel : ReactiveObject, IDisposable
         // Update syntax highlighting when ContentType changes
         this.WhenAnyValue(x => x.ContentType)
             .Throttle(TimeSpan.FromMilliseconds(300))
-            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .ObserveOn(CrowsNestMqtt.UI.Services.AvaloniaUIScheduler.Instance)
             .Subscribe(ct => UpdateSyntaxHighlighting(ct));
 
         // Load history on init

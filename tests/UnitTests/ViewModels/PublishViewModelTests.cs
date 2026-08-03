@@ -19,12 +19,9 @@ public sealed class PublishViewModelTests : IDisposable
 {
     private readonly IMqttService _mqttService;
     private readonly IPublishHistoryService _historyService;
-    private readonly IScheduler _originalScheduler;
 
     public PublishViewModelTests()
     {
-        _originalScheduler = RxSchedulers.MainThreadScheduler;
-        RxSchedulers.MainThreadScheduler = Scheduler.Immediate;
 
         _mqttService = Substitute.For<IMqttService>();
         _historyService = Substitute.For<IPublishHistoryService>();
@@ -33,7 +30,6 @@ public sealed class PublishViewModelTests : IDisposable
 
     public void Dispose()
     {
-        RxSchedulers.MainThreadScheduler = _originalScheduler;
         _mqttService.Dispose();
         GC.SuppressFinalize(this);
     }
