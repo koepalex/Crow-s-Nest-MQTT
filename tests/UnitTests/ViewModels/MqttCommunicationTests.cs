@@ -58,21 +58,21 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         }
 
         [Fact]
-        public void ConnectAsync_ShouldUpdateSettingsAndConnect()
+        public async Task ConnectAsync_ShouldUpdateSettingsAndConnect()
         {
             // Arrange
             using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
 
             // Act
-            viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default).Subscribe();
+            await viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default);
 
             // Assert
             _mqttServiceMock.Received(1).UpdateSettings(Arg.Any<MqttConnectionSettings>());
-            _mqttServiceMock.Received(1).ConnectAsync();
+            await _mqttServiceMock.Received(1).ConnectAsync();
         }
 
         [Fact]
-        public void ConnectAsync_WithAzureHostname_ButNonAzureAuthMode_ShouldRefuseWithClearMessage()
+        public async Task ConnectAsync_WithAzureHostname_ButNonAzureAuthMode_ShouldRefuseWithClearMessage()
         {
             // Regression: when the hostname is clearly Azure Event Grid but the
             // auth mode is Anonymous / Userpass / Enhanced, the anonymous CONNECT
@@ -82,9 +82,9 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             viewModel.Settings.Hostname = "myns.northeurope-1.ts.eventgrid.azure.net";
             viewModel.Settings.SelectedAuthMode = SettingsViewModel.AuthModeSelection.Anonymous;
 
-            viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default).Subscribe();
+            await viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default);
 
-            _mqttServiceMock.DidNotReceive().ConnectAsync();
+            await _mqttServiceMock.DidNotReceive().ConnectAsync();
             _mqttServiceMock.DidNotReceive().UpdateSettings(Arg.Any<MqttConnectionSettings>());
             Assert.Contains("looks like Azure Event Grid", viewModel.StatusBarText ?? string.Empty, StringComparison.Ordinal);
             Assert.Contains(":setauthmode azure", viewModel.StatusBarText ?? string.Empty, StringComparison.Ordinal);
@@ -92,7 +92,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         }
 
         [Fact]
-        public void ConnectAsync_WithAzureMode_ButNonEventGridHost_ShouldWarnButProceed()
+        public async Task ConnectAsync_WithAzureMode_ButNonEventGridHost_ShouldWarnButProceed()
         {
             // Localhost or the mock broker are legitimate Azure-mode targets
             // (integration testing) — warn softly but let the connect proceed.
@@ -103,14 +103,14 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             viewModel.Settings.ClientId = "some-client-id"; // silence the empty-client-id warning path
             viewModel.Settings.SubscriptionTopic = "test/topic"; // silence the '#' subscription warning path (last-write-wins on StatusBarText)
 
-            viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default).Subscribe();
+            await viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default);
 
-            _mqttServiceMock.Received(1).ConnectAsync();
+            await _mqttServiceMock.Received(1).ConnectAsync();
             Assert.Contains("isn't an Event Grid", viewModel.StatusBarText ?? string.Empty, StringComparison.Ordinal);
         }
 
         [Fact]
-        public void ConnectAsync_WhileAlreadyConnected_ShouldStillTriggerConnect()
+        public async Task ConnectAsync_WhileAlreadyConnected_ShouldStillTriggerConnect()
         {
             // Regression: re-running :connect (e.g. after changing settings in the
             // connection dialog) while a session is active must forward the request to
@@ -123,23 +123,23 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
 
             Assert.Equal(ConnectionStatusState.Connected, viewModel.ConnectionStatus);
 
-            viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default).Subscribe();
+            await viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default);
 
             _mqttServiceMock.Received(1).UpdateSettings(Arg.Any<MqttConnectionSettings>());
-            _mqttServiceMock.Received(1).ConnectAsync();
+            await _mqttServiceMock.Received(1).ConnectAsync();
         }
 
         [Fact]
-        public void DisconnectAsync_ShouldDisconnect()
+        public async Task DisconnectAsync_ShouldDisconnect()
         {
             // Arrange
             using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
 
             // Act
-            viewModel.DisconnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default).Subscribe();
+            await viewModel.DisconnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default);
 
             // Assert
-            _mqttServiceMock.Received(1).DisconnectAsync();
+            await _mqttServiceMock.Received(1).DisconnectAsync();
         }
 
         [Fact]
@@ -242,7 +242,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         }
 
         [Fact]
-        public void ConnectCommand_WhenAspireConfigurationProvided_UsesAspireSettingsForConnection()
+        public async Task ConnectCommand_WhenAspireConfigurationProvided_UsesAspireSettingsForConnection()
         {
             // Arrange
             const string expectedHostname = "testhost";
@@ -251,13 +251,13 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, new EnvironmentSettingsOverrides { Hostname = expectedHostname, Port = expectedPort, HasOverrides = true, IsAspireEnvironment = true });
 
             // Act
-            viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default).Subscribe();
+            await viewModel.ConnectCommand.Execute(ReactiveUI.Primitives.RxVoid.Default);
 
             // Assert
             _mqttServiceMock.Received(1).UpdateSettings(Arg.Is<MqttConnectionSettings>(s =>
                 s!.Hostname == expectedHostname && s.Port == expectedPort
             ));
-            _mqttServiceMock.Received(1).ConnectAsync();
+            await _mqttServiceMock.Received(1).ConnectAsync();
         }
 
         [Fact]

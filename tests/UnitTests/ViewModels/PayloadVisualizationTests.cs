@@ -8,34 +8,15 @@ using System.Reflection;
 using System.Text;
 using Xunit;
 using System.Text.Json; // Added for JsonValueKind
+using System.Reactive;
 using System.Reactive.Threading.Tasks;
 using CrowsNestMqtt.Utils;
 using System.IO;
-using Avalonia.Threading;
 
 namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class PayloadVisualizationTests
     {
-        static PayloadVisualizationTests()
-        {
-            // Use reflection to set Dispatcher.UIThread to a synchronous dispatcher for tests
-            var dispatcherType = typeof(Dispatcher);
-            var field = dispatcherType.GetField("_uiThread", BindingFlags.Static | BindingFlags.NonPublic);
-            if (field != null)
-            {
-                field.SetValue(null, new ImmediateDispatcher());
-            }
-        }
-
-        private sealed class ImmediateDispatcher : IDispatcher
-        {
-            public bool CheckAccess() => true;
-            public static void Post(Action action) => action();
-            public void Post(Action action, DispatcherPriority priority) => action();
-            public void VerifyAccess() { }
-            public static DispatcherPriority Priority => DispatcherPriority.Normal;
-        }
        private readonly ICommandParserService _commandParserService;
        private readonly IMqttService _mqttServiceMock;
        private readonly IStatusBarService _statusBarServiceMock;
@@ -379,7 +360,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         }
 
         [Fact]
-        public void CopyPayloadToClipboard_ShouldInteractWithClipboard()
+        public async Task CopyPayloadToClipboard_ShouldInteractWithClipboard()
         {
             // Arrange
             using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock);
@@ -402,20 +383,19 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
 
            bool interactionTriggered = false;
             
-            // Subscribe to the interaction
-            viewModel.CopyTextToClipboardInteraction
-                .RegisterHandler(async interaction => {
-                    interactionTriggered = true;
-                    Assert.Equal(textPayload, interaction.Input);
-                    await Task.CompletedTask.ConfigureAwait(false); // Return a completed task
-                });
+            using var handler = viewModel.CopyTextToClipboardInteraction.RegisterHandler(interaction =>
+            {
+                interactionTriggered = true;
+                Assert.Equal(textPayload, interaction.Input);
+                interaction.SetOutput(Unit.Default);
+            });
             
             // Act - Execute the copy command with the message
-            viewModel.CopyPayloadCommand.Execute(testMessage).Subscribe();
+            await viewModel.CopyPayloadCommand.Execute(testMessage).ToTask();
             
             // Assert
             Assert.True(interactionTriggered);
-            // Assert.Contains("copied to clipboard", viewModel.StatusBarText.ToLower()); // Interaction testing can be unreliable without proper setup
+            Assert.Contains("copied to clipboard", viewModel.StatusBarText, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
