@@ -896,7 +896,14 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         {
             try
             {
-                Core.Initialize();
+                    if (OperatingSystem.IsLinux())
+                    {
+                        Core.Initialize();
+                    }
+                    else
+                    {
+                        Core.Initialize(AppContext.BaseDirectory);
+                    }
                 _libVLC = new LibVLC();
                 _vlcMediaPlayer = new MediaPlayer(_libVLC);
                 VlcMediaPlayer = _vlcMediaPlayer;

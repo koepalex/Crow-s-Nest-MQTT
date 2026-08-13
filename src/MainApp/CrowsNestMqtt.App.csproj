@@ -54,4 +54,25 @@
   <ItemGroup>
     <AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute" />
   </ItemGroup>
+
+    <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'linux-x64'">
+      <LinuxLibVlcDirectory>/usr/lib/x86_64-linux-gnu</LinuxLibVlcDirectory>
+      <LinuxLibVlcPluginsDirectory>$(LinuxLibVlcDirectory)/vlc/plugins</LinuxLibVlcPluginsDirectory>
+    </PropertyGroup>
+
+    <Target Name="CopyLinuxLibVlc" AfterTargets="Build;Publish" Condition="'$(RuntimeIdentifier)' == 'linux-x64'">
+      <Error Condition="!Exists('$(LinuxLibVlcDirectory)/libvlc.so.5')" Text="LibVLC is required for Linux builds. Install the libvlc5 package." />
+      <ItemGroup>
+        <LinuxLibVlcLibraries Include="$(LinuxLibVlcDirectory)/libvlc.so.*;$(LinuxLibVlcDirectory)/libvlccore.so.*" />
+        <LinuxLibVlcPlugins Include="$(LinuxLibVlcPluginsDirectory)/**/*" />
+      </ItemGroup>
+        <Error Condition="'@(LinuxLibVlcPlugins)' == ''" Text="VLC plugin modules are required for Linux builds. Install the vlc-plugin-base package." />
+      <Copy SourceFiles="@(LinuxLibVlcLibraries)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+        <Copy SourceFiles="$(LinuxLibVlcDirectory)/libvlc.so.5;$(LinuxLibVlcDirectory)/libvlccore.so.9" DestinationFiles="$(TargetDir)libvlc.so;$(TargetDir)libvlccore.so" SkipUnchangedFiles="true" />
+      <Copy SourceFiles="@(LinuxLibVlcPlugins)" DestinationFiles="@(LinuxLibVlcPlugins->'$(TargetDir)plugins/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+      <MakeDir Directories="$(PublishDir)" Condition="'$(PublishDir)' != ''" />
+      <Copy SourceFiles="@(LinuxLibVlcLibraries)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
+        <Copy SourceFiles="$(LinuxLibVlcDirectory)/libvlc.so.5;$(LinuxLibVlcDirectory)/libvlccore.so.9" DestinationFiles="$(PublishDir)libvlc.so;$(PublishDir)libvlccore.so" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
+      <Copy SourceFiles="@(LinuxLibVlcPlugins)" DestinationFiles="@(LinuxLibVlcPlugins->'$(PublishDir)plugins/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
+    </Target>
 </Project>

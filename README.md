@@ -37,6 +37,14 @@ Add-AppxPackage -Path .\CrowsNestMqtt-1.0.0.msixbundle
 ### Linux
 Download the platform-specific archive from [GitHub Releases](https://github.com/koepalex/Crow-s-Nest-MQTT/releases) and run the executable directly—no installation step required.
 
+For video playback, install the VLC plugin modules:
+
+```bash
+sudo apt install vlc-plugin-base
+```
+
+Linux release builds bundle these modules with the application. Developers building a Linux release must install this package before publishing.
+
 Current macOS release artifacts are not yet Apple Developer signed/notarized. If macOS blocks app launch after copying to `/Applications`, use one of these options:
 
 1. In Finder, right-click `CrowsNestMQTT.app` and choose **Open**.
