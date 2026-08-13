@@ -92,9 +92,11 @@ var devJwt = CreateDevJwt();
 // protocol and behaves exactly like the (working) `dotnet run` CLI flow. Use
 // Debug > Attach to Process to debug a client instance in that mode.
 // Force a mode with CROWSNEST_ASPIRE_CLIENT_LAUNCH=project|executable.
+var clientRuntimeIdentifier = OperatingSystem.IsLinux() ? "linux-x64" : null;
 var clientExecutablePath = Path.GetFullPath(Path.Combine(
     builder.AppHostDirectory,
     "..", "MainApp", "bin", buildConfiguration, "net10.0",
+    clientRuntimeIdentifier ?? string.Empty,
     OperatingSystem.IsWindows() ? "CrowsNestMqtt.App.exe" : "CrowsNestMqtt.App"));
 
 var launchModeOverride = Environment.GetEnvironmentVariable("CROWSNEST_ASPIRE_CLIENT_LAUNCH");
@@ -102,6 +104,8 @@ var launchClientsAsExecutable = launchModeOverride switch
 {
     not null when launchModeOverride.Equals("executable", StringComparison.OrdinalIgnoreCase) => true,
     not null when launchModeOverride.Equals("project", StringComparison.OrdinalIgnoreCase) => false,
+    // Linux native LibVLC assets are emitted only for the linux-x64 target.
+    _ when OperatingSystem.IsLinux() => true,
     // Visual Studio sets VSAPPIDNAME/VSAPPIDDIR for processes it launches.
     _ => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("VSAPPIDNAME"))
          || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("VSAPPIDDIR"))

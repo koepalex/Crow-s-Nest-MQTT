@@ -6,6 +6,7 @@
     <TargetFramework>$(AppTargetFramework)</TargetFramework>
     <Nullable>enable</Nullable>
     <RuntimeIdentifiers>$(TargetRuntimeIdentifiers)</RuntimeIdentifiers>
+      <RuntimeIdentifier Condition="$([MSBuild]::IsOsPlatform('Linux'))">linux-x64</RuntimeIdentifier>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     
     <!-- Global Tool Properties -->
