@@ -6,7 +6,7 @@
         xmlns:windowing="using:FluentAvalonia.UI.Windowing"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
         x:Class="CrowsNestMqtt.UI.Views.MainWindow"
-        Background="Transparent"
+        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
         Icon="avares://CrowsNestMqtt.App/Assets/icon.ico"
         Title="Crow's Nest MQTT Monitor">
 
