@@ -11,6 +11,7 @@ using Xunit;
 
 namespace CrowsNestMqtt.Integration.Tests;
 
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1515:Consider making public types internal", Justification = "Referenced via IClassFixture<WebSocketProxyBrokerFixture> from public test classes; visibility must match test-class visibility.")]
 public sealed class WebSocketProxyBrokerFixture : IAsyncLifetime
 {
     private readonly CancellationTokenSource _proxyCancellation = new();
@@ -19,7 +20,7 @@ public sealed class WebSocketProxyBrokerFixture : IAsyncLifetime
     private Task? _proxyAcceptLoop;
     private int _proxyConnectionCount;
 
-    public string Hostname => IPAddress.Loopback.ToString();
+    public static string Hostname => IPAddress.Loopback.ToString();
     public int WebSocketPort { get; private set; }
     public int ProxyPort { get; private set; }
     public int ProxyConnectionCount => Volatile.Read(ref _proxyConnectionCount);

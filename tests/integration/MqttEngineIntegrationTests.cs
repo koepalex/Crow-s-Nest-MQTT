@@ -32,7 +32,7 @@ public class MqttEngineIntegrationTests : IClassFixture<MqttBrokerFixture>
     {
         var settings = new BusinessLogic.MqttConnectionSettings
         {
-            Hostname = _broker.Hostname,
+            Hostname = MqttBrokerFixture.Hostname,
             Port = _broker.Port,
             ClientId = $"test-client-{Guid.NewGuid():N}",
             CleanSession = true
@@ -49,7 +49,7 @@ public class MqttEngineIntegrationTests : IClassFixture<MqttBrokerFixture>
         var factory = new MqttClientFactory();
         var publisher = factory.CreateMqttClient();
         var options = new MqttClientOptionsBuilder()
-            .WithTcpServer(_broker.Hostname, _broker.Port)
+            .WithTcpServer(MqttBrokerFixture.Hostname, _broker.Port)
             .WithCleanSession(true)
             .Build();
         await publisher.ConnectAsync(options, ct);
@@ -214,7 +214,7 @@ public class MqttEngineIntegrationTests : IClassFixture<MqttBrokerFixture>
 
         var settings = new BusinessLogic.MqttConnectionSettings
         {
-            Hostname = _broker.Hostname,
+            Hostname = MqttBrokerFixture.Hostname,
             Port = _broker.Port
         };
         using var engine = new BusinessLogic.MqttEngine(settings);

@@ -10,11 +10,12 @@ namespace CrowsNestMqtt.Integration.Tests;
 /// Test fixture that starts an in-memory MQTT broker on a random port for integration tests.
 /// Shared across test classes via <see cref="IClassFixture{TFixture}"/>.
 /// </summary>
-public class MqttBrokerFixture : IAsyncLifetime
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1515:Consider making public types internal", Justification = "Referenced via IClassFixture<MqttBrokerFixture> from public test classes; visibility must match test-class visibility.")]
+public sealed class MqttBrokerFixture : IAsyncLifetime
 {
     private MqttServer? _mqttServer;
     public int Port { get; private set; }
-    public string Hostname => "localhost";
+    public static string Hostname => "localhost";
     public bool IsRunning { get; private set; }
     public string? StartupError { get; private set; }
 
@@ -69,6 +70,7 @@ public class MqttBrokerFixture : IAsyncLifetime
             _mqttServer = null;
         }
         IsRunning = false;
+        GC.SuppressFinalize(this);
     }
 
     private async Task VerifyBrokerListeningAsync()

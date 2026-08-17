@@ -15,7 +15,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels;
 /// Tests for the internal EnhancedCommandProcessor class in MainViewModel.
 /// Covers: ExecuteAsync routing, null service handling, exception paths.
 /// </summary>
-public class EnhancedCommandProcessorTests : IDisposable
+public sealed class EnhancedCommandProcessorTests : IDisposable
 {
     private readonly ICommandParserService _commandParserService;
     private readonly IMqttService _mqttServiceMock;
@@ -50,6 +50,7 @@ public class EnhancedCommandProcessorTests : IDisposable
     public void Dispose()
     {
         _viewModel.Dispose();
+        _mqttServiceMock.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -69,7 +70,7 @@ public class EnhancedCommandProcessorTests : IDisposable
 
         var task = (Task<ICommandProcessor.CommandExecutionResult>)_executeAsyncMethod.Invoke(
             processorWithNullService,
-            new object[] { "deletetopic", new[] { "test/topic" }, CancellationToken.None })!;
+            new object[] { "deletetopic", (string[])["test/topic"], CancellationToken.None })!;
         var result = await task;
 
         Assert.False(result.Success);
@@ -88,7 +89,7 @@ public class EnhancedCommandProcessorTests : IDisposable
     [Fact]
     public async Task ExecuteAsync_DeleteTopic_WithTopic_ExecutesPath()
     {
-        var result = await InvokeExecuteAsync("deletetopic", new[] { "sensor/temp" });
+        var result = await InvokeExecuteAsync("deletetopic", ["sensor/temp"]);
         Assert.NotNull(result);
     }
 
@@ -102,7 +103,7 @@ public class EnhancedCommandProcessorTests : IDisposable
     [Fact]
     public async Task ExecuteAsync_DeleteTopic_CaseInsensitive()
     {
-        var result = await InvokeExecuteAsync("DELETETOPIC", new[] { "test" });
+        var result = await InvokeExecuteAsync("DELETETOPIC", ["test"]);
         Assert.NotNull(result);
     }
 

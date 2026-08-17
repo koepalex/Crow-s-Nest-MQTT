@@ -4,16 +4,12 @@ using CrowsNestMqtt.UnitTests.UI;
 using System;
 using System.IO;
 using Xunit;
+using Avalonia.Headless.XUnit;
 
 namespace CrowsNestMqtt.UnitTests.Services;
 
-[Collection("Avalonia")]
 public class ImageViewerManagerTests : AvaloniaTestBase
-{
-    public ImageViewerManagerTests(AvaloniaFixture fixture) : base(fixture)
-    {
-    }
-    // Minimal valid PNG file (1x1 pixel, black) - verified to work with standard PNG decoders
+{    // Minimal valid PNG file (1x1 pixel, black) - verified to work with standard PNG decoders
     private static byte[] CreateValidPngBytes()
     {
         return new byte[]
@@ -45,7 +41,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         };
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Constructor_InitializesWithDefaultValues()
     {
         // Arrange & Act
@@ -56,7 +52,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.Null(manager.ImagePayload);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TryLoadImage_WithValidImageBytes_ReturnsTrue()
     {
         // Arrange
@@ -70,7 +66,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         // Debug: Output status message if test fails
         if (!result)
         {
-            throw new Exception($"TryLoadImage failed with message: {statusMessage}");
+            throw new InvalidOperationException($"TryLoadImage failed with message: {statusMessage}");
         }
         Assert.True(result);
         Assert.True(manager.IsImageViewerVisible);
@@ -79,7 +75,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.Contains("1x1", statusMessage); // Check dimensions are reported
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TryLoadImage_WithEmptyBytes_ReturnsFalse()
     {
         // Arrange
@@ -96,7 +92,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.Equal("No image data to display", statusMessage);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TryLoadImage_WithNullBytes_ReturnsFalse()
     {
         // Arrange
@@ -112,7 +108,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.Equal("No image data to display", statusMessage);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TryLoadImage_WithInvalidImageBytes_ReturnsFalseOrSucceeds()
     {
         // Arrange
@@ -138,7 +134,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TryLoadImage_WithTextBytes_HandlesGracefully()
     {
         // Arrange
@@ -154,7 +150,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.NotEmpty(statusMessage);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ClearImage_ClearsAllState()
     {
         // Arrange
@@ -170,7 +166,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.Null(manager.ImagePayload);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ImageViewerVisibilityChanged_EventRaisedWhenVisibilityChanges()
     {
         // Arrange
@@ -194,7 +190,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.True(receivedValue);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ImagePayloadChanged_EventRaisedWhenPayloadChanges()
     {
         // Arrange
@@ -220,7 +216,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.Equal(1, receivedPayload.PixelSize.Height);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ImageViewerVisibilityChanged_NotRaisedWhenValueDoesNotChange()
     {
         // Arrange
@@ -239,7 +235,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.Equal(0, eventCount);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TryLoadImage_UpdatesExistingImage()
     {
         // Arrange
@@ -258,7 +254,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.Contains("Image loaded", statusMessage);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ImagePayloadChanged_EventNotRaisedWhenSamePayloadSet()
     {
         // Arrange
@@ -280,7 +276,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.Equal(1, eventCount);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ClearImage_RaisesVisibilityChangedEvent()
     {
         // Arrange
@@ -305,7 +301,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.False(receivedValue);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ClearImage_RaisesPayloadChangedEvent()
     {
         // Arrange
@@ -330,7 +326,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.Null(receivedPayload);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Dispose_DisposesImagePayload()
     {
         // Arrange
@@ -346,7 +342,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.True(true); // If we get here without exception, disposal worked
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Dispose_CanBeCalledMultipleTimes()
     {
         // Arrange
@@ -360,7 +356,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         manager.Dispose();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Dispose_WhenNoImageLoaded_DoesNotThrow()
     {
         // Arrange
@@ -370,7 +366,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         manager.Dispose();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TryLoadImage_DisposesOldBitmapWhenLoadingNew()
     {
         // Arrange
@@ -390,7 +386,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.NotSame(oldBitmap, newBitmap);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ClearImage_AfterFailedLoad_DoesNotThrow()
     {
         // Arrange
@@ -404,7 +400,7 @@ public class ImageViewerManagerTests : AvaloniaTestBase
         Assert.Null(manager.ImagePayload);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TryLoadImage_AfterClear_WorksCorrectly()
     {
         // Arrange

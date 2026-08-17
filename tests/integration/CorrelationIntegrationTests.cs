@@ -11,15 +11,21 @@ namespace CrowsNestMqtt.Integration.Tests
     /// Integration tests for MQTT V5 correlation-data handling.
     /// These tests verify end-to-end correlation behavior and MUST FAIL before implementation.
     /// </summary>
-    public class CorrelationIntegrationTests : IDisposable
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1515:Consider making public types internal", Justification = "xUnit v3 rule xUnit1027 requires collection-definition-referenced classes to be public if they are xUnit fixtures; retained as public for consistency with Phase-A test infrastructure conventions.")]
+    public sealed class CorrelationIntegrationTests : IClassFixture<MqttBrokerFixture>, IDisposable
     {
+        private readonly MqttBrokerFixture _broker;
         private readonly IMqttClient _mqttClient;
-        private readonly string _testBrokerHost = "localhost";
-        private readonly int _testBrokerPort = 1883;
+        private readonly string _testBrokerHost;
+        private readonly int _testBrokerPort;
 
-        public CorrelationIntegrationTests()
+        public CorrelationIntegrationTests(MqttBrokerFixture broker)
         {
-            var factory = new MqttFactory();
+            _broker = broker ?? throw new ArgumentNullException(nameof(broker));
+            _testBrokerHost = MqttBrokerFixture.Hostname;
+            _testBrokerPort = _broker.Port;
+
+            var factory = new MqttClientFactory();
             _mqttClient = factory.CreateMqttClient();
         }
 
@@ -173,7 +179,7 @@ namespace CrowsNestMqtt.Integration.Tests
             var requestTopic = "test/large-correlation";
             var responseTopic = "test/response";
             var largeCorrelationData = new byte[1024]; // 1KB correlation data
-            new Random().NextBytes(largeCorrelationData);
+            System.Security.Cryptography.RandomNumberGenerator.Fill(largeCorrelationData);
 
             await ConnectToTestBroker();
             await SubscribeToTopics(requestTopic, responseTopic);
@@ -279,21 +285,15 @@ namespace CrowsNestMqtt.Integration.Tests
 
         private async Task ConnectToTestBroker()
         {
+            Assert.True(_broker.IsRunning, $"Embedded MQTT broker is not running. {_broker.StartupError}");
+
             var options = new MqttClientOptionsBuilder()
                 .WithTcpServer(_testBrokerHost, _testBrokerPort)
                 .WithProtocolVersion(MQTTnet.Formatter.MqttProtocolVersion.V500) // MQTT V5
                 .WithClientId($"test-client-{Guid.NewGuid()}")
                 .Build();
 
-            try
-            {
-                await _mqttClient.ConnectAsync(options);
-            }
-            catch (Exception)
-            {
-                // Skip tests if broker is not available
-                throw new SkipException("MQTT broker not available for integration tests");
-            }
+            await _mqttClient.ConnectAsync(options);
         }
 
         private async Task SubscribeToTopics(params string[] topics)
@@ -311,14 +311,8 @@ namespace CrowsNestMqtt.Integration.Tests
         {
             _mqttClient?.DisconnectAsync().Wait(1000);
             _mqttClient?.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 
-    /// <summary>
-    /// Exception to skip tests when dependencies are not available.
-    /// </summary>
-    public class SkipException : Exception
-    {
-        public SkipException(string message) : base(message) { }
-    }
 }

@@ -1,12 +1,13 @@
-/// <summary>
-/// Integration tests for message navigation with j/k keys.
-/// Tests MessageNavigationState with wrap-around behavior.
-/// Validates FR-013, FR-014, FR-015, FR-016.
-/// </summary>
+// <summary>
+// Integration tests for message navigation with j/k keys.
+// Tests MessageNavigationState with wrap-around behavior.
+// Validates FR-013, FR-014, FR-015, FR-016.
+// </summary>
 namespace CrowsNestMQTT.Tests.Integration.Navigation;
 
 using System;
 using System.Collections.Generic;
+using CrowsNestMqtt.UI.Services;
 using Xunit;
 using CrowsNestMQTT.BusinessLogic.Navigation;
 using MQTTnet;

@@ -11,6 +11,9 @@ namespace CrowsNestMqtt.UnitTests.BusinessLogic.Services
 {
     public class ResponseNavigationServiceUnitTests
     {
+        private static readonly string[] s_singleResp1 = new[] { "resp-1" };
+        private static readonly string[] s_resp1AndResp2 = new[] { "resp-1", "resp-2" };
+
         private readonly IMessageCorrelationService _mockCorrelationService;
         private readonly ITopicSubscriptionService _mockSubscriptionService;
         private readonly IUINavigationService _mockUINavigationService;
@@ -115,7 +118,7 @@ namespace CrowsNestMqtt.UnitTests.BusinessLogic.Services
             _mockCorrelationService.GetResponseTopicAsync("req-1").Returns("response/topic");
             _mockSubscriptionService.IsTopicSubscribedAsync("response/topic").Returns(true);
             _mockCorrelationService.GetResponseStatusAsync("req-1").Returns(ResponseStatus.Received);
-            _mockCorrelationService.GetResponseMessageIdsAsync("req-1").Returns(new[] { "resp-1", "resp-2" });
+            _mockCorrelationService.GetResponseMessageIdsAsync("req-1").Returns(s_resp1AndResp2);
 
             var service = CreateService();
             var result = await service.NavigateToResponseAsync("req-1");
@@ -146,7 +149,7 @@ namespace CrowsNestMqtt.UnitTests.BusinessLogic.Services
             _mockCorrelationService.GetResponseTopicAsync("req-1").Returns("response/topic");
             _mockSubscriptionService.IsTopicSubscribedAsync("response/topic").Returns(true);
             _mockCorrelationService.GetResponseStatusAsync("req-1").Returns(ResponseStatus.Received);
-            _mockCorrelationService.GetResponseMessageIdsAsync("req-1").Returns(new[] { "resp-1" });
+            _mockCorrelationService.GetResponseMessageIdsAsync("req-1").Returns(s_singleResp1);
 
             var service = CreateService();
             var eventRaised = false;
@@ -307,7 +310,7 @@ namespace CrowsNestMqtt.UnitTests.BusinessLogic.Services
             _mockCorrelationService.GetResponseTopicAsync("req-1").Returns("response/topic");
             _mockSubscriptionService.IsTopicSubscribedAsync("response/topic").Returns(true);
             _mockCorrelationService.GetResponseStatusAsync("req-1").Returns(ResponseStatus.Received);
-            _mockCorrelationService.GetResponseMessageIdsAsync("req-1").Returns(new[] { "resp-1" });
+            _mockCorrelationService.GetResponseMessageIdsAsync("req-1").Returns(s_singleResp1);
 
             var service = CreateService();
             var result = await service.ExecuteNavigationCommandAsync(":gotoresponse req-1");
@@ -377,7 +380,7 @@ namespace CrowsNestMqtt.UnitTests.BusinessLogic.Services
             _mockCorrelationService.GetResponseTopicAsync("req-1").Returns("response/topic");
             _mockSubscriptionService.IsTopicSubscribedAsync("response/topic").Returns(true);
             _mockCorrelationService.GetResponseStatusAsync("req-1").Returns(ResponseStatus.Received);
-            _mockCorrelationService.GetResponseMessageIdsAsync("req-1").Returns(new[] { "resp-1" });
+            _mockCorrelationService.GetResponseMessageIdsAsync("req-1").Returns(s_singleResp1);
 
             var beforeCall = DateTime.UtcNow;
             var service = CreateService();
@@ -521,7 +524,7 @@ namespace CrowsNestMqtt.UnitTests.BusinessLogic.Services
             _mockCorrelationService.GetResponseTopicAsync("req-1").Returns("response/topic");
             _mockSubscriptionService.IsTopicSubscribedAsync("response/topic").Returns(true);
             _mockCorrelationService.GetResponseStatusAsync("req-1").Returns(ResponseStatus.Received);
-            _mockCorrelationService.GetResponseMessageIdsAsync("req-1").Returns(new[] { "resp-1" });
+            _mockCorrelationService.GetResponseMessageIdsAsync("req-1").Returns(s_singleResp1);
 
             var service = CreateService();
             var result = await service.ExecuteNavigationCommandAsync("  :gotoresponse   req-1  ");

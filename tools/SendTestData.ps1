@@ -25,11 +25,16 @@ if (-not $JsonPath -or $JsonPath -eq "") { $JsonPath = $defaultJsonPath }
 if (-not $BinaryPath -or $BinaryPath -eq "") { $BinaryPath = $defaultBinaryPath }
 
 # Ensure MQTTnet is available
-$nuget = [System.IO.Path]::Combine($env:TEMP, "mqttnet.5.1.0.1559.nupkg")
+$nuget = [System.IO.Path]::Combine($env:TEMP, "mqttnet.5.2.0.1603.nupkg")
 if (-not (Test-Path $nuget)) {
-    Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/MQTTnet/5.1.0.1559" -OutFile $nuget
+    Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/MQTTnet/5.2.0.1603" -OutFile $nuget
 }
-$extractPath = Join-Path $env:TEMP "MQTTnet_extracted_5.1.0"
+$extractPath = Join-Path $env:TEMP "MQTTnet_extracted_5.2.0"
+# Load the net8.0 build of MQTTnet: it's compatible with every pwsh 7.x
+# runtime (all of which run on .NET 8+, including the .NET 10 previews used by
+# pwsh 7.6-preview). The lib\net10.0 build references types like
+# System.Runtime.CompilerServices.InlineArray3<T> that are missing on early
+# .NET 10 previews and would fail with "Could not load type" during disconnect.
 $dllPath = Join-Path $extractPath "lib\net8.0\MQTTnet.dll"
 if (-not (Test-Path $dllPath)) {
     if (Test-Path $extractPath) { Remove-Item $extractPath -Recurse -Force }

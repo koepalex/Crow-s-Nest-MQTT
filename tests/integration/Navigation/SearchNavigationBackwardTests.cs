@@ -1,12 +1,13 @@
-/// <summary>
-/// Integration tests for backward navigation through search results.
-/// Tests 'N' (Shift+n) key behavior with wrap-around.
-/// Validates FR-009, FR-010, FR-023.
-/// </summary>
+// <summary>
+// Integration tests for backward navigation through search results.
+// Tests 'N' (Shift+n) key behavior with wrap-around.
+// Validates FR-009, FR-010, FR-023.
+// </summary>
 namespace CrowsNestMQTT.Tests.Integration.Navigation;
 
 using System;
 using System.Collections.Generic;
+using CrowsNestMqtt.UI.Services;
 using Xunit;
 using CrowsNestMQTT.BusinessLogic.Navigation;
 

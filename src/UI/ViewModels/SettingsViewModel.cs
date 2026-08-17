@@ -4,11 +4,13 @@ using CrowsNestMqtt.BusinessLogic.Exporter;
 using CrowsNestMqtt.BusinessLogic.Configuration;
 using CrowsNestMqtt.BusinessLogic.Services;
 using ReactiveUI;
+using RxVoid = ReactiveUI.Primitives.RxVoid;
 using CrowsNestMqtt.Utils; // For AppLogger
 using System;
 using System.Collections.ObjectModel;
 using System.IO; // For Path, File, Directory
 using System.Reactive; // For Unit
+using System.Reactive.Concurrency; // For TaskPoolScheduler
 using System.Reactive.Linq; // For Observable operators like Throttle
 using System.Text.Json; // For JSON serialization
 using System.Text.Json.Serialization; // For JsonIgnore
@@ -74,8 +76,8 @@ public class SettingsViewModel : ReactiveObject
     private readonly ReadOnlyObservableCollection<AppTheme> _availableThemes;
     public ReadOnlyObservableCollection<AppTheme> AvailableThemes => _availableThemes;
 
-    public ReactiveCommand<Unit, Unit> AddTopicLimitCommand { get; }
-    public ReactiveCommand<TopicBufferLimitViewModel, Unit> RemoveTopicLimitCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> AddTopicLimitCommand { get; }
+    public ReactiveCommand<TopicBufferLimitViewModel, RxVoid> RemoveTopicLimitCommand { get; }
 
 #pragma warning disable IDE0044 // Add readonly modifier
     private bool _isLoading = false; // Flag to prevent saving during initial load
@@ -279,7 +281,7 @@ private string _subscriptionTopic = "#";
                 itemPropertiesChanged.StartWith(Unit.Default) // StartWith to ensure initial state is considered if items exist
             )
             .Throttle(TimeSpan.FromMilliseconds(500))
-            .ObserveOn(RxSchedulers.TaskpoolScheduler)
+            .ObserveOn(TaskPoolScheduler.Default)
             .Subscribe(_ => SaveSettings());
 
 

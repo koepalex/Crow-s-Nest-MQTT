@@ -12,8 +12,14 @@ using Xunit;
 
 namespace CrowsNestMqtt.UnitTests;
 
-public class TextExporterTests : IDisposable
+public sealed class TextExporterTests : IDisposable
 {
+    private static readonly JsonSerializerOptions s_prettyJsonOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
     private readonly string _testDirectory;
 
     public TextExporterTests()
@@ -81,7 +87,7 @@ public class TextExporterTests : IDisposable
         // Use Payload property getter which returns ReadOnlySequence<byte>
         if (msg.CorrelationData != null && msg.CorrelationData.Length > 0)
         {
-            sb.AppendLine($"Correlation Data: {BitConverter.ToString(msg.CorrelationData).Replace("-", string.Empty)}");
+            sb.AppendLine($"Correlation Data: {Convert.ToHexString(msg.CorrelationData)}");
         }
         sb.AppendLine($"Payload Format: {msg.PayloadFormatIndicator}");
         sb.AppendLine($"Content Type: {msg.ContentType ?? "N/A"}");
@@ -113,11 +119,7 @@ public class TextExporterTests : IDisposable
                     {
                         // Parse and pretty-print JSON
                         using var document = JsonDocument.Parse(payloadAsString);
-                        var prettyJson = JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions 
-                        { 
-                            WriteIndented = true,
-                            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                        });
+                        var prettyJson = JsonSerializer.Serialize(document.RootElement, s_prettyJsonOptions);
                         sb.AppendLine(prettyJson);
                     }
                     catch (JsonException)

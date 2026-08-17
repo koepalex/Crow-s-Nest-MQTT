@@ -12,7 +12,7 @@ namespace CrowsNestMqtt.Integration.Tests;
 /// Tests ensure that export functionality produces consistent, readable correlation data files
 /// across all supported platforms while respecting platform-specific file system conventions.
 /// </summary>
-public class CrossPlatformExportTests : IAsyncLifetime
+public sealed class CrossPlatformExportTests : IAsyncLifetime
 {
     private readonly ITestOutputHelper _output;
     private readonly MqttTestUtilities _mqttUtils;
@@ -53,6 +53,7 @@ public class CrossPlatformExportTests : IAsyncLifetime
                 _output.WriteLine($"Warning: Could not delete test directory {_testDirectory}. Reason: {ex.Message}");
             }
         }
+        GC.SuppressFinalize(this);
     }
 
     [Fact]
@@ -67,7 +68,7 @@ public class CrossPlatformExportTests : IAsyncLifetime
         var exporter = new TextExporter();
 
         // Act
-        await _mqttUtils.PublishTestMessagesAsync(publisher, testMessages);
+        await MqttTestUtilities.PublishTestMessagesAsync(publisher, testMessages);
         await Task.Delay(100);
 
         var exportedFiles = new List<string>();
@@ -91,30 +92,19 @@ public class CrossPlatformExportTests : IAsyncLifetime
             // Test UTF-8 encoding detection
             var encodingInfo = await DetectFileEncodingAsync(filePath);
             _output.WriteLine($"File: {Path.GetFileName(filePath)} - Encoding: {encodingInfo.EncodingName}, BOM: {encodingInfo.HasBom}");
+            Assert.Equal("UTF-8", encodingInfo.EncodingName);
+            Assert.False(encodingInfo.HasBom, "TextExporter uses File.WriteAllText, which writes UTF-8 without a BOM.");
 
-            // Current implementation should fail this test due to base64 encoding format
-            // This test documents the expected behavior for the fix
             if (filePath.Contains("unicode"))
             {
-                // This assertion will FAIL with current base64 implementation
-                // Expected behavior: Direct UTF-8 hex representation of correlation data
                 var content = await File.ReadAllTextAsync(filePath, Encoding.UTF8);
 
-                // Current base64 format that should be replaced
                 var unicodeBytes = Encoding.UTF8.GetBytes("корреляция-测试-🔗");
-                var currentBase64 = Convert.ToBase64String(unicodeBytes);
+                var expectedHexFormat = Convert.ToHexString(unicodeBytes);
 
-                // Expected hex format for cross-platform readability
-                var expectedHexFormat = BitConverter.ToString(unicodeBytes).Replace("-", " ");
-
-                _output.WriteLine($"Current base64 format: {currentBase64}");
                 _output.WriteLine($"Expected hex format: {expectedHexFormat}");
 
-                // This will currently pass but should be changed to hex format
-                Assert.Contains(currentBase64, content);
-
-                // TODO: This should pass after implementing hex format
-                // Assert.Contains(expectedHexFormat, content);
+                Assert.Contains($"Correlation Data: {expectedHexFormat}", content);
             }
         }
     }
@@ -130,7 +120,7 @@ public class CrossPlatformExportTests : IAsyncLifetime
         var exporter = new TextExporter();
 
         // Act
-        await _mqttUtils.PublishTestMessagesAsync(publisher, new[] { simpleMessage });
+        await MqttTestUtilities.PublishTestMessagesAsync(publisher, new[] { simpleMessage });
         await Task.Delay(50);
 
         var filePath = exporter.ExportToFile(simpleMessage.Message, simpleMessage.ReceivedTimestamp, _testDirectory);
@@ -171,7 +161,7 @@ public class CrossPlatformExportTests : IAsyncLifetime
         var exporter = new TextExporter();
 
         // Act
-        await _mqttUtils.PublishTestMessagesAsync(publisher, new[] { binaryMessage });
+        await MqttTestUtilities.PublishTestMessagesAsync(publisher, new[] { binaryMessage });
         await Task.Delay(50);
 
         var filePath = exporter.ExportToFile(binaryMessage.Message, binaryMessage.ReceivedTimestamp, _testDirectory);
@@ -182,25 +172,15 @@ public class CrossPlatformExportTests : IAsyncLifetime
         var content = await File.ReadAllTextAsync(filePath, Encoding.UTF8);
         var originalCorrelationData = new byte[] { 0x01, 0x02, 0x03, 0xFF, 0xFE, 0xFD };
 
-        // Current base64 format
-        var currentBase64 = Convert.ToBase64String(originalCorrelationData);
-
-        // Expected hex format for cross-platform consistency
-        var expectedHexFormat = BitConverter.ToString(originalCorrelationData).Replace("-", " ");
+        var expectedHexFormat = Convert.ToHexString(originalCorrelationData);
 
         _output.WriteLine($"Original bytes: [{string.Join(", ", originalCorrelationData.Select(b => $"0x{b:X2}"))}]");
-        _output.WriteLine($"Current base64: {currentBase64}");
         _output.WriteLine($"Expected hex format: {expectedHexFormat}");
 
-        // This test documents the current behavior and expected future behavior
-        Assert.Contains("Correlation Data:", content);
-        Assert.Contains(currentBase64, content); // Current implementation
+        Assert.Contains($"Correlation Data: {expectedHexFormat}", content);
 
-        // TODO: After implementing hex format, this should pass:
-        // Assert.Contains(expectedHexFormat, content);
-
-        // Verify the hex format would be consistent across platforms
-        var hexBytes = expectedHexFormat.Split(' ').Select(h => Convert.ToByte(h, 16)).ToArray();
+        // Verify the hex format is consistent across platforms.
+        var hexBytes = Convert.FromHexString(expectedHexFormat);
         Assert.Equal(originalCorrelationData, hexBytes);
     }
 
@@ -278,7 +258,7 @@ public class CrossPlatformExportTests : IAsyncLifetime
         var exporter = new TextExporter();
 
         // Act
-        await _mqttUtils.PublishTestMessagesAsync(publisher, new[] { unicodeMessage });
+        await MqttTestUtilities.PublishTestMessagesAsync(publisher, new[] { unicodeMessage });
         await Task.Delay(50);
 
         var filePath = exporter.ExportToFile(unicodeMessage.Message, unicodeMessage.ReceivedTimestamp, _testDirectory);
@@ -288,27 +268,19 @@ public class CrossPlatformExportTests : IAsyncLifetime
 
         var encodingInfo = await DetectFileEncodingAsync(filePath);
         _output.WriteLine($"BOM detection - Has BOM: {encodingInfo.HasBom}, Encoding: {encodingInfo.EncodingName}");
-
-        // Document current behavior and platform expectations
-        if (_platformInfo.IsWindows)
-        {
-            _output.WriteLine("Windows: UTF-8 BOM handling may vary based on .NET implementation");
-        }
-        else
-        {
-            _output.WriteLine("Unix-like: UTF-8 files typically without BOM");
-        }
+        Assert.Equal("UTF-8", encodingInfo.EncodingName);
+        Assert.False(encodingInfo.HasBom, "TextExporter uses File.WriteAllText, which writes UTF-8 without a BOM.");
 
         // Verify file is readable regardless of BOM presence
         var content = await File.ReadAllTextAsync(filePath, Encoding.UTF8);
-        Assert.Contains("Correlation Data:", content);
-        Assert.Contains("корреляция-测试-🔗", content); // Should be in base64 currently
+        var expectedHexFormat = Convert.ToHexString(Encoding.UTF8.GetBytes("корреляция-测试-🔗"));
+        Assert.Contains($"Correlation Data: {expectedHexFormat}", content);
     }
 
     /// <summary>
     /// Platform information helper for cross-platform testing
     /// </summary>
-    private class PlatformInfo
+    private sealed class PlatformInfo
     {
         public bool IsWindows { get; }
         public bool IsLinux { get; }
@@ -325,16 +297,16 @@ public class CrossPlatformExportTests : IAsyncLifetime
 
             Description = IsWindows ? "Windows" : IsLinux ? "Linux" : IsMacOS ? "macOS" : "Unknown";
             ExpectedLineEndingDescription = IsWindows ? "CRLF (\\r\\n)" : "LF (\\n)";
-            ExpectsBom = IsWindows; // Windows may expect BOM for UTF-8, Unix typically doesn't
+            ExpectsBom = false; // File.WriteAllText writes UTF-8 without a BOM on supported .NET versions.
         }
     }
 
     /// <summary>
     /// Detects file encoding and BOM presence
     /// </summary>
-    private async Task<(string EncodingName, bool HasBom)> DetectFileEncodingAsync(string filePath)
+    private static async Task<(string EncodingName, bool HasBom)> DetectFileEncodingAsync(string filePath)
     {
-        var bytes = await File.ReadAllBytesAsync(filePath).ConfigureAwait(false);
+        var bytes = await File.ReadAllBytesAsync(filePath);
 
         // Check for UTF-8 BOM
         bool hasBom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
@@ -354,7 +326,7 @@ public class CrossPlatformExportTests : IAsyncLifetime
     /// <summary>
     /// Analyzes line ending types in file content
     /// </summary>
-    private (int CrlfCount, int LfOnlyCount) AnalyzeLineEndings(byte[] content)
+    private static (int CrlfCount, int LfOnlyCount) AnalyzeLineEndings(byte[] content)
     {
         int crlfCount = 0;
         int lfOnlyCount = 0;

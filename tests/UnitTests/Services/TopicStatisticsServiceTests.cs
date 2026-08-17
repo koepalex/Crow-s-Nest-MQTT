@@ -150,7 +150,7 @@ public class TopicStatisticsServiceTests
         var service = new TopicStatisticsService();
         const int workers = 8;
         const int perWorker = 5000;
-        var barrier = new Barrier(workers);
+        using var barrier = new Barrier(workers);
         var start = Utc(0, 0, 0);
 
         var tasks = Enumerable.Range(0, workers).Select(w => Task.Run(() =>
