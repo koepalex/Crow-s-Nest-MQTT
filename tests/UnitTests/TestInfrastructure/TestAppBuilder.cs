@@ -9,10 +9,9 @@ using CrowsNestMqtt.UnitTests.TestInfrastructure;
 // pool thread the test happens to be scheduled on.
 [assembly: AvaloniaTestApplication(typeof(TestAppBuilder))]
 
-// PerAssembly reuses a single Application/Dispatcher across the whole test run — matches the
-// prior custom AvaloniaFixture's single-instance semantics and avoids the per-test setup cost.
-// If a test surfaces shared-state contamination, switch to AvaloniaTestIsolationLevel.PerTest.
-[assembly: AvaloniaTestIsolation(AvaloniaTestIsolationLevel.PerAssembly)]
+// Test hosts used by coverage collection can schedule cases on different worker threads. Each
+// case therefore owns its application and dispatcher, avoiding cross-thread compositor access.
+[assembly: AvaloniaTestIsolation(AvaloniaTestIsolationLevel.PerTest)]
 
 namespace CrowsNestMqtt.UnitTests.TestInfrastructure;
 
