@@ -19,7 +19,7 @@ namespace CrowsNestMqtt.UnitTests.ViewModels;
 /// TogglePause, OpenSettings, NavigateToResponse, OnCorrelationStatusChanged,
 /// ExportAllMessages, and related paths.
 /// </summary>
-public class MainViewModelCoverageTests : IDisposable
+public sealed class MainViewModelCoverageTests : IDisposable
 {
     private readonly ICommandParserService _commandParserService;
     private readonly IMqttService _mqttServiceMock;
@@ -47,6 +47,7 @@ public class MainViewModelCoverageTests : IDisposable
     public void Dispose()
     {
         _viewModel.Dispose();
+        _mqttServiceMock.Dispose();
         GC.SuppressFinalize(this);
     }
 

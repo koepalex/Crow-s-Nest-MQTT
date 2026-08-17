@@ -76,6 +76,7 @@ namespace CrowsNestMqtt.UnitTests.BusinessLogic.Navigation
         }
 
         [Fact]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "Intentional equality-contract test: TopicReference.Equals(null) must return false; the compile-time nullability of the literal argument does not affect the runtime behaviour being verified.")]
         public void Equals_WithNull_ShouldReturnFalse()
         {
             var topicRef = new TopicReference("path", "display", Guid.NewGuid());
@@ -131,6 +132,7 @@ namespace CrowsNestMqtt.UnitTests.BusinessLogic.Navigation
         }
 
         [Fact]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "Intentional operator-contract test: null == null must return true. The analyzer's constant-folding does not obviate verifying the overload's runtime behaviour.")]
         public void OperatorEquals_WithBothNull_ShouldReturnTrue()
         {
             TopicReference? ref1 = null;
@@ -139,6 +141,7 @@ namespace CrowsNestMqtt.UnitTests.BusinessLogic.Navigation
         }
 
         [Fact]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "Intentional operator-contract test: non-null == null must return false in either operand order. The analyzer's constant-folding does not obviate verifying the overload's runtime behaviour.")]
         public void OperatorEquals_WithOneNull_ShouldReturnFalse()
         {
             var ref1 = new TopicReference("path", "display", Guid.NewGuid());

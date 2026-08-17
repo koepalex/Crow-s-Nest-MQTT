@@ -10,7 +10,7 @@ namespace CrowsNestMqtt.UnitTests;
 /// Tests for MqttEngine methods when client is not connected.
 /// The engine is constructed with default settings, so _client.IsConnected == false.
 /// </summary>
-public class MqttEngineNotConnectedTests : IDisposable
+public sealed class MqttEngineNotConnectedTests : IDisposable
 {
     private readonly MqttEngine _engine;
     private readonly List<string> _logMessages = new();
@@ -29,6 +29,7 @@ public class MqttEngineNotConnectedTests : IDisposable
     public void Dispose()
     {
         _engine.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     #region PublishAsync(string topic, string payload, ...) - not connected

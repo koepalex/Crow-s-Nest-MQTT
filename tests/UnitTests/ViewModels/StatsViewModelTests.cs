@@ -8,19 +8,16 @@ using Xunit;
 
 namespace CrowsNestMqtt.UnitTests.ViewModels;
 
-public class StatsViewModelTests : IDisposable
+public sealed class StatsViewModelTests : IDisposable
 {
-    private readonly IScheduler _originalScheduler;
 
     public StatsViewModelTests()
     {
-        _originalScheduler = RxSchedulers.MainThreadScheduler;
-        RxSchedulers.MainThreadScheduler = Scheduler.Immediate;
     }
 
     public void Dispose()
     {
-        RxSchedulers.MainThreadScheduler = _originalScheduler;
+        GC.SuppressFinalize(this);
     }
 
     private static DateTime Utc(int hour, int minute, int second, int ms = 0) =>
@@ -35,7 +32,7 @@ public class StatsViewModelTests : IDisposable
     [Fact]
     public void RefreshNow_PopulatesRowsFromService()
     {
-        var vm = CreateVm(out var service);
+        using var vm = CreateVm(out var service);
         service.Record("a/b", 100, Utc(12, 0, 0));
         service.Record("a/b", 300, Utc(12, 0, 2));
 
@@ -52,7 +49,7 @@ public class StatsViewModelTests : IDisposable
     [Fact]
     public void RefreshNow_ExistingRow_UpdatedInPlace()
     {
-        var vm = CreateVm(out var service);
+        using var vm = CreateVm(out var service);
         service.Record("a", 100, Utc(12, 0, 0));
         vm.RefreshNow();
         var originalRow = Assert.Single(vm.Rows);
@@ -70,7 +67,7 @@ public class StatsViewModelTests : IDisposable
     [Fact]
     public void RefreshNow_TopicRemovedFromService_RowRemovedFromView()
     {
-        var vm = CreateVm(out var service);
+        using var vm = CreateVm(out var service);
         service.Record("a", 100, Utc(12, 0, 0));
         vm.RefreshNow();
         Assert.Single(vm.Rows);
@@ -136,7 +133,7 @@ public class StatsViewModelTests : IDisposable
     [Fact]
     public async Task CopyAsMarkdownCommand_InvokesClipboardInteraction()
     {
-        var vm = CreateVm(out var service);
+        using var vm = CreateVm(out var service);
         service.Record("a", 100, Utc(12, 0, 0));
         vm.RefreshNow();
 
@@ -159,7 +156,7 @@ public class StatsViewModelTests : IDisposable
     [Fact]
     public async Task CopyAsMarkdownCommand_WithoutHandler_StatusMentionsMissingHandler()
     {
-        var vm = CreateVm(out _);
+        using var vm = CreateVm(out _);
 
         await vm.CopyAsMarkdownCommand.Execute();
 
@@ -169,7 +166,7 @@ public class StatsViewModelTests : IDisposable
     [Fact]
     public void CloseCommand_RaisesCloseRequestedEvent()
     {
-        var vm = CreateVm(out _);
+        using var vm = CreateVm(out _);
         var raised = false;
         vm.CloseRequested += (_, _) => raised = true;
 
@@ -192,7 +189,7 @@ public class StatsViewModelTests : IDisposable
     [Fact]
     public void StopLiveRefresh_IsSafeWhenNotStarted()
     {
-        var vm = CreateVm(out _);
+        using var vm = CreateVm(out _);
         vm.StopLiveRefresh(); // must not throw
     }
 

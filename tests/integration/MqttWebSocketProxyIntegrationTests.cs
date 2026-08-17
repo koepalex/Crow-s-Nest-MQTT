@@ -29,12 +29,12 @@ public sealed class MqttWebSocketProxyIntegrationTests
 
         using var engine = new MqttEngine(new MqttConnectionSettings
         {
-            Hostname = _fixture.Hostname,
+            Hostname = WebSocketProxyBrokerFixture.Hostname,
             Port = _fixture.WebSocketPort,
             ClientId = $"proxy-test-{Guid.NewGuid():N}",
             Transport = TransportProtocol.WebSocket,
             WebSocketPath = "/mqtt",
-            WebSocketProxyAddress = $"http://{_fixture.Hostname}:{_fixture.ProxyPort}",
+            WebSocketProxyAddress = $"http://{WebSocketProxyBrokerFixture.Hostname}:{_fixture.ProxyPort}",
             SubscriptionTopic = topic
         });
 

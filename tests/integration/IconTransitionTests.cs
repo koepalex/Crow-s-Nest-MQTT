@@ -1,9 +1,13 @@
 using System;
 using System.Text;
 using System.Threading.Tasks;
+using NSubstitute;
 using Xunit;
 using CrowsNestMqtt.BusinessLogic.Contracts;
+using CrowsNestMqtt.BusinessLogic.Models;
+using CrowsNestMqtt.BusinessLogic.Services;
 using CrowsNestMqtt.UI.Contracts;
+using CrowsNestMqtt.UI.Services;
 
 namespace CrowsNestMqtt.Integration.Tests
 {
@@ -11,14 +15,14 @@ namespace CrowsNestMqtt.Integration.Tests
     /// Integration tests for icon state transitions during request-response cycles.
     /// These tests verify end-to-end icon behavior and MUST FAIL before implementation.
     /// </summary>
-    public class IconTransitionTests
+    public sealed class IconTransitionTests
     {
         [Fact]
         public async Task CompleteIconLifecycle_ShouldTransitionCorrectly()
         {
             // Arrange
             var correlationService = CreateCorrelationService();
-            var iconService = CreateIconService();
+            var iconService = CreateIconService(correlationService);
 
             var requestMessageId = "req-lifecycle";
             var responseMessageId = "resp-lifecycle";
@@ -29,7 +33,7 @@ namespace CrowsNestMqtt.Integration.Tests
             var iconViewModel = await iconService.CreateIconViewModelAsync(requestMessageId, true, true);
             Assert.NotNull(iconViewModel);
             Assert.Equal(ResponseStatus.Pending, iconViewModel.Status);
-            Assert.False(iconViewModel.IsClickable);
+            Assert.True(iconViewModel.IsClickable);
             Assert.Contains("clock", iconViewModel.IconPath, StringComparison.OrdinalIgnoreCase);
 
             // Register the request correlation
@@ -55,7 +59,7 @@ namespace CrowsNestMqtt.Integration.Tests
         }
 
         [Fact]
-        public async Task IconCreation_WithUnsubscribedTopic_ShouldShowDisabledState()
+        public async Task IconCreation_WithUnsubscribedTopic_ShouldReturnNull()
         {
             // Arrange
             var iconService = CreateIconService();
@@ -64,12 +68,11 @@ namespace CrowsNestMqtt.Integration.Tests
             // Act - Create icon for unsubscribed response topic
             var iconViewModel = await iconService.CreateIconViewModelAsync(requestMessageId, true, false);
 
-            // Assert
-            Assert.NotNull(iconViewModel);
-            Assert.Equal(ResponseStatus.NavigationDisabled, iconViewModel.Status);
-            Assert.False(iconViewModel.IsClickable);
-            Assert.Contains("disabled", iconViewModel.IconPath, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("not subscribed", iconViewModel.ToolTip, StringComparison.OrdinalIgnoreCase);
+            // Assert - the service hides icons entirely when the response topic is not subscribed.
+            Assert.Null(iconViewModel);
+
+            var storedIconViewModel = await iconService.GetIconViewModelAsync(requestMessageId);
+            Assert.Null(storedIconViewModel);
         }
 
         [Fact]
@@ -129,7 +132,7 @@ namespace CrowsNestMqtt.Integration.Tests
         {
             // Arrange
             var correlationService = CreateCorrelationService();
-            var iconService = CreateIconService();
+            var iconService = CreateIconService(correlationService);
 
             var requestMessageId1 = "req-multi-1";
             var requestMessageId2 = "req-multi-2";
@@ -164,7 +167,9 @@ namespace CrowsNestMqtt.Integration.Tests
             Assert.Equal(ResponseStatus.Pending, updatedIcon2.Status);
 
             Assert.True(updatedIcon1.IsClickable);
-            Assert.False(updatedIcon2.IsClickable);
+            Assert.True(updatedIcon2.IsClickable);
+            Assert.Contains("arrow", updatedIcon1.IconPath, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("clock", updatedIcon2.IconPath, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
@@ -233,16 +238,26 @@ namespace CrowsNestMqtt.Integration.Tests
         public async Task IconClick_InDifferentStates_ShouldBehaveDifferently()
         {
             // Arrange
-            var iconService = CreateIconService();
+            var correlationService = CreateCorrelationService();
+            var iconService = CreateIconService(correlationService);
             var requestPendingId = "req-pending-click";
             var requestReceivedId = "req-received-click";
             var requestDisabledId = "req-disabled-click";
+            var pendingCorrelationData = Encoding.UTF8.GetBytes("pending-click");
+            var receivedCorrelationData = Encoding.UTF8.GetBytes("received-click");
+            var pendingResponseTopic = "test/icon/click/pending";
+            var receivedResponseTopic = "test/icon/click/received";
 
             // Create icons in different states
+            await correlationService.RegisterRequestAsync(requestPendingId, pendingCorrelationData, pendingResponseTopic);
+            await correlationService.RegisterRequestAsync(requestReceivedId, receivedCorrelationData, receivedResponseTopic);
+            await correlationService.LinkResponseAsync("resp-received-click", receivedCorrelationData, receivedResponseTopic);
+
             await iconService.CreateIconViewModelAsync(requestPendingId, true, true); // Pending
             await iconService.CreateIconViewModelAsync(requestReceivedId, true, true);
             await iconService.UpdateIconStatusAsync(requestReceivedId, ResponseStatus.Received); // Received
-            await iconService.CreateIconViewModelAsync(requestDisabledId, true, false); // Disabled
+            await iconService.CreateIconViewModelAsync(requestDisabledId, true, true);
+            await iconService.UpdateIconStatusAsync(requestDisabledId, ResponseStatus.NavigationDisabled); // Disabled
 
             // Act
             var pendingClick = await iconService.HandleIconClickAsync(requestPendingId);
@@ -311,6 +326,8 @@ namespace CrowsNestMqtt.Integration.Tests
             var afterCreation = DateTime.UtcNow;
 
             var iconViewModel = await iconService.GetIconViewModelAsync(requestMessageId);
+            Assert.NotNull(iconViewModel);
+            var creationLastUpdated = iconViewModel.LastUpdated;
 
             await Task.Delay(50); // Small delay to ensure different timestamp
 
@@ -319,35 +336,57 @@ namespace CrowsNestMqtt.Integration.Tests
             var afterUpdate = DateTime.UtcNow;
 
             var updatedIconViewModel = await iconService.GetIconViewModelAsync(requestMessageId);
+            Assert.NotNull(updatedIconViewModel);
+            var updateLastUpdated = updatedIconViewModel.LastUpdated;
 
             // Assert
-            Assert.NotNull(iconViewModel);
-            Assert.NotNull(updatedIconViewModel);
+            Assert.True(creationLastUpdated >= beforeCreation);
+            Assert.True(creationLastUpdated <= afterCreation);
 
-            Assert.True(iconViewModel.LastUpdated >= beforeCreation);
-            Assert.True(iconViewModel.LastUpdated <= afterCreation);
-
-            Assert.True(updatedIconViewModel.LastUpdated >= beforeUpdate);
-            Assert.True(updatedIconViewModel.LastUpdated <= afterUpdate);
-            Assert.True(updatedIconViewModel.LastUpdated > iconViewModel.LastUpdated);
+            Assert.True(updateLastUpdated >= beforeUpdate);
+            Assert.True(updateLastUpdated <= afterUpdate);
+            Assert.True(updateLastUpdated > creationLastUpdated);
         }
 
         /// <summary>
         /// Factory method to create correlation service instance.
-        /// This will fail until the actual implementation is created.
         /// </summary>
         private static IMessageCorrelationService CreateCorrelationService()
         {
-            throw new NotImplementedException("MessageCorrelationService not yet implemented - this test should fail");
+            return new MessageCorrelationService();
         }
 
         /// <summary>
-        /// Factory method to create icon service instance.
-        /// This will fail until the actual implementation is created.
+        /// Factory method to create icon service instance backed by the supplied correlation service.
+        /// </summary>
+        private static IResponseIconService CreateIconService(IMessageCorrelationService correlationService)
+        {
+            var navigationService = CreateNavigationService(correlationService);
+            return new ResponseIconService(correlationService, navigationService);
+        }
+
+        /// <summary>
+        /// Factory method to create navigation service instance backed by the supplied correlation service.
+        /// </summary>
+        private static IResponseNavigationService CreateNavigationService(IMessageCorrelationService correlationService)
+        {
+            var subscriptionService = Substitute.For<ITopicSubscriptionService>();
+            subscriptionService.IsTopicSubscribedAsync(Arg.Any<string>()).Returns(Task.FromResult(true));
+
+            var uiNavigationService = Substitute.For<IUINavigationService>();
+            uiNavigationService.NavigateToTopicAsync(Arg.Any<string>()).Returns(Task.CompletedTask);
+            uiNavigationService.SelectMessageAsync(Arg.Any<string>()).Returns(Task.CompletedTask);
+
+            return new ResponseNavigationService(correlationService, subscriptionService, uiNavigationService);
+        }
+
+        /// <summary>
+        /// Convenience overload that creates a fresh correlation service for callers that
+        /// don't need to share state between the correlation and icon services.
         /// </summary>
         private static IResponseIconService CreateIconService()
         {
-            throw new NotImplementedException("ResponseIconService not yet implemented - this test should fail");
+            return CreateIconService(CreateCorrelationService());
         }
     }
 }

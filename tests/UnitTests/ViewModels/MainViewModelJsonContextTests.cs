@@ -6,17 +6,21 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
 {
     public class MainViewModelJsonContextTests
     {
+        private static readonly JsonSerializerOptions s_options = new()
+        {
+            WriteIndented = true,
+            TypeInfoResolver = MainViewModelJsonContext.Default,
+        };
+
         [Fact]
         public void JsonContext_SerializeJsonElement()
         {
             // Arrange
             var element = JsonDocument.Parse("{ \"test\": \"value\" }").RootElement;
-            
+
             // Act
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            options.TypeInfoResolver = MainViewModelJsonContext.Default;
-            var json = JsonSerializer.Serialize(element, options);
-            
+            var json = JsonSerializer.Serialize(element, s_options);
+
             // Assert
             Assert.Contains("test", json);
             Assert.Contains("value", json);
@@ -27,12 +31,10 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         {
             // Arrange
             string jsonString = "{ \"test\": \"value\" }";
-            
+
             // Act
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            options.TypeInfoResolver = MainViewModelJsonContext.Default;
-            var element = JsonSerializer.Deserialize<JsonElement>(jsonString, options);
-            
+            var element = JsonSerializer.Deserialize<JsonElement>(jsonString, s_options);
+
             // Assert
             Assert.Equal("value", element.GetProperty("test").GetString());
         }
@@ -42,13 +44,11 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         {
             // Arrange
             var element = JsonDocument.Parse("{ \"key\": \"value\", \"nested\": { \"inner\": 123 } }").RootElement;
-            
+
             // Act
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            options.TypeInfoResolver = MainViewModelJsonContext.Default;
-            var json = JsonSerializer.Serialize(element, options);
-            var deserializedElement = JsonSerializer.Deserialize<JsonElement>(json, options);
-            
+            var json = JsonSerializer.Serialize(element, s_options);
+            var deserializedElement = JsonSerializer.Deserialize<JsonElement>(json, s_options);
+
             // Assert
             Assert.Equal("value", deserializedElement.GetProperty("key").GetString());
             Assert.Equal(123, deserializedElement.GetProperty("nested").GetProperty("inner").GetInt32());

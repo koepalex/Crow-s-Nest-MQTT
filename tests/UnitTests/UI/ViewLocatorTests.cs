@@ -1,4 +1,5 @@
 using Xunit;
+using Avalonia.Headless.XUnit;
 using Avalonia.Controls;
 using CrowsNestMqtt.UI.ViewModels;
 using CrowsNestMqtt.UI.Views;
@@ -12,10 +13,7 @@ namespace CrowsNestMqtt.UnitTests.UI
     /// </summary>
     public class ViewLocatorTests : AvaloniaTestBase
     {
-        public ViewLocatorTests(AvaloniaFixture fixture) : base(fixture)
-        {
-        }
-        [Fact]
+        [AvaloniaFact]
         public void ViewLocator_Build_WithNull_ReturnsNull()
         {
             // Arrange
@@ -28,7 +26,7 @@ namespace CrowsNestMqtt.UnitTests.UI
             Assert.Null(result);
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void ViewLocator_Build_WithValidViewModel_ReturnsMainWindow()
         {
             // Arrange
@@ -47,7 +45,7 @@ namespace CrowsNestMqtt.UnitTests.UI
             Assert.IsType<MainViewModel>(mainWindow.DataContext);
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void ViewLocator_Build_WithNonReactiveObject_ReturnsMainWindow()
         {
             // Arrange
@@ -62,7 +60,7 @@ namespace CrowsNestMqtt.UnitTests.UI
             Assert.IsType<MainWindow>(result);
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void ViewLocator_Match_WithReactiveObject_ReturnsTrue()
         {
             // Arrange
@@ -76,7 +74,7 @@ namespace CrowsNestMqtt.UnitTests.UI
             Assert.True(result);
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void ViewLocator_Match_WithNonReactiveObject_ReturnsFalse()
         {
             // Arrange
@@ -90,7 +88,7 @@ namespace CrowsNestMqtt.UnitTests.UI
             Assert.False(result);
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void ViewLocator_Match_WithNull_ReturnsFalse()
         {
             // Arrange
@@ -103,7 +101,7 @@ namespace CrowsNestMqtt.UnitTests.UI
             Assert.False(result);
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void ViewLocator_Build_CreatesNewMainWindowInstance()
         {
             // Arrange

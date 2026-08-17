@@ -23,7 +23,8 @@ internal static class Program
     internal static async Task Main()
     {
         var options = MockBrokerOptions.FromEnvironment();
-        await using var broker = new MockBroker(options);
+        var broker = new MockBroker(options);
+        await using var brokerHandle = broker.ConfigureAwait(false);
 
         await broker.StartAsync().ConfigureAwait(false);
 

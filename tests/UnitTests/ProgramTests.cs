@@ -12,7 +12,7 @@ namespace CrowsNestMqtt.UnitTests
     /// </summary>
     public class ProgramTests : IDisposable
     {
-        private bool _disposed = false;
+        private bool _disposed;
 
         public ProgramTests()
         {
@@ -458,7 +458,7 @@ namespace CrowsNestMqtt.UnitTests
         public void CurrentDomain_UnhandledException_LogsException()
         {
             // Create args
-            var exception = new Exception("Test exception");
+            var exception = new InvalidOperationException("Test exception");
             var args = new UnhandledExceptionEventArgs(exception, isTerminating: false);
             
             // This should not throw
@@ -470,7 +470,7 @@ namespace CrowsNestMqtt.UnitTests
         public void CurrentDomain_UnhandledException_LogsTerminatingException()
         {
             // Create args with terminating true
-            var exception = new Exception("Test terminating exception");
+            var exception = new InvalidOperationException("Test terminating exception");
             var args = new UnhandledExceptionEventArgs(exception, isTerminating: true);
             
             // This should not throw
@@ -485,7 +485,7 @@ namespace CrowsNestMqtt.UnitTests
         {
             // Create a task with an exception
             var tcs = new TaskCompletionSource<bool>();
-            tcs.SetException(new Exception("Test task exception"));
+            tcs.SetException(new InvalidOperationException("Test task exception"));
             var task = tcs.Task;
             
             try 
@@ -504,7 +504,7 @@ namespace CrowsNestMqtt.UnitTests
             
             // Create args with aggregate exception (the right type for UnobservedTaskException)
             var args = new UnobservedTaskExceptionEventArgs(
-                new AggregateException(new Exception("Test task exception")));
+                new AggregateException(new InvalidOperationException("Test task exception")));
             
             // This should not throw
             InvokeStaticMethod<object>(typeof(Program), "TaskScheduler_UnobservedTaskException", 
@@ -516,7 +516,7 @@ namespace CrowsNestMqtt.UnitTests
         {
             // Create args
             var args = new UnobservedTaskExceptionEventArgs(
-                new AggregateException(new Exception("Test task exception")));
+                new AggregateException(new InvalidOperationException("Test task exception")));
             
             // Act
             InvokeStaticMethod<object>(typeof(Program), "TaskScheduler_UnobservedTaskException", 

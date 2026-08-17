@@ -10,9 +10,9 @@ using CrowsNestMqtt.UI.Services;
 namespace UnitTests.ViewModels
 {
     // Custom mock for IMqttService to handle out parameter
-public class MockMqttService : IMqttService
+internal sealed class MockMqttService : IMqttService
     {
-        public Func<string, Guid, (bool found, MqttApplicationMessage? message)>? TryGetMessageHandler;
+        public Func<string, Guid, (bool found, MqttApplicationMessage? message)>? TryGetMessageHandler { get; set; }
 
 #pragma warning disable CS0067
         public event EventHandler<IdentifiedMqttApplicationMessageReceivedEventArgs>? MessageReceived;
@@ -57,13 +57,17 @@ public class MockMqttService : IMqttService
         public Task PublishAsync(string topic, string payload, bool retain, MqttQualityOfServiceLevel qos, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task PublishAsync(string topic, byte[] payload, bool retain, MqttQualityOfServiceLevel qos, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task ClearRetainedMessageAsync(string topic, MqttQualityOfServiceLevel qos, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<CrowsNestMqtt.BusinessLogic.Models.MqttPublishResult> PublishAsync(CrowsNestMqtt.BusinessLogic.Models.MqttPublishRequest request, CancellationToken cancellationToken = default) => Task.FromResult(CrowsNestMqtt.BusinessLogic.Models.MqttPublishResult.Succeeded(request.Topic, MqttClientPublishReasonCode.Success));
+        public Task<CrowsNestMqtt.BusinessLogic.Models.MqttPublishResult> PublishAsync(CrowsNestMqtt.BusinessLogic.Models.MqttPublishRequest request, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            return Task.FromResult(CrowsNestMqtt.BusinessLogic.Models.MqttPublishResult.Succeeded(request.Topic, MqttClientPublishReasonCode.Success));
+        }
         public IEnumerable<CrowsNestMqtt.Utils.BufferedMqttMessage>? GetBufferedMessagesForTopic(string topic) => null;
         public IEnumerable<CrowsNestMqtt.Utils.BufferedMqttMessage> GetMessagesForTopic(string topic) => Enumerable.Empty<CrowsNestMqtt.Utils.BufferedMqttMessage>();
         public void ClearAllBuffers() { }
         public IEnumerable<string> GetBufferedTopics() => Array.Empty<string>();
-        public void UpdateSettings(MqttConnectionSettings settings) { }
-        public void Dispose() { }
+        public void UpdateSettings(MqttConnectionSettings newSettings) { }
+        public void Dispose() => GC.SuppressFinalize(this);
     }
 
     public class MessageViewModelTests
@@ -165,7 +169,7 @@ public class MockMqttService : IMqttService
             var result = vm.GetFullMessage();
 
             Assert.Null(result);
-            statusBarService.Received(1).ShowStatus(Arg.Is<string>(msg => msg.Contains(topic)));
+            statusBarService.Received(1).ShowStatus(Arg.Is<string>(msg => msg!.Contains(topic)));
         }
 
         [Fact]

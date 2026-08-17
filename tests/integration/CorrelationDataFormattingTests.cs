@@ -15,7 +15,7 @@ namespace CrowsNestMqtt.Integration.Tests;
 /// This test suite validates that correlation data maintains consistent formatting
 /// across all three operations: UI display, file export, and clipboard copy.
 /// </summary>
-public class CorrelationDataFormattingTests : IAsyncLifetime
+public sealed class CorrelationDataFormattingTests : IAsyncLifetime
 {
     private readonly ITestOutputHelper _output;
     private readonly MqttTestUtilities _mqttUtils;
@@ -50,11 +50,12 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
                 _output.WriteLine($"Warning: Could not delete test directory {_testDirectory}. Reason: {ex.Message}");
             }
         }
+        GC.SuppressFinalize(this);
     }
 
     /// <summary>
     /// Test Unicode character preservation across display and export operations.
-    /// This test should FAIL initially due to format differences between display (hex) and export (base64).
+    /// This test verifies display and export both use hex without separators.
     /// </summary>
     [Fact]
     public async Task CorrelationData_UnicodeCharacters_PreservesFormatConsistently()
@@ -85,13 +86,13 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
             );
 
             // Act - Simulate the full flow: MQTT → UI Display → Export
-            await _mqttUtils.PublishTestMessagesAsync(publisher, new[] { message });
+            await MqttTestUtilities.PublishTestMessagesAsync(publisher, new[] { message });
             await Task.Delay(50); // Allow message processing
 
             // Simulate UI display formatting (BitConverter.ToString)
-            var displayFormat = BitConverter.ToString(correlationBytes).Replace("-", string.Empty);
+            var displayFormat = Convert.ToHexString(correlationBytes);
 
-            // Export to file (Convert.ToBase64String)
+            // Export to file (hex without separators)
             var exportFile = exporter.ExportToFile(message.Message, message.ReceivedTimestamp, _testDirectory);
             var exportContent = await File.ReadAllTextAsync(exportFile!);
 
@@ -104,29 +105,25 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
             var exportFormat = correlationLine.Split(':')[1].Trim();
 
             // Simulate UI display formatting using the same logic as MainViewModel
-            var uiDisplayFormat = BitConverter.ToString(correlationBytes).Replace("-", string.Empty);
+            var uiDisplayFormat = Convert.ToHexString(correlationBytes);
 
-            // Assert - This should FAIL initially due to format inconsistency
             _output.WriteLine($"Test: {description}");
             _output.WriteLine($"Original Unicode: {unicodeText}");
             _output.WriteLine($"UI Display Format (hex): {uiDisplayFormat}");
-            _output.WriteLine($"Export Format (base64): {exportFormat}");
+            _output.WriteLine($"Export Format (hex): {exportFormat}");
             _output.WriteLine($"Expected Display (hex): {displayFormat}");
-            _output.WriteLine($"Expected Export (base64): {Convert.ToBase64String(correlationBytes)}");
+            _output.WriteLine($"Expected Export (hex): {displayFormat}");
 
-            // These assertions will initially FAIL - demonstrating the inconsistency
             Assert.Equal(uiDisplayFormat, exportFormat);
 
             // Verify round-trip integrity for both formats
             var decodedFromDisplay = ConvertFromHexString(uiDisplayFormat);
-            var decodedFromExport = Convert.FromBase64String(exportFormat);
+            var decodedFromExport = ConvertFromHexString(exportFormat);
             var unicodeFromDisplay = Encoding.UTF8.GetString(decodedFromDisplay);
             var unicodeFromExport = Encoding.UTF8.GetString(decodedFromExport);
 
-            Assert.Equal(unicodeText, unicodeFromDisplay,
-                $"Unicode text not preserved in display format for {description}");
-            Assert.Equal(unicodeText, unicodeFromExport,
-                $"Unicode text not preserved in export format for {description}");
+            Assert.Equal(unicodeText, unicodeFromDisplay);
+            Assert.Equal(unicodeText, unicodeFromExport);
         }
     }
 
@@ -158,11 +155,11 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
                 correlationData: correlationBytes
             );
 
-            await _mqttUtils.PublishTestMessagesAsync(publisher, new[] { message });
+            await MqttTestUtilities.PublishTestMessagesAsync(publisher, new[] { message });
             await Task.Delay(50);
 
             // Simulate UI display formatting using the same logic as MainViewModel
-            var uiFormat = BitConverter.ToString(correlationBytes).Replace("-", string.Empty);
+            var uiFormat = Convert.ToHexString(correlationBytes);
 
             var exportFile = exporter.ExportToFile(message.Message, message.ReceivedTimestamp, _testDirectory);
             var exportContent = await File.ReadAllTextAsync(exportFile!);
@@ -172,17 +169,14 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
             _output.WriteLine($"UI Format: {uiFormat}");
             _output.WriteLine($"Export Format: {exportFormat}");
 
-            // This assertion should initially FAIL
-            Assert.Equal(uiFormat, exportFormat,
-                $"Format inconsistency for {description}: UI='{uiFormat}', Export='{exportFormat}'");
+            Assert.Equal(uiFormat, exportFormat);
 
-            // Verify symbol integrity - UI format is hex, export format is base64
+            // Verify symbol integrity - UI and export formats are hex
             var decodedFromUI = ConvertFromHexString(uiFormat);
-            var decodedFromExport = Convert.FromBase64String(exportFormat);
+            var decodedFromExport = ConvertFromHexString(exportFormat);
 
             // Both should decode to the same bytes
-            Assert.Equal(decodedFromUI, decodedFromExport,
-                $"Decoded bytes differ between UI and export for {description}");
+            Assert.Equal(decodedFromUI, decodedFromExport);
 
             var decodedBytes = decodedFromUI;
 
@@ -229,12 +223,12 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
                 correlationData: correlationBytes
             );
 
-            await _mqttUtils.PublishTestMessagesAsync(publisher, new[] { message });
+            await MqttTestUtilities.PublishTestMessagesAsync(publisher, new[] { message });
             await Task.Delay(50);
 
             // Simulate UI display formatting using the same logic as MainViewModel
             var uiFormat = correlationBytes.Length > 0
-                ? BitConverter.ToString(correlationBytes).Replace("-", string.Empty)
+                ? Convert.ToHexString(correlationBytes)
                 : "";
 
             var exportFile = exporter.ExportToFile(message.Message, message.ReceivedTimestamp, _testDirectory);
@@ -246,17 +240,14 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
             _output.WriteLine($"UI Format: {uiFormat}");
             _output.WriteLine($"Export Format: {exportFormat}");
 
-            // Format consistency check - should initially FAIL
-            Assert.Equal(uiFormat, exportFormat,
-                $"Format inconsistency for {description}");
+            Assert.Equal(uiFormat, exportFormat);
 
-            // Byte-level preservation check - UI format is hex, export format is base64
+            // Byte-level preservation check - UI and export formats are hex
             var decodedFromUI = string.IsNullOrEmpty(uiFormat) ? Array.Empty<byte>() : ConvertFromHexString(uiFormat);
-            var decodedFromExport = string.IsNullOrEmpty(exportFormat) ? Array.Empty<byte>() : Convert.FromBase64String(exportFormat);
+            var decodedFromExport = string.IsNullOrEmpty(exportFormat) ? Array.Empty<byte>() : ConvertFromHexString(exportFormat);
 
             // Both should decode to the same bytes
-            Assert.Equal(decodedFromUI, decodedFromExport,
-                $"Decoded bytes differ between UI and export for {description}");
+            Assert.Equal(decodedFromUI, decodedFromExport);
 
             var decodedBytes = decodedFromUI;
 
@@ -290,7 +281,7 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
                 correlationData: testBytes.Length == 0 ? null : testBytes
             );
 
-            await _mqttUtils.PublishTestMessagesAsync(publisher, new[] { message });
+            await MqttTestUtilities.PublishTestMessagesAsync(publisher, new[] { message });
             await Task.Delay(50);
 
             var exportFile = exporter.ExportToFile(message.Message, message.ReceivedTimestamp, _testDirectory);
@@ -299,22 +290,20 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
 
             if (testBytes.Length == 0)
             {
-                // For empty/null correlation data, export should show empty base64
-                Assert.True(string.IsNullOrEmpty(exportFormat) || exportFormat == Convert.ToBase64String(Array.Empty<byte>()),
+                // For empty/null correlation data, export omits the correlation data line.
+                Assert.True(string.IsNullOrEmpty(exportFormat),
                     $"Empty correlation data should result in empty export format, got: '{exportFormat}'");
             }
             else
             {
-                var uiFormat = BitConverter.ToString(testBytes).Replace("-", string.Empty);
+                var uiFormat = Convert.ToHexString(testBytes);
 
                 _output.WriteLine($"Edge Case: {description}");
                 _output.WriteLine($"Bytes: [{string.Join(", ", testBytes.Select(b => $"0x{b:X2}"))}]");
                 _output.WriteLine($"UI Format (hex): {uiFormat}");
-                _output.WriteLine($"Export Format (base64): {exportFormat}");
+                _output.WriteLine($"Export Format (hex): {exportFormat}");
 
-                // This should initially FAIL due to format inconsistency
-                Assert.Equal(uiFormat, exportFormat,
-                    $"Edge case format mismatch for {description}: hex '{uiFormat}' vs base64 '{exportFormat}'");
+                Assert.Equal(uiFormat, exportFormat);
             }
         }
     }
@@ -343,11 +332,11 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
         // Measure processing time
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-        await _mqttUtils.PublishTestMessagesAsync(publisher, new[] { message });
+        await MqttTestUtilities.PublishTestMessagesAsync(publisher, new[] { message });
         await Task.Delay(50);
 
         // Simulate UI display formatting using the same logic as MainViewModel
-        var uiFormat = BitConverter.ToString(correlationBytes).Replace("-", string.Empty);
+        var uiFormat = Convert.ToHexString(correlationBytes);
 
         var exportFile = exporter.ExportToFile(message.Message, message.ReceivedTimestamp, _testDirectory);
         var exportContent = await File.ReadAllTextAsync(exportFile!);
@@ -365,17 +354,14 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
         Assert.True(stopwatch.ElapsedMilliseconds < 1000,
             $"Large correlation data processing took too long: {stopwatch.ElapsedMilliseconds}ms");
 
-        // Format consistency assertion - should initially FAIL
-        Assert.Equal(uiFormat, exportFormat,
-            $"Large Unicode data format inconsistency: UI hex '{uiFormat.Substring(0, Math.Min(50, uiFormat.Length))}...' vs export base64 '{exportFormat.Substring(0, Math.Min(50, exportFormat.Length))}...'");
+        Assert.Equal(uiFormat, exportFormat);
 
         // Verify data integrity for large payloads
         var decodedFromUI = ConvertFromHexString(uiFormat);
-        var decodedFromExport = Convert.FromBase64String(exportFormat);
+        var decodedFromExport = ConvertFromHexString(exportFormat);
 
         // Both should decode to the same bytes
-        Assert.Equal(decodedFromUI, decodedFromExport,
-            "Large Unicode data: decoded bytes differ between UI and export formats");
+        Assert.Equal(decodedFromUI, decodedFromExport);
 
         var decodedBytes = decodedFromUI;
 
@@ -387,7 +373,7 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
 
     #region Helper Methods
 
-    private BufferedMqttMessage CreateTestMessage(
+    private static BufferedMqttMessage CreateTestMessage(
         string topic,
         string payload,
         byte[]? correlationData = null)
@@ -404,7 +390,7 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
         return new BufferedMqttMessage(Guid.NewGuid(), message, DateTime.UtcNow);
     }
 
-    private string ExtractCorrelationDataFromExport(string exportContent)
+    private static string ExtractCorrelationDataFromExport(string exportContent)
     {
         var correlationLine = exportContent
             .Split('\n')
@@ -416,12 +402,12 @@ public class CorrelationDataFormattingTests : IAsyncLifetime
         return correlationLine.Split(':', 2)[1].Trim();
     }
 
-    private bool IsHexString(string input)
+    private static bool IsHexString(string input)
     {
         return input.All(c => char.IsDigit(c) || (char.ToLower(c) >= 'a' && char.ToLower(c) <= 'f'));
     }
 
-    private byte[] ConvertFromHexString(string hex)
+    private static byte[] ConvertFromHexString(string hex)
     {
         var bytes = new byte[hex.Length / 2];
         for (int i = 0; i < hex.Length; i += 2)

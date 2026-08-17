@@ -1,6 +1,7 @@
-using Xunit;
 using Avalonia;
+using Avalonia.Headless.XUnit;
 using CrowsNestMqtt.UnitTests.UI;
+using Xunit;
 
 namespace CrowsNestMqtt.UnitTests.UI
 {
@@ -9,11 +10,7 @@ namespace CrowsNestMqtt.UnitTests.UI
     /// </summary>
     public class AppTests : AvaloniaTestBase
     {
-        public AppTests(AvaloniaFixture fixture) : base(fixture)
-        {
-        }
-
-        [Fact]
+        [AvaloniaFact]
         public void App_CanBeInstantiated()
         {
             // This test verifies that we can create an instance of the App class
@@ -31,7 +28,7 @@ namespace CrowsNestMqtt.UnitTests.UI
             Assert.Null(exception);
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void App_Initialize_LoadsXaml()
         {
             // Arrange

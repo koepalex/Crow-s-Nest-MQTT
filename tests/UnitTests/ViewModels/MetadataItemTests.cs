@@ -55,6 +55,7 @@ namespace UnitTests.ViewModels
         }
 
         [Fact]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "Intentional equality-contract test: Equals(null) is expected to return false; the compile-time nullability of the literal does not affect the runtime behaviour being verified.")]
         public void Equality_WithNull_ReturnsFalse()
         {
             var item = new MetadataItem("k", "v");

@@ -11,7 +11,7 @@ namespace CrowsNestMqtt.Integration.Tests;
 /// Performance tests for Export All Messages feature.
 /// T032: Validates that bulk export completes within acceptable time limits.
 /// </summary>
-public class ExportPerformanceTests : IDisposable
+public sealed class ExportPerformanceTests : IDisposable
 {
     private readonly ITestOutputHelper _output;
     private readonly string _testDirectory;
@@ -219,7 +219,7 @@ public class ExportPerformanceTests : IDisposable
 
     // Helper methods
 
-    private List<MqttApplicationMessage> CreateTestMessages(int count, string topicPrefix)
+    private static List<MqttApplicationMessage> CreateTestMessages(int count, string topicPrefix)
     {
         var messages = new List<MqttApplicationMessage>();
 
@@ -231,7 +231,7 @@ public class ExportPerformanceTests : IDisposable
         return messages;
     }
 
-    private List<MqttApplicationMessage> CreateTestMessagesWithLargePayloads(int count, string topicPrefix, int payloadSizeKB)
+    private static List<MqttApplicationMessage> CreateTestMessagesWithLargePayloads(int count, string topicPrefix, int payloadSizeKB)
     {
         var messages = new List<MqttApplicationMessage>();
         string largePayload = new string('x', payloadSizeKB * 1024); // Create KB-sized payload
@@ -244,7 +244,7 @@ public class ExportPerformanceTests : IDisposable
         return messages;
     }
 
-    private List<MqttApplicationMessage> CreateMessagesWithComplexMetadata(int count, string topicPrefix)
+    private static List<MqttApplicationMessage> CreateMessagesWithComplexMetadata(int count, string topicPrefix)
     {
         var messages = new List<MqttApplicationMessage>();
 
@@ -273,7 +273,7 @@ public class ExportPerformanceTests : IDisposable
         return messages;
     }
 
-    private MqttApplicationMessage CreateTestMessage(string topic, string payload, int id)
+    private static MqttApplicationMessage CreateTestMessage(string topic, string payload, int id)
     {
         return new MqttApplicationMessage
         {

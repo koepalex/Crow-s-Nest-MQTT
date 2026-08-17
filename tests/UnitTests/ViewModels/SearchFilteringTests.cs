@@ -393,16 +393,17 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         
         private static NodeViewModel? FindNode(IEnumerable<NodeViewModel> nodes, params string[] path)
         {
-            if (path.Length == 0 || nodes == null || !nodes.Any())
+            var nodeList = nodes as IReadOnlyList<NodeViewModel> ?? nodes?.ToList();
+            if (path.Length == 0 || nodeList is null || nodeList.Count == 0)
                 return null;
-            
-            var currentNode = nodes.FirstOrDefault(n => n.Name == path[0]);
+
+            var currentNode = nodeList.FirstOrDefault(n => n.Name == path[0]);
             if (currentNode == null)
                 return null;
-            
+
             if (path.Length == 1)
                 return currentNode;
-            
+
             return FindNode(currentNode.Children, path.Skip(1).ToArray());
         }
         

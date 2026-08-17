@@ -12,7 +12,8 @@ namespace CrowsNestMqtt.Tests.TestData;
 /// <summary>
 /// Utilities for MQTT testing including embedded broker management and test client helpers.
 /// </summary>
-public class MqttTestUtilities : IAsyncDisposable
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes", Justification = "Instantiated by integration test files that are currently excluded from compilation. Included in the shared TestData for re-enablement by revived integration tests.")]
+internal sealed class MqttTestUtilities : IAsyncDisposable
 {
     private MqttServer? _mqttServer;
     private readonly List<IMqttClient> _testClients = new();
@@ -88,8 +89,10 @@ public class MqttTestUtilities : IAsyncDisposable
     /// <summary>
     /// Publishes test messages with correlation data to the test broker.
     /// </summary>
-    public async Task PublishTestMessagesAsync(IMqttClient client, IEnumerable<BufferedMqttMessage> messages)
+    public static async Task PublishTestMessagesAsync(IMqttClient client, IEnumerable<BufferedMqttMessage> messages)
     {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(messages);
         foreach (var bufferedMessage in messages)
         {
             var msg = bufferedMessage.Message;
@@ -135,6 +138,7 @@ public class MqttTestUtilities : IAsyncDisposable
     /// </summary>
     public static async Task<bool> WaitForConditionAsync(Func<bool> condition, TimeSpan timeout, int checkIntervalMs = 100)
     {
+        ArgumentNullException.ThrowIfNull(condition);
         var endTime = DateTime.UtcNow.Add(timeout);
         while (DateTime.UtcNow < endTime)
         {
@@ -177,7 +181,7 @@ public class MqttTestUtilities : IAsyncDisposable
 /// <summary>
 /// Helper class to collect MQTT messages during testing.
 /// </summary>
-public class TestMessageCollector : IAsyncDisposable
+internal sealed class TestMessageCollector : IAsyncDisposable
 {
     private readonly IMqttClient _client;
     private readonly List<MqttApplicationMessage> _receivedMessages = new();
@@ -248,6 +252,7 @@ public class TestMessageCollector : IAsyncDisposable
     /// </summary>
     public IEnumerable<MqttApplicationMessage> GetMessagesByTopic(string topicPattern)
     {
+        ArgumentNullException.ThrowIfNull(topicPattern);
         lock (_lock)
         {
             if (topicPattern.Contains('#') || topicPattern.Contains('+'))

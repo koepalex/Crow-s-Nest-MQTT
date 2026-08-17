@@ -7,6 +7,7 @@ using System.Text;
 using CrowsNestMqtt.BusinessLogic.Models;
 using CrowsNestMqtt.BusinessLogic.Services;
 using ReactiveUI;
+using RxVoid = ReactiveUI.Primitives.RxVoid;
 using Serilog;
 
 namespace CrowsNestMqtt.UI.ViewModels;
@@ -71,13 +72,13 @@ public sealed class StatsViewModel : ReactiveObject, IDisposable
     public Interaction<string, Unit> CopyTextToClipboardInteraction { get; }
 
     /// <summary>Manual refresh command.</summary>
-    public ReactiveCommand<Unit, Unit> RefreshCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> RefreshCommand { get; }
 
     /// <summary>Copies the current rows to the clipboard as a Markdown table.</summary>
-    public ReactiveCommand<Unit, Unit> CopyAsMarkdownCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CopyAsMarkdownCommand { get; }
 
     /// <summary>Closes the window (bound to Escape/close button).</summary>
-    public ReactiveCommand<Unit, Unit> CloseCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CloseCommand { get; }
 
     /// <summary>Raised when <see cref="CloseCommand"/> is invoked so the view can close the window.</summary>
     public event EventHandler? CloseRequested;

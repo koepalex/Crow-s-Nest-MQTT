@@ -15,16 +15,13 @@ using Xunit;
 
 namespace CrowsNestMqtt.UnitTests.ViewModels;
 
-public class PublishViewModelTests : IDisposable
+public sealed class PublishViewModelTests : IDisposable
 {
     private readonly IMqttService _mqttService;
     private readonly IPublishHistoryService _historyService;
-    private readonly IScheduler _originalScheduler;
 
     public PublishViewModelTests()
     {
-        _originalScheduler = RxSchedulers.MainThreadScheduler;
-        RxSchedulers.MainThreadScheduler = Scheduler.Immediate;
 
         _mqttService = Substitute.For<IMqttService>();
         _historyService = Substitute.For<IPublishHistoryService>();
@@ -33,7 +30,8 @@ public class PublishViewModelTests : IDisposable
 
     public void Dispose()
     {
-        RxSchedulers.MainThreadScheduler = _originalScheduler;
+        _mqttService.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     private PublishViewModel CreateViewModel() => new(_mqttService, _historyService);
@@ -316,7 +314,7 @@ public class PublishViewModelTests : IDisposable
         await vm.PublishCommand.Execute();
 
         Assert.Contains("successfully", vm.StatusText);
-        _historyService.Received(1).AddEntry(Arg.Is<MqttPublishRequest>(r => r.Topic == "test/topic"));
+        _historyService.Received(1).AddEntry(Arg.Is<MqttPublishRequest>(r => r!.Topic == "test/topic"));
     }
 
     [Fact]

@@ -380,3 +380,10 @@ dotnet_diagnostic.CS1591.severity = suggestion
 dotnet_diagnostic.CA1031.severity = none
 dotnet_diagnostic.CA1819.severity = suggestion
 dotnet_diagnostic.CA1859.severity = suggestion
+
+# Test projects: xUnit v3 forbids ConfigureAwait(false) in test methods
+# (xUnit1030), so CA2007 is not applicable to test code. Suppress it for all
+# .cs files under tests/ so the fix documented for xUnit v3 (do nothing) is
+# explicit and localized rather than requiring per-file pragmas.
+[tests/**/*.cs]
+dotnet_diagnostic.CA2007.severity = none

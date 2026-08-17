@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls; // For TopLevel
 using Avalonia.Threading; // Already present
 using ReactiveUI;
+using RxVoid = ReactiveUI.Primitives.RxVoid;
 using Serilog; // Added Serilog
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -734,20 +735,20 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     }
 
     // --- Commands ---
-    public ReactiveCommand<Unit, bool> ConnectCommand { get; }
-    public ReactiveCommand<Unit, Unit> DisconnectCommand { get; }
-    public ReactiveCommand<Unit, Unit> ClearHistoryCommand { get; }
-    public ReactiveCommand<Unit, Unit> PauseResumeCommand { get; }
-    public ReactiveCommand<Unit, Unit> OpenSettingsCommand { get; } // Added Settings Command
-    public ReactiveCommand<Unit, Unit> SubmitInputCommand { get; } // Added for command/search input
-    public ReactiveCommand<Unit, Unit> FocusCommandBarCommand { get; } // Added command to trigger focus
-    public ReactiveCommand<Unit, Unit> FocusTopicTreeCommand { get; } // Added command to focus topic tree after search
-    public ReactiveCommand<object?, Unit> CopyPayloadCommand { get; } // Added command to copy payload
-    public ReactiveCommand<Unit, Unit> DeleteTopicCommand { get; } // Added command to delete selected topic's retained messages
-    public ReactiveCommand<string?, Unit> NavigateToResponseCommand { get; } // Added command to navigate to response messages
-    public ReactiveCommand<object?, Unit> ExportMessageCommand { get; } // T020: Added command to export single message from row button
-    public ReactiveCommand<Unit, Unit> ExportAllCommand { get; } // T021: Added command to export all messages from selected topic
-    public ReactiveCommand<Unit, Unit> TogglePublishWindowCommand { get; } // Feature 007: Toggle publish window
+    public ReactiveCommand<RxVoid, bool> ConnectCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> DisconnectCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ClearHistoryCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> PauseResumeCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> OpenSettingsCommand { get; } // Added Settings Command
+    public ReactiveCommand<RxVoid, RxVoid> SubmitInputCommand { get; } // Added for command/search input
+    public ReactiveCommand<RxVoid, RxVoid> FocusCommandBarCommand { get; } // Added command to trigger focus
+    public ReactiveCommand<RxVoid, RxVoid> FocusTopicTreeCommand { get; } // Added command to focus topic tree after search
+    public ReactiveCommand<object?, RxVoid> CopyPayloadCommand { get; } // Added command to copy payload
+    public ReactiveCommand<RxVoid, RxVoid> DeleteTopicCommand { get; } // Added command to delete selected topic's retained messages
+    public ReactiveCommand<string?, RxVoid> NavigateToResponseCommand { get; } // Added command to navigate to response messages
+    public ReactiveCommand<object?, RxVoid> ExportMessageCommand { get; } // T020: Added command to export single message from row button
+    public ReactiveCommand<RxVoid, RxVoid> ExportAllCommand { get; } // T021: Added command to export all messages from selected topic
+    public ReactiveCommand<RxVoid, RxVoid> TogglePublishWindowCommand { get; } // Feature 007: Toggle publish window
 
     // Interaction for requesting clipboard copy from the View
     public Interaction<string, Unit> CopyTextToClipboardInteraction { get; }
@@ -818,7 +819,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         _azureTokenProviderFactory = azureTokenProviderFactory
             ?? (scope => new AzureAccessTokenProvider(scope)); // Real DefaultAzureCredential-backed provider in prod
         _uiScheduler = uiScheduler 
-            ?? (Application.Current == null ? Scheduler.Immediate : RxSchedulers.MainThreadScheduler); // Use Immediate in non-Avalonia (plain unit test) context
+            ?? (Application.Current == null ? Scheduler.Immediate : CrowsNestMqtt.UI.Services.AvaloniaUIScheduler.Instance); // Use Immediate in non-Avalonia (plain unit test) context
         var entryAssemblyName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name;
         _testMode = Application.Current == null
                     || AppDomain.CurrentDomain.FriendlyName?.IndexOf("testhost", StringComparison.OrdinalIgnoreCase) >= 0
@@ -4787,7 +4788,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"crowsnest_image_{Guid.NewGuid():N}.png");
                 using (var fs = System.IO.File.OpenWrite(tempPath))
                 {
-                    bitmap.Save(fs);
+                    bitmap.Save(fs, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
                 }
                 await CopyImageToClipboardInteraction.Handle(bitmap);
                 StatusBarText = $"Image written to temp file: {tempPath}. Path copied to clipboard. Paste the path into your application to access the image.";
