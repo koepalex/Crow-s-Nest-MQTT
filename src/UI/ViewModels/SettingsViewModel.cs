@@ -167,6 +167,7 @@ public AppTheme Theme
 }
 
 private string _subscriptionTopic = "#";
+    private readonly bool _isAspireEnvironment;
     /// <summary>
     /// MQTT topic filter used for the initial subscription. Defaults to <c>#</c>
     /// (all topics), which works for permissive brokers like EMQX/Mosquitto.
@@ -183,9 +184,17 @@ private string _subscriptionTopic = "#";
 
     public SettingsViewModel(EnvironmentSettingsOverrides? environmentOverrides = null)
     {
+        _isAspireEnvironment = environmentOverrides?.IsAspireEnvironment == true;
         ExportPath = _exportFolderPath; // Set default before loading
         _isLoading = true; // Set flag before loading
-        LoadSettings(); // This calls From() which populates TopicSpecificLimits
+        if (_isAspireEnvironment)
+        {
+            EnsureDefaultTopicLimit();
+        }
+        else
+        {
+            LoadSettings(); // This calls From() which populates TopicSpecificLimits
+        }
 
         // Apply environment variable overrides after loading from file
         if (environmentOverrides?.HasOverrides == true)
@@ -729,7 +738,7 @@ private string _subscriptionTopic = "#";
 
     private void SaveSettings()
     {
-        if (_isLoading) return; // Don't save while initially loading
+        if (_isLoading || _isAspireEnvironment) return;
 
         try
         {

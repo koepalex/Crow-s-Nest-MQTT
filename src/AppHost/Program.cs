@@ -132,12 +132,25 @@ else
 
 // Add delayed test data sender that publishes sample data after broker is ready
 var toolsDir = Path.GetFullPath(Path.Combine(builder.AppHostDirectory, "..", "..", "tools"));
-builder.AddExecutable("test-data-sender", "pwsh", toolsDir, "-File", "SendTestDataDelayed.ps1")
+var testDataSender = OperatingSystem.IsLinux()
+    ? builder.AddExecutable(
+        "test-data-sender",
+        "dotnet",
+        Path.Combine(toolsDir, "TestDataSender", "bin", buildConfiguration, "net10.0"),
+        "CrowsNestMqtt.TestDataSender.dll")
+    : builder.AddExecutable("test-data-sender", "pwsh", toolsDir, "-File", "SendTestDataDelayed.ps1");
+
+testDataSender
     .WithReference(mqttEndpoint)
+    .WithReference(mockEgEndpoint)
     .WaitFor(mqttBroker)
+    .WaitFor(mockEgBroker)
     .WithEnvironment("MQTT_HOST", mqttEndpoint.Property(EndpointProperty.Host))
     .WithEnvironment("MQTT_PORT", mqttEndpoint.Property(EndpointProperty.Port))
-    .WithEnvironment("MQTT_USE_TLS", "false");
+    .WithEnvironment("MQTT_USE_TLS", "false")
+    .WithEnvironment("AZURE_MQTT_HOST", mockEgEndpoint.Property(EndpointProperty.Host))
+    .WithEnvironment("AZURE_MQTT_PORT", mockEgEndpoint.Property(EndpointProperty.Port))
+    .WithEnvironment("AZURE_MQTT_TOKEN", devJwt);
 
 builder.Build().Run();
 
@@ -151,6 +164,7 @@ void AddClientInstances<T>(Func<string, IResourceBuilder<T>> addClient)
     // Shared settings for all anonymous CrowsNestMqtt instances
     static IResourceBuilder<TResource> WithSharedEnvironment<TResource>(IResourceBuilder<TResource> rb)
         where TResource : IResource, IResourceWithEnvironment => rb
+        .WithEnvironment("CROWSNEST__ASPIRE_ENVIRONMENT", "true")
         .WithEnvironment("CROWSNEST__AUTH_MODE", "anonymous")
         .WithEnvironment("CROWSNEST__CLIENT_ID", "")
         .WithEnvironment("CROWSNEST__KEEP_ALIVE_SECONDS", "0")
@@ -210,6 +224,7 @@ void AddClientInstances<T>(Func<string, IResourceBuilder<T>> addClient)
     addClient("crows-nest-mqtt-azure")
         .WithReference(mockEgEndpoint)
         .WaitFor(mockEgBroker)
+        .WithEnvironment("CROWSNEST__ASPIRE_ENVIRONMENT", "true")
         .WithEnvironment("CROWSNEST__HOSTNAME", mockEgEndpoint.Property(EndpointProperty.Host))
         .WithEnvironment("CROWSNEST__PORT", mockEgEndpoint.Property(EndpointProperty.Port))
         .WithEnvironment("CROWSNEST__USE_TLS", "true")

@@ -5,19 +5,22 @@ param(
     [string]$SettingsPath = "$env:LOCALAPPDATA\CrowsNestMqtt\settings.json",
     [string]$Broker = "",
     [int]$BrokerPort = 0,
-    [Nullable[bool]]$UseTls = $null,
+    [string]$UseTls = "",
     [string]$ImagePath = "",
     [string]$VideoPath = "",
     [string]$JsonPath = "",
-    [string]$BinaryPath = ""
+    [string]$BinaryPath = "",
+    [switch]$ConnectOnly
 )
+
+$ErrorActionPreference = "Stop"
 
 # --- Resolve repo root and test data paths ---
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
-$defaultImagePath = Join-Path $repoRoot "tests\TestData\test-image.png"
-$defaultVideoPath = Join-Path $repoRoot "tests\TestData\test-video.mp4"
-$defaultJsonPath = Join-Path $repoRoot "tests\TestData\test-struct.json"
-$defaultBinaryPath = Join-Path $repoRoot "tests\TestData\story.7z"
+$defaultImagePath = [System.IO.Path]::Combine($repoRoot, "tests", "TestData", "test-image.png")
+$defaultVideoPath = [System.IO.Path]::Combine($repoRoot, "tests", "TestData", "test-video.mp4")
+$defaultJsonPath = [System.IO.Path]::Combine($repoRoot, "tests", "TestData", "test-struct.json")
+$defaultBinaryPath = [System.IO.Path]::Combine($repoRoot, "tests", "TestData", "story.7z")
 
 if (-not $ImagePath -or $ImagePath -eq "") { $ImagePath = $defaultImagePath }
 if (-not $VideoPath -or $VideoPath -eq "") { $VideoPath = $defaultVideoPath }
@@ -25,12 +28,13 @@ if (-not $JsonPath -or $JsonPath -eq "") { $JsonPath = $defaultJsonPath }
 if (-not $BinaryPath -or $BinaryPath -eq "") { $BinaryPath = $defaultBinaryPath }
 
 # Ensure MQTTnet is available
-$nuget = [System.IO.Path]::Combine($env:TEMP, "mqttnet.5.1.0.1559.nupkg")
+$tempPath = [System.IO.Path]::GetTempPath()
+$nuget = [System.IO.Path]::Combine($tempPath, "mqttnet.5.1.0.1559.nupkg")
 if (-not (Test-Path $nuget)) {
     Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/MQTTnet/5.1.0.1559" -OutFile $nuget
 }
-$extractPath = Join-Path $env:TEMP "MQTTnet_extracted_5.1.0"
-$dllPath = Join-Path $extractPath "lib\net8.0\MQTTnet.dll"
+$extractPath = [System.IO.Path]::Combine($tempPath, "MQTTnet_extracted_5.1.0")
+$dllPath = [System.IO.Path]::Combine($extractPath, "lib", "net8.0", "MQTTnet.dll")
 if (-not (Test-Path $dllPath)) {
     if (Test-Path $extractPath) { Remove-Item $extractPath -Recurse -Force }
     Expand-Archive -Path $nuget -DestinationPath $extractPath -Force
@@ -55,8 +59,8 @@ $port = if ($BrokerPort -gt 0) { $BrokerPort } elseif ($settings -and $settings.
 #   2) MQTT_USE_TLS environment variable (set by Aspire AppHost, e.g. "false")
 #   3) settings.UseTls from settings.json
 #   4) default $false (Aspire's EMQX plain-TCP listener doesn't speak TLS)
-if ($null -ne $UseTls) {
-    $useTls = [bool]$UseTls
+if (-not [string]::IsNullOrWhiteSpace($UseTls)) {
+    $useTls = [System.Convert]::ToBoolean($UseTls)
 } elseif ($env:MQTT_USE_TLS) {
     $useTls = [System.Convert]::ToBoolean($env:MQTT_USE_TLS)
 } elseif ($settings -and $null -ne $settings.UseTls) {
@@ -70,21 +74,30 @@ $publishTimeout = [TimeSpan]::FromSeconds(30)
 $connectRetryCount = 12
 $connectRetryDelay = [TimeSpan]::FromSeconds(5)
 
-# Build MQTT client options (MQTTnet 5.x API)
-$optionsBuilder = [MQTTnet.MqttClientOptionsBuilder]::new()
-$optionsBuilder = $optionsBuilder.WithTcpServer($mqttHost, [int]$port).WithClientId($clientId)
-if ($useTls) { $optionsBuilder = $optionsBuilder.WithTlsOptions({ param($tlsOptions) }) }
-$options = $optionsBuilder.Build()
-
-# Create MQTT client
+# Create MQTT client factory. A client instance is created for each connection
+# attempt because MQTTnet clients cannot reliably reconnect after a failed TCP handshake.
 $factory = [MQTTnet.MqttClientFactory]::new()
-$client = $factory.CreateMqttClient()
+$client = $null
 
 $failedPublishes = [System.Collections.Generic.List[string]]::new()
 
 function Connect-MqttClientWithRetry {
     for ($attempt = 1; $attempt -le $connectRetryCount; $attempt++) {
         try {
+            $optionsBuilder = [MQTTnet.MqttClientOptionsBuilder]::new()
+            $optionsBuilder = $optionsBuilder.WithTcpServer($mqttHost, [int]$port).WithClientId($clientId)
+            if ($useTls) {
+                $tlsOptions = [MQTTnet.MqttClientTlsOptions]::new()
+                $tlsOptions.UseTls = $true
+                $tlsOptions.AllowUntrustedCertificates = $true
+                $tlsOptions.IgnoreCertificateChainErrors = $true
+                $tlsOptions.IgnoreCertificateRevocationErrors = $true
+                $tlsOptions.CertificateValidationHandler = { $true }
+                $optionsBuilder = $optionsBuilder.WithTlsOptions($tlsOptions)
+            }
+
+            $script:client = $factory.CreateMqttClient()
+            $options = $optionsBuilder.Build()
             $null = $client.ConnectAsync($options).WaitAsync($publishTimeout).GetAwaiter().GetResult()
             return
         } catch {
@@ -125,7 +138,27 @@ function Send-MqttMessage {
 
 # Connect
 Write-Host "Connecting to $mqttHost : $port with client id $clientId (TLS: $useTls)"
-Connect-MqttClientWithRetry
+$optionsBuilder = [MQTTnet.MqttClientOptionsBuilder]::new()
+$optionsBuilder = $optionsBuilder.WithTcpServer($mqttHost, [int]$port).WithClientId($clientId)
+if ($useTls) {
+    $tlsOptions = [MQTTnet.MqttClientTlsOptions]::new()
+    $tlsOptions.UseTls = $true
+    $tlsOptions.AllowUntrustedCertificates = $true
+    $tlsOptions.IgnoreCertificateChainErrors = $true
+    $tlsOptions.IgnoreCertificateRevocationErrors = $true
+    $tlsOptions.CertificateValidationHandler = { $true }
+    $optionsBuilder = $optionsBuilder.WithTlsOptions($tlsOptions)
+}
+
+$client = $factory.CreateMqttClient()
+$options = $optionsBuilder.Build()
+$null = $client.ConnectAsync($options).WaitAsync($publishTimeout).GetAwaiter().GetResult()
+
+if ($ConnectOnly) {
+    Write-Host "MQTT connection succeeded."
+    exit 0
+}
+
 
 # Read image as bytes
 $imageBytes = [System.IO.File]::ReadAllBytes($ImagePath)
@@ -303,7 +336,7 @@ Send-MqttMessage -Message $treasureRequestMessage -Description "Treasure map req
 $crewStatusRequestPayload = @{
     messageType = "crew_status_request"
     shipName = "The Crow's Nest"
-    captainName = "Captain Blackbeard McFeathers"
+    captainName = "Captain Blackbeard McFeathers"f
     requestId = [System.Guid]::NewGuid().ToString()
     timestamp = (Get-Date).ToString("o")
     statusInquiry = @{

@@ -8,8 +8,7 @@ using CrowsNestMqtt.Utils;
 
 /// <summary>
 /// Reads application settings from environment variables.
-/// When overrides are detected, they are applied on top of file-based settings
-/// and persisted to settings.json so other tools can use them.
+/// When overrides are detected, they are applied on top of file-based settings.
 /// </summary>
 public sealed record EnvironmentSettingsOverrides
 {
@@ -57,7 +56,7 @@ public sealed record EnvironmentSettingsOverrides
     {
         string? hostname = null;
         int? port = null;
-        bool isAspire = false;
+        bool isAspire = ReadBool("ASPIRE_ENVIRONMENT") == true;
         TransportProtocol? transport = null;
         bool? useTlsFromUri = null;
         string? webSocketPath = null;
