@@ -1,4 +1,4 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.1.0">
+<Project Sdk="Aspire.AppHost.Sdk/13.4.6">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -14,6 +14,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MainApp\CrowsNestMqtt.App.csproj" />
+    <ProjectReference Include="..\..\tools\TestDataSender\TestDataSender.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <IsAspireProjectResource>false</IsAspireProjectResource>
+    </ProjectReference>
     <!-- Mock broker is launched at runtime as an executable, but we reference it so it builds alongside the AppHost. -->
     <ProjectReference Include="..\..\tools\MockAzureEventGridBroker\MockAzureEventGridBroker.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

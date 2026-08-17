@@ -36,6 +36,7 @@ namespace CrowsNestMqtt.UnitTests
             Environment.SetEnvironmentVariable("services__mqtt__default__0", null);
             Environment.SetEnvironmentVariable("services__mqtt__mqtt__0", null);
             Environment.SetEnvironmentVariable("CROWSNEST__HOSTNAME", null);
+            Environment.SetEnvironmentVariable("CROWSNEST__ASPIRE_ENVIRONMENT", null);
 
             // Act
             var result = EnvironmentSettingsOverrides.Load();
@@ -45,6 +46,24 @@ namespace CrowsNestMqtt.UnitTests
             Assert.False(result.IsAspireEnvironment);
             Assert.Null(result.Hostname);
             Assert.Null(result.Port);
+        }
+
+        [Fact]
+        public void EnvironmentSettingsOverrides_ExplicitAspireFlagMarksEnvironment()
+        {
+            try
+            {
+                Environment.SetEnvironmentVariable("CROWSNEST__ASPIRE_ENVIRONMENT", "true");
+
+                var result = EnvironmentSettingsOverrides.Load();
+
+                Assert.True(result.HasOverrides);
+                Assert.True(result.IsAspireEnvironment);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("CROWSNEST__ASPIRE_ENVIRONMENT", null);
+            }
         }
 
         [Fact]

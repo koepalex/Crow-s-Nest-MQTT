@@ -5,19 +5,22 @@ param(
     [string]$SettingsPath = "$env:LOCALAPPDATA\CrowsNestMqtt\settings.json",
     [string]$Broker = "",
     [int]$BrokerPort = 0,
-    [Nullable[bool]]$UseTls = $null,
+    [string]$UseTls = "",
     [string]$ImagePath = "",
     [string]$VideoPath = "",
     [string]$JsonPath = "",
-    [string]$BinaryPath = ""
+    [string]$BinaryPath = "",
+    [switch]$ConnectOnly
 )
+
+$ErrorActionPreference = "Stop"
 
 # --- Resolve repo root and test data paths ---
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
-$defaultImagePath = Join-Path $repoRoot "tests\TestData\test-image.png"
-$defaultVideoPath = Join-Path $repoRoot "tests\TestData\test-video.mp4"
-$defaultJsonPath = Join-Path $repoRoot "tests\TestData\test-struct.json"
-$defaultBinaryPath = Join-Path $repoRoot "tests\TestData\story.7z"
+$defaultImagePath = [System.IO.Path]::Combine($repoRoot, "tests", "TestData", "test-image.png")
+$defaultVideoPath = [System.IO.Path]::Combine($repoRoot, "tests", "TestData", "test-video.mp4")
+$defaultJsonPath = [System.IO.Path]::Combine($repoRoot, "tests", "TestData", "test-struct.json")
+$defaultBinaryPath = [System.IO.Path]::Combine($repoRoot, "tests", "TestData", "story.7z")
 
 if (-not $ImagePath -or $ImagePath -eq "") { $ImagePath = $defaultImagePath }
 if (-not $VideoPath -or $VideoPath -eq "") { $VideoPath = $defaultVideoPath }
@@ -60,8 +63,8 @@ $port = if ($BrokerPort -gt 0) { $BrokerPort } elseif ($settings -and $settings.
 #   2) MQTT_USE_TLS environment variable (set by Aspire AppHost, e.g. "false")
 #   3) settings.UseTls from settings.json
 #   4) default $false (Aspire's EMQX plain-TCP listener doesn't speak TLS)
-if ($null -ne $UseTls) {
-    $useTls = [bool]$UseTls
+if (-not [string]::IsNullOrWhiteSpace($UseTls)) {
+    $useTls = [System.Convert]::ToBoolean($UseTls)
 } elseif ($env:MQTT_USE_TLS) {
     $useTls = [System.Convert]::ToBoolean($env:MQTT_USE_TLS)
 } elseif ($settings -and $null -ne $settings.UseTls) {
@@ -75,21 +78,30 @@ $publishTimeout = [TimeSpan]::FromSeconds(30)
 $connectRetryCount = 12
 $connectRetryDelay = [TimeSpan]::FromSeconds(5)
 
-# Build MQTT client options (MQTTnet 5.x API)
-$optionsBuilder = [MQTTnet.MqttClientOptionsBuilder]::new()
-$optionsBuilder = $optionsBuilder.WithTcpServer($mqttHost, [int]$port).WithClientId($clientId)
-if ($useTls) { $optionsBuilder = $optionsBuilder.WithTlsOptions({ param($tlsOptions) }) }
-$options = $optionsBuilder.Build()
-
-# Create MQTT client
+# Create MQTT client factory. A client instance is created for each connection
+# attempt because MQTTnet clients cannot reliably reconnect after a failed TCP handshake.
 $factory = [MQTTnet.MqttClientFactory]::new()
-$client = $factory.CreateMqttClient()
+$client = $null
 
 $failedPublishes = [System.Collections.Generic.List[string]]::new()
 
 function Connect-MqttClientWithRetry {
     for ($attempt = 1; $attempt -le $connectRetryCount; $attempt++) {
         try {
+            $optionsBuilder = [MQTTnet.MqttClientOptionsBuilder]::new()
+            $optionsBuilder = $optionsBuilder.WithTcpServer($mqttHost, [int]$port).WithClientId($clientId)
+            if ($useTls) {
+                $tlsOptions = [MQTTnet.MqttClientTlsOptions]::new()
+                $tlsOptions.UseTls = $true
+                $tlsOptions.AllowUntrustedCertificates = $true
+                $tlsOptions.IgnoreCertificateChainErrors = $true
+                $tlsOptions.IgnoreCertificateRevocationErrors = $true
+                $tlsOptions.CertificateValidationHandler = { $true }
+                $optionsBuilder = $optionsBuilder.WithTlsOptions($tlsOptions)
+            }
+
+            $script:client = $factory.CreateMqttClient()
+            $options = $optionsBuilder.Build()
             $null = $client.ConnectAsync($options).WaitAsync($publishTimeout).GetAwaiter().GetResult()
             return
         } catch {
@@ -130,7 +142,27 @@ function Send-MqttMessage {
 
 # Connect
 Write-Host "Connecting to $mqttHost : $port with client id $clientId (TLS: $useTls)"
-Connect-MqttClientWithRetry
+$optionsBuilder = [MQTTnet.MqttClientOptionsBuilder]::new()
+$optionsBuilder = $optionsBuilder.WithTcpServer($mqttHost, [int]$port).WithClientId($clientId)
+if ($useTls) {
+    $tlsOptions = [MQTTnet.MqttClientTlsOptions]::new()
+    $tlsOptions.UseTls = $true
+    $tlsOptions.AllowUntrustedCertificates = $true
+    $tlsOptions.IgnoreCertificateChainErrors = $true
+    $tlsOptions.IgnoreCertificateRevocationErrors = $true
+    $tlsOptions.CertificateValidationHandler = { $true }
+    $optionsBuilder = $optionsBuilder.WithTlsOptions($tlsOptions)
+}
+
+$client = $factory.CreateMqttClient()
+$options = $optionsBuilder.Build()
+$null = $client.ConnectAsync($options).WaitAsync($publishTimeout).GetAwaiter().GetResult()
+
+if ($ConnectOnly) {
+    Write-Host "MQTT connection succeeded."
+    exit 0
+}
+
 
 # Read image as bytes
 $imageBytes = [System.IO.File]::ReadAllBytes($ImagePath)

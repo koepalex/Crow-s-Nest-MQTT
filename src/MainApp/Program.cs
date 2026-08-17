@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.X11;
 using ReactiveUI.Avalonia;
 using Serilog;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -96,6 +97,10 @@ class Program
     {
         return AppBuilder.Configure<CrowsNestMqtt.UI.App>() // Configure the App from UI project
             .UsePlatformDetect()
+            .With(new X11PlatformOptions
+            {
+                WmClass = "crowsnest-mqtt"
+            })
             .LogToTrace()
             .UseReactiveUI(_ => { })
             .AfterSetup(builder => // Add desktop-specific setup here

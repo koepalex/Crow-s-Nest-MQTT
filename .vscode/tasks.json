@@ -26,6 +26,24 @@
             "problemMatcher": "$msCompile"
         },
         {
+            "label": "Stop existing Aspire AppHost (Linux)",
+            "command": "${workspaceFolder}/tools/StopAspireLinux.sh",
+            "type": "shell",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Prepare Aspire AppHost (Linux)",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Stop existing Aspire AppHost (Linux)",
+                "build"
+            ],
+            "problemMatcher": []
+        },
+        {
             "label": "test",
             "command": "dotnet",
             "type": "shell",

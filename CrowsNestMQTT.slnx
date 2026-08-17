@@ -3,6 +3,9 @@
   <Project Path="src/BusinessLogic/BusinessLogic.csproj" />
   <Project Path="src/UI/UI.csproj" />
   <Project Path="src/Utils/Utils.csproj" />
+  <Folder Name="/tools/">
+    <Project Path="tools/TestDataSender/TestDataSender.csproj" />
+  </Folder>
   <Project Path="src/AppHost/AppHost.csproj" />
   <Project Path="tools/MockAzureEventGridBroker/MockAzureEventGridBroker.csproj" />
   <Project Path="tests/UnitTests/UnitTests.csproj" />

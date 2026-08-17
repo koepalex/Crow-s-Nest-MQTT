@@ -16,7 +16,7 @@
             "name": "C#: Aspire AppHost (http)",
             "type": "coreclr",
             "request": "launch",
-            "preLaunchTask": "build",
+            "preLaunchTask": "Prepare Aspire AppHost (Linux)",
             "program": "dotnet",
             "cwd": "${workspaceFolder}",
             "args": [
