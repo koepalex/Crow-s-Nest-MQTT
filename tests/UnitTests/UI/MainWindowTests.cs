@@ -1,6 +1,7 @@
 using Xunit;
 using Avalonia.Headless.XUnit;
 using Avalonia.Controls;
+using Avalonia.Media;
 using CrowsNestMqtt.UI.Views;
 using CrowsNestMqtt.UI.ViewModels;
 
@@ -94,6 +95,37 @@ namespace CrowsNestMqtt.UnitTests.UI
             // Assert
             // The title should be set in XAML, so let's verify it's not null or empty
             Assert.False(string.IsNullOrEmpty(mainWindow.Title));
+        }
+
+        [AvaloniaFact]
+        public void ConfigurePlatformBackground_OnLinux_PreservesOpaqueBackground()
+        {
+            // Arrange
+            var mainWindow = new MainWindow();
+            var opaqueBackground = new SolidColorBrush(Colors.Black);
+            mainWindow.Background = opaqueBackground;
+
+            // Act
+            mainWindow.ConfigurePlatformBackground(isLinux: true);
+
+            // Assert
+            Assert.Same(opaqueBackground, mainWindow.Background);
+        }
+
+        [AvaloniaFact]
+        public void ConfigurePlatformBackground_OnNonLinux_UsesTransparentBackground()
+        {
+            // Arrange
+            var mainWindow = new MainWindow
+            {
+                Background = new SolidColorBrush(Colors.Black)
+            };
+
+            // Act
+            mainWindow.ConfigurePlatformBackground(isLinux: false);
+
+            // Assert
+            Assert.Same(Brushes.Transparent, mainWindow.Background);
         }
 
         [AvaloniaFact]

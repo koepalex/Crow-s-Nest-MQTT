@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Media;
 
 using FluentAvalonia.UI.Windowing;
 
@@ -22,5 +23,14 @@ public partial class MainWindow : FAAppWindow
         TitleBar.ExtendsContentIntoTitleBar = true;
 
         InitializeComponent();
+        ConfigurePlatformBackground(OperatingSystem.IsLinux());
+    }
+
+    internal void ConfigurePlatformBackground(bool isLinux)
+    {
+        if (!isLinux)
+        {
+            Background = Brushes.Transparent;
+        }
     }
 }
