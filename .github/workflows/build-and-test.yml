@@ -69,6 +69,7 @@ jobs:
           --output ./TestResults/coverage.cobertura.xml `
           --output-format cobertura `
           -- dotnet test --no-build --configuration Release `
+               --maxcpucount:1 `
                --filter "Category!=LocalOnly&Category!=RequiresMqttBroker" `
                --blame-hang --blame-hang-timeout 120s `
                --results-directory ./TestResults `
