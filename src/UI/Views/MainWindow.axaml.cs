@@ -23,14 +23,9 @@ public partial class MainWindow : FAAppWindow
         TitleBar.ExtendsContentIntoTitleBar = true;
 
         InitializeComponent();
-        ConfigurePlatformBackground(OperatingSystem.IsLinux());
+        Background = SelectPlatformBackground(OperatingSystem.IsLinux(), Background);
     }
 
-    internal void ConfigurePlatformBackground(bool isLinux)
-    {
-        if (!isLinux)
-        {
-            Background = Brushes.Transparent;
-        }
-    }
+    internal static IBrush? SelectPlatformBackground(bool isLinux, IBrush? currentBackground) =>
+        isLinux ? currentBackground : Brushes.Transparent;
 }

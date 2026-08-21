@@ -97,35 +97,30 @@ namespace CrowsNestMqtt.UnitTests.UI
             Assert.False(string.IsNullOrEmpty(mainWindow.Title));
         }
 
-        [AvaloniaFact]
-        public void ConfigurePlatformBackground_OnLinux_PreservesOpaqueBackground()
+        [Fact]
+        public void SelectPlatformBackground_OnLinux_PreservesOpaqueBackground()
         {
             // Arrange
-            var mainWindow = new MainWindow();
             var opaqueBackground = new SolidColorBrush(Colors.Black);
-            mainWindow.Background = opaqueBackground;
 
             // Act
-            mainWindow.ConfigurePlatformBackground(isLinux: true);
+            var background = MainWindow.SelectPlatformBackground(isLinux: true, opaqueBackground);
 
             // Assert
-            Assert.Same(opaqueBackground, mainWindow.Background);
+            Assert.Same(opaqueBackground, background);
         }
 
-        [AvaloniaFact]
-        public void ConfigurePlatformBackground_OnNonLinux_UsesTransparentBackground()
+        [Fact]
+        public void SelectPlatformBackground_OnNonLinux_UsesTransparentBackground()
         {
             // Arrange
-            var mainWindow = new MainWindow
-            {
-                Background = new SolidColorBrush(Colors.Black)
-            };
+            var opaqueBackground = new SolidColorBrush(Colors.Black);
 
             // Act
-            mainWindow.ConfigurePlatformBackground(isLinux: false);
+            var background = MainWindow.SelectPlatformBackground(isLinux: false, opaqueBackground);
 
             // Assert
-            Assert.Same(Brushes.Transparent, mainWindow.Background);
+            Assert.Same(Brushes.Transparent, background);
         }
 
         [AvaloniaFact]
