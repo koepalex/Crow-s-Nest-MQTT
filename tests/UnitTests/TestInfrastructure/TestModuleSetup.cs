@@ -3,7 +3,7 @@ using System.Reactive.Concurrency;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Avalonia.Threading;
-using ReactiveUI.Builder;
+using ReactiveUI;
 using Xunit;
 
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
@@ -26,11 +26,10 @@ internal sealed class ImmediateDispatcher : IDispatcher
 
 /// <summary>
 /// Module initializer runs once per test-assembly load, before any tests are executed.
-/// Bootstraps ReactiveUI 23 (bundled with ReactiveUI.Avalonia 12.0.3) so that plain
+/// Configures ReactiveUI so that plain
 /// <c>[Fact]</c> tests that use <see cref="ReactiveUI.ReactiveObject"/> or <c>WhenAnyValue</c>
-/// can hydrate their static type initialisers without hitting
-/// <c>"ReactiveUI has not been initialized"</c>, and installs immediate schedulers so plain
-/// <c>[Fact]</c> tests can assert synchronously right after mutating reactive state.
+/// use immediate schedulers, allowing plain <c>[Fact]</c> tests to assert synchronously
+/// right after mutating reactive state.
 /// Avalonia headless dispatcher wiring for the UI test classes is handled by
 /// <c>Avalonia.Headless.XUnit</c>'s <c>[AvaloniaFact]</c> runner (see <see cref="TestAppBuilder"/>).
 /// </summary>
@@ -50,19 +49,7 @@ internal static class TestModuleSetup
             // Swallow: tests that rely on dispatcher sync will still fail clearly if this setup breaks.
         }
 
-        // Initialize ReactiveUI for test context (required by ReactiveUI 24 / RxAppBuilder pattern)
-        try
-        {
-            RxAppBuilder.CreateReactiveUIBuilder().BuildApp();
-        }
-        catch
-        {
-            // Swallow: if already initialised or fails, tests will fail clearly.
-        }
-
-        // ReactiveUI 24 removed the setter for RxSchedulers.MainThreadScheduler / TaskpoolScheduler
-        // (they now return ISequencer instead of IScheduler and are read-only). Tests that need
-        // deterministic scheduling inject Scheduler.Immediate through the ViewModel constructors
-        // instead.
+        RxApp.MainThreadScheduler = Scheduler.Immediate;
+        RxApp.TaskpoolScheduler = Scheduler.Immediate;
     }
 }

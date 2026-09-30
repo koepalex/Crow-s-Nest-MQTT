@@ -12,7 +12,7 @@ using CrowsNestMqtt.UI.Services;
 using MQTTnet.Packets;
 using MQTTnet.Protocol;
 using ReactiveUI;
-using RxVoid = ReactiveUI.Primitives.RxVoid;
+using RxVoid = System.Reactive.Unit;
 using Serilog;
 
 namespace CrowsNestMqtt.UI.ViewModels;

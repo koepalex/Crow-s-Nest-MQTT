@@ -1,6 +1,6 @@
 using Avalonia;
 using Avalonia.X11;
-using ReactiveUI.Avalonia;
+using Avalonia.ReactiveUI;
 using Serilog;
 using Avalonia.Controls.ApplicationLifetimes;
 using CrowsNestMqtt.UI.ViewModels;
@@ -102,7 +102,7 @@ class Program
                 WmClass = "crowsnest-mqtt"
             })
             .LogToTrace()
-            .UseReactiveUI(_ => { })
+            .UseReactiveUI()
             .AfterSetup(builder => // Add desktop-specific setup here
             {
                 if (builder.Instance?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

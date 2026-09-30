@@ -36,10 +36,10 @@ To change the MQTT broker used for testing:
 dotnet test tests/UnitTests/
 
 # Run only unit tests (no MQTT broker needed)
-dotnet test tests/UnitTests/ --filter "Category!=RequiresMqttBroker"
+dotnet test tests/UnitTests/ --filter-not-trait "Category=RequiresMqttBroker"
 
 # Run only integration tests (requires MQTT broker)
-dotnet test tests/UnitTests/ --filter "Category=RequiresMqttBroker"
+dotnet test tests/UnitTests/ --filter-trait "Category=RequiresMqttBroker"
 ```
 
 ### Important Notes about MQTT Engine Testing
