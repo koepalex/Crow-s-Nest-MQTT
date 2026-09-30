@@ -7,7 +7,7 @@ on:
 jobs:
   determine_version:
     name: Determine Version
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       semVer: ${{ steps.gitversion.outputs.semVer }}
     steps:
@@ -46,9 +46,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-26.04
             runtime: linux-x64
-          - os: ubuntu-latest
+          - os: ubuntu-26.04
             runtime: linux-arm64
           - os: windows-latest
             runtime: win-x64
@@ -71,6 +71,12 @@ jobs:
       uses: actions/setup-dotnet@v5
       with:
         global-json-file: "./global.json"
+
+    - name: Install Linux native dependencies
+      if: matrix.runtime == 'linux-x64'
+      run: |
+        sudo apt-get update
+        sudo apt-get install --yes libvlc5 vlc-plugin-base
 
     # Restore might be needed before publish if not implicitly done
     - name: Restore dependencies
@@ -164,7 +170,7 @@ jobs:
 
   release:
     name: Create Release Notes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: 
      - determine_version
      - publish
