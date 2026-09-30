@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Reactive;
+using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Text;
 using Avalonia.Threading;
@@ -46,6 +47,7 @@ public class PublishViewModel : ReactiveObject, IDisposable
     private readonly IMqttService? _mqttService;
     private readonly IPublishHistoryService? _publishHistoryService;
     private readonly IFileAutoCompleteService? _fileAutoCompleteService;
+    private readonly IDisposable _syntaxHighlightingSubscription;
     private bool _disposed;
 
     // --- Topic ---
@@ -230,11 +232,13 @@ public class PublishViewModel : ReactiveObject, IDisposable
     public PublishViewModel(
         IMqttService? mqttService = null,
         IPublishHistoryService? publishHistoryService = null,
-        IFileAutoCompleteService? fileAutoCompleteService = null)
+        IFileAutoCompleteService? fileAutoCompleteService = null,
+        IScheduler? syntaxHighlightingScheduler = null)
     {
         _mqttService = mqttService;
         _publishHistoryService = publishHistoryService;
         _fileAutoCompleteService = fileAutoCompleteService;
+        syntaxHighlightingScheduler ??= DefaultScheduler.Instance;
 
         // Publish enabled when connected and topic is non-empty
         var canPublish = this.WhenAnyValue(
@@ -250,8 +254,8 @@ public class PublishViewModel : ReactiveObject, IDisposable
         ToggleV5PropertiesCommand = ReactiveCommand.Create(() => { IsV5PropertiesExpanded = !IsV5PropertiesExpanded; });
 
         // Update syntax highlighting when ContentType changes
-        this.WhenAnyValue(x => x.ContentType)
-            .Throttle(TimeSpan.FromMilliseconds(300))
+        _syntaxHighlightingSubscription = this.WhenAnyValue(x => x.ContentType)
+            .Throttle(TimeSpan.FromMilliseconds(300), syntaxHighlightingScheduler)
             .ObserveOn(CrowsNestMqtt.UI.Services.AvaloniaUIScheduler.Instance)
             .Subscribe(ct => UpdateSyntaxHighlighting(ct));
 
@@ -622,6 +626,7 @@ public class PublishViewModel : ReactiveObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _syntaxHighlightingSubscription.Dispose();
         PublishCommand.Dispose();
         ClearCommand.Dispose();
         LoadFileCommand.Dispose();
