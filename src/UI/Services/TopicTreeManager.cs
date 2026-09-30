@@ -180,6 +180,8 @@ public class TopicTreeManager : ITopicTreeManager
 
     public void LoadInitialTopics(IEnumerable<string> topics)
     {
+        ArgumentNullException.ThrowIfNull(topics);
+
         foreach (var topic in topics)
         {
             UpdateOrCreateNode(topic, incrementCount: false);

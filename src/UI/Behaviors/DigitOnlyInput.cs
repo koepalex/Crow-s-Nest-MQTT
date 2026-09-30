@@ -33,21 +33,53 @@ public static class DigitOnlyInput
     public static readonly AttachedProperty<long?> MaxValueProperty =
         AvaloniaProperty.RegisterAttached<TextBox, long?>("MaxValue", typeof(DigitOnlyInput));
 
-    public static void SetEnable(TextBox element, bool value) => element.SetValue(EnableProperty, value);
+    public static void SetEnable(TextBox element, bool value)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetValue(EnableProperty, value);
+    }
 
-    public static bool GetEnable(TextBox element) => element.GetValue(EnableProperty);
+    public static bool GetEnable(TextBox element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return element.GetValue(EnableProperty);
+    }
 
-    public static void SetAllowEmpty(TextBox element, bool value) => element.SetValue(AllowEmptyProperty, value);
+    public static void SetAllowEmpty(TextBox element, bool value)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetValue(AllowEmptyProperty, value);
+    }
 
-    public static bool GetAllowEmpty(TextBox element) => element.GetValue(AllowEmptyProperty);
+    public static bool GetAllowEmpty(TextBox element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return element.GetValue(AllowEmptyProperty);
+    }
 
-    public static void SetMinValue(TextBox element, long? value) => element.SetValue(MinValueProperty, value);
+    public static void SetMinValue(TextBox element, long? value)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetValue(MinValueProperty, value);
+    }
 
-    public static long? GetMinValue(TextBox element) => element.GetValue(MinValueProperty);
+    public static long? GetMinValue(TextBox element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return element.GetValue(MinValueProperty);
+    }
 
-    public static void SetMaxValue(TextBox element, long? value) => element.SetValue(MaxValueProperty, value);
+    public static void SetMaxValue(TextBox element, long? value)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetValue(MaxValueProperty, value);
+    }
 
-    public static long? GetMaxValue(TextBox element) => element.GetValue(MaxValueProperty);
+    public static long? GetMaxValue(TextBox element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return element.GetValue(MaxValueProperty);
+    }
 
     static DigitOnlyInput()
     {

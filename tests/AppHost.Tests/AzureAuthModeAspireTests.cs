@@ -86,7 +86,8 @@ public sealed class AzureAuthModeAspireTests : IAsyncLifetime
             if (!_brokerProcess.HasExited)
             {
                 _brokerProcess.Kill(entireProcessTree: true);
-                await _brokerProcess.WaitForExitAsync(new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                await _brokerProcess.WaitForExitAsync(timeoutCts.Token);
             }
         }
         catch
@@ -372,4 +373,3 @@ public sealed class AzureAuthModeAspireTests : IAsyncLifetime
         return handler.WriteToken(handler.CreateToken(descriptor));
     }
 }
-

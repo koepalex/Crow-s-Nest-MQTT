@@ -30,6 +30,8 @@ public class TopicBufferLimitViewModel : ReactiveObject
 
     public TopicBufferLimitViewModel(TopicBufferLimit model)
     {
+        ArgumentNullException.ThrowIfNull(model);
+
         TopicFilter = model.TopicFilter;
         MaxSizeBytes = model.MaxSizeBytes;
     }

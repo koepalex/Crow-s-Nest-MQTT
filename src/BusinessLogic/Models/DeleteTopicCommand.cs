@@ -24,7 +24,7 @@ public record DeleteTopicCommand
     /// Whether confirmation has been explicitly provided for operations
     /// exceeding the MaxTopicLimit or containing sensitive patterns.
     /// </summary>
-    public bool RequireConfirmation { get; init; } = false;
+    public bool RequireConfirmation { get; init; }
 
     /// <summary>
     /// Timestamp when the command was created.

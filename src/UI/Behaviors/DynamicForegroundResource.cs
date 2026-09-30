@@ -26,9 +26,17 @@ public static class DynamicForegroundResource
     private static readonly AttachedProperty<IDisposable?> SubscriptionProperty =
         AvaloniaProperty.RegisterAttached<Control, IDisposable?>("Subscription", typeof(DynamicForegroundResource));
 
-    public static void SetKey(Control element, string? value) => element.SetValue(KeyProperty, value);
+    public static void SetKey(Control element, string? value)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetValue(KeyProperty, value);
+    }
 
-    public static string? GetKey(Control element) => element.GetValue(KeyProperty);
+    public static string? GetKey(Control element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return element.GetValue(KeyProperty);
+    }
 
     static DynamicForegroundResource()
     {

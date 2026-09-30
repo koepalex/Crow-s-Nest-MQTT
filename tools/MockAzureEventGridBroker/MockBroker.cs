@@ -106,7 +106,7 @@ internal sealed class MockBroker : IAsyncDisposable
 
         // Bare stdout line consumed by Aspire and other orchestrators — must
         // remain free of the timestamp/prefix that Log() adds.
-        _log.WriteLine(FormattableString.Invariant($"{ListeningStdoutPrefix}{_options.Host}:{port}"));
+        await _log.WriteLineAsync(FormattableString.Invariant($"{ListeningStdoutPrefix}{_options.Host}:{port}")).ConfigureAwait(false);
         Log("Mock broker started. Waiting for connections.");
         return port;
     }

@@ -112,9 +112,9 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
     // Filter diagnostics (lightweight; logs only when selected topic present but filtered list empty)
     private const int FilterDiagnosticsSampleLimit = 250;
-    private int _filterDiagnosticsEvaluations = 0;
-    private int _filterDiagnosticsMatches = 0;
-    private int _filterDiagnosticsSelectedTopicMisses = 0;
+    private int _filterDiagnosticsEvaluations;
+    private int _filterDiagnosticsMatches;
+    private int _filterDiagnosticsSelectedTopicMisses;
 
     /// <summary>
     /// Gets or sets the current search term used for filtering message history.
@@ -461,7 +461,7 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         set => this.RaiseAndSetIfChanged(ref _isPaused, value);
     }
 
-    private bool _isSettingsVisible = false;
+    private bool _isSettingsVisible;
     public bool IsSettingsVisible
     {
         get => _isSettingsVisible;
@@ -500,14 +500,14 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     /// </summary>
     public MessageNavigationState MessageNavigationState => _messageNavigationState;
 
-    private bool _isJsonViewerVisible = false; // Added backing field for visibility
+    private bool _isJsonViewerVisible; // Added backing field for visibility
     public bool IsJsonViewerVisible // Added property for visibility binding
     {
         get => _isJsonViewerVisible;
         private set => this.RaiseAndSetIfChanged(ref _isJsonViewerVisible, value); // Make setter private
     }
 
-    private bool _isRawTextViewerVisible = false; // Added backing field for raw text view
+    private bool _isRawTextViewerVisible; // Added backing field for raw text view
     public bool IsRawTextViewerVisible // Added property for raw text view visibility
     {
         get => _isRawTextViewerVisible;
@@ -1488,7 +1488,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         const int maxPreviewLength = 100;
         if (preview.Length > maxPreviewLength)
         {
-            preview = preview.Substring(0, maxPreviewLength) + "...";
+            preview = string.Concat(preview.AsSpan(0, maxPreviewLength), "...");
         }
 
         var messageVm = new MessageViewModel(
@@ -1516,7 +1516,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
             if (msg?.CorrelationData != null && msg.CorrelationData.Length > 0)
             {
-                var correlationHex = BitConverter.ToString(msg.CorrelationData).Replace("-", "");
+                var correlationHex = Convert.ToHexString(msg.CorrelationData);
                 var linked = false;
 
                 // Try to link as a response first
@@ -2103,7 +2103,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
             string correlationDisplay;
             try
             {
-                correlationDisplay = BitConverter.ToString(msg.CorrelationData).Replace("-", string.Empty);
+                correlationDisplay = Convert.ToHexString(msg.CorrelationData);
             }
             catch
             {
@@ -3265,7 +3265,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                     CopySelectedMessageDetails();
                     break; // Correct placement outside the if/else block
                 case CommandType.Help:
-                    DisplayHelpInformation(command.Arguments.FirstOrDefault()); // Pass the potential command name
+                    DisplayHelpInformation(command.Arguments.Count > 0 ? command.Arguments[0] : null); // Pass the potential command name
                     break;
                 case CommandType.Pause:
                     TogglePause();
@@ -3277,17 +3277,17 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                     Export(command);
                     break;
                 case CommandType.Filter:
-                    ApplyTopicFilter(command.Arguments.FirstOrDefault());
+                    ApplyTopicFilter(command.Arguments.Count > 0 ? command.Arguments[0] : null);
                     break;
                 case CommandType.Search:
-                    string searchTerm = command.Arguments.FirstOrDefault() ?? string.Empty;
+                    string searchTerm = command.Arguments.Count > 0 ? command.Arguments[0] : string.Empty;
                     CurrentSearchTerm = searchTerm;
                     StatusBarText = string.IsNullOrWhiteSpace(searchTerm) ? "Search cleared." : $"Search filter applied: '{searchTerm}'.";
                     Log.Information("Search command executed. Term: '{SearchTerm}'", searchTerm);
                     break;
                 case CommandType.TopicSearch:
                     // FR-001: Topic search triggered by /[term] command
-                    string topicSearchTerm = command.Arguments.FirstOrDefault() ?? string.Empty;
+                    string topicSearchTerm = command.Arguments.Count > 0 ? command.Arguments[0] : string.Empty;
                     if (!string.IsNullOrWhiteSpace(topicSearchTerm))
                     {
                         // Execute search using TopicSearchService
@@ -4826,7 +4826,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 else if (msg.ContentType.Equals("video/ogg", StringComparison.OrdinalIgnoreCase))
                     extension = ".ogv";
                 var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"crowsnest_video_{Guid.NewGuid():N}{extension}");
-                System.IO.File.WriteAllBytes(tempPath, msg.Payload.ToArray());
+                await System.IO.File.WriteAllBytesAsync(tempPath, msg.Payload.ToArray()).ConfigureAwait(true);
                 await CopyTextToClipboardInteraction.Handle(tempPath);
                 StatusBarText = $"Video written to temp file: {tempPath}. Path copied to clipboard. Paste the path into your application to access the video.";
                 Log.Information("Video payload written to temp file '{TempPath}' and path copied to clipboard for topic '{Topic}' (MessageId {MessageId}).", tempPath, msg.Topic, messageVm.MessageId);
@@ -5011,6 +5011,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
 
                 // NOW dispose reactive subscriptions - they won't trigger event handlers anymore
                 _messageHistorySubscription?.Dispose();
+                _messageHistorySource.Dispose();
                 _selectedMessageSubscription?.Dispose(); // Dispose the selected message subscription
                 _commandTextSubscription?.Dispose(); // Dispose the command text subscription
                 _globalHookSubscription?.Dispose(); // Dispose hook subscription
@@ -5062,6 +5063,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 DeleteTopicCommand?.Dispose(); // Dispose delete topic command
                 NavigateToResponseCommand?.Dispose(); // Dispose navigate to response command
                 _statsViewModel?.Dispose(); // Dispose the :stats window VM (stops live refresh)
+                _publishViewModel?.Dispose();
                                                // Interactions don't typically need explicit disposal unless they hold heavy resources
                 _cts.Dispose(); // Dispose the CancellationTokenSource itself
                 }

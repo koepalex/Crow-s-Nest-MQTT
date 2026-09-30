@@ -25,8 +25,10 @@ public class IdentifiedMqttApplicationMessageReceivedEventArgs : EventArgs // No
     public IdentifiedMqttApplicationMessageReceivedEventArgs(Guid messageId, MqttApplicationMessage applicationMessage, string clientId)
     {
         MessageId = messageId;
-        Topic = applicationMessage?.Topic ?? throw new ArgumentNullException(nameof(applicationMessage.Topic));
-        ApplicationMessage = applicationMessage ?? throw new ArgumentNullException(nameof(applicationMessage));
+        ArgumentNullException.ThrowIfNull(applicationMessage);
+        ArgumentNullException.ThrowIfNull(applicationMessage.Topic, nameof(applicationMessage));
+        Topic = applicationMessage.Topic;
+        ApplicationMessage = applicationMessage;
         ClientId = clientId;
     }
 
@@ -48,7 +50,7 @@ private MqttClientOptions? _currentOptions;
     private CancellationTokenSource? _connectionCts; // To control the entire connection/reconnection cycle
     private CancellationTokenSource? _linkedConnectionCts; // Linked token for the current connection attempt
     private readonly object _reconnectLock = new object();
-    private bool _isReconnectLoopRunning = false;
+    private bool _isReconnectLoopRunning;
     private readonly ConcurrentDictionary<string, TopicRingBuffer> _topicBuffers;
     private IList<TopicBufferLimit> _topicSpecificBufferLimits = new List<TopicBufferLimit>();
     internal const long DefaultMaxTopicBufferSize = 1 * 1024 * 1024; // Changed to internal const
@@ -174,7 +176,10 @@ private MqttClientOptions? _currentOptions;
                     _pendingErrorMessage = errorMessage;
                     
                     // Cancel and disconnect - OnClientDisconnected will fire with the error message
-                    _connectionCts?.Cancel();
+                    if (_connectionCts is not null)
+                    {
+                        await _connectionCts.CancelAsync().ConfigureAwait(false);
+                    }
                     if (_client.IsConnected)
                     {
                         await _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build(), CancellationToken.None).ConfigureAwait(false);
@@ -196,7 +201,10 @@ private MqttClientOptions? _currentOptions;
             _pendingErrorMessage = $"Subscription failed: {ex.Message}";
             
             // Cancel and disconnect - OnClientDisconnected will fire with the error message
-            _connectionCts?.Cancel();
+            if (_connectionCts is not null)
+            {
+                await _connectionCts.CancelAsync().ConfigureAwait(false);
+            }
             if (_client.IsConnected)
             {
                 await _client.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build(), CancellationToken.None).ConfigureAwait(false);
@@ -376,7 +384,10 @@ public async Task ConnectAsync(CancellationToken cancellationToken = default)
     }
 
     // Cancel any previous attempts before starting a new one.
-    _connectionCts?.Cancel();
+    if (_connectionCts is not null)
+    {
+        await _connectionCts.CancelAsync().ConfigureAwait(false);
+    }
     _connectionCts?.Dispose();
     _linkedConnectionCts?.Dispose();
     _connectionCts = new CancellationTokenSource();
@@ -538,7 +549,10 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     // This method now has a single responsibility: to signal that the user wants to stop.
     // It cancels the master token for this connection cycle.
     LogMessage?.Invoke(this, "Disconnect/Cancel requested by user.");
-    _connectionCts?.Cancel();
+    if (_connectionCts is not null)
+    {
+        await _connectionCts.CancelAsync().ConfigureAwait(false);
+    }
     DisposeTokenRefreshTimer();
     _activeAccessTokenProvider = null;
 
@@ -591,6 +605,8 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
 
     public async Task PublishAsync(string topic, byte[] payload, bool retain = false, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtMostOnce, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(payload);
+
         if (!_client.IsConnected)
         {
             LogMessage?.Invoke(this, "Cannot publish: Client is not connected.");
@@ -626,12 +642,14 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     public async Task ClearRetainedMessageAsync(string topic, MqttQualityOfServiceLevel qos = MqttQualityOfServiceLevel.AtLeastOnce, CancellationToken cancellationToken = default)
     {
         // To clear a retained message, publish an empty payload with retain flag set to true
-        await PublishAsync(topic, new byte[0], retain: true, qos: qos, cancellationToken).ConfigureAwait(false);
+        await PublishAsync(topic, Array.Empty<byte>(), retain: true, qos: qos, cancellationToken).ConfigureAwait(false);
         LogMessage?.Invoke(this, $"Cleared retained message for topic: {topic}");
     }
 
     public async Task<Models.MqttPublishResult> PublishAsync(Models.MqttPublishRequest request, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
         if (!_client.IsConnected)
         {
             LogMessage?.Invoke(this, "Cannot publish: Client is not connected.");
@@ -1284,7 +1302,7 @@ public async Task DisconnectAsync(CancellationToken cancellationToken = default)
 
    // --- IDisposable Implementation ---
    // Made protected internal virtual for testability with NSubstitute
-   protected internal virtual void Dispose(bool disposing)
+   protected virtual void Dispose(bool disposing)
    {
        if (_isDisposing) return;
 

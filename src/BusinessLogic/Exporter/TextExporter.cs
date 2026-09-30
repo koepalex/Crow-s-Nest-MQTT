@@ -9,6 +9,12 @@ using CrowsNestMqtt.Utils; // For AppLogger
 
 public class TextExporter : MessageExporterBase
 {
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
     // Define a fixed set of characters to replace for cross-platform compatibility.
     // This set includes characters that are commonly invalid in filenames on various OS
     // and specifically those causing issues in the failing unit test (:, ?, *, <, >).
@@ -19,6 +25,8 @@ public class TextExporter : MessageExporterBase
 
     public override (string content, bool isPayloadValidUtf8, string payloadAsString) GenerateDetailedTextFromMessage(MqttApplicationMessage msg, DateTime receivedTime)
     {
+        ArgumentNullException.ThrowIfNull(msg);
+
         var sb = new StringBuilder();
         var correlationData = msg.CorrelationData?.ToArray() ?? Array.Empty<byte>();
         sb.AppendLine($"Timestamp: {receivedTime:yyyy-MM-dd HH:mm:ss.fff}"); 
@@ -28,7 +36,7 @@ public class TextExporter : MessageExporterBase
         sb.AppendLine($"Message Expiry Interval: {msg.MessageExpiryInterval}");
         if (correlationData.Length > 0)
         {
-            sb.AppendLine($"Correlation Data: {BitConverter.ToString(correlationData).Replace("-", string.Empty)}");
+            sb.AppendLine($"Correlation Data: {Convert.ToHexString(correlationData)}");
         }
         sb.AppendLine($"Payload Format: {msg.PayloadFormatIndicator}");
         sb.AppendLine($"Content Type: {msg.ContentType ?? "N/A"}");
@@ -63,11 +71,7 @@ public class TextExporter : MessageExporterBase
                     {
                         // Parse and pretty-print JSON
                         using var document = JsonDocument.Parse(payloadAsString);
-                        var prettyJson = JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions 
-                        { 
-                            WriteIndented = true,
-                            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                        });
+                        var prettyJson = JsonSerializer.Serialize(document.RootElement, s_jsonOptions);
                         sb.AppendLine(prettyJson);
                     }
                     catch (JsonException)
@@ -143,6 +147,9 @@ public class TextExporter : MessageExporterBase
         List<DateTime> timestamps,
         string outputFilePath)
     {
+        ArgumentNullException.ThrowIfNull(messages);
+        ArgumentNullException.ThrowIfNull(timestamps);
+
         var sb = new StringBuilder();
         const string delimiter = "\n" + "================================================================================\n\n";
 

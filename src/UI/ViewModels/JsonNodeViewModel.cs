@@ -83,7 +83,7 @@ public class JsonNodeViewModel : ReactiveObject
         }
         // Truncate + ellipsis marker + original length hint. Keep quoting to
         // match the non-truncated rendering convention.
-        return $"\"{value.Substring(0, MaxValueDisplayLength)}…\" ({value.Length} chars)";
+        return $"\"{value[..MaxValueDisplayLength]}…\" ({value.Length} chars)";
     }
 
     private static string Truncate(string value)
@@ -92,6 +92,6 @@ public class JsonNodeViewModel : ReactiveObject
         {
             return value;
         }
-        return value.Substring(0, MaxValueDisplayLength) + "…";
+        return string.Concat(value.AsSpan(0, MaxValueDisplayLength), "…");
     }
 }

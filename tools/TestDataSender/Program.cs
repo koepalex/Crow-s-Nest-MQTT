@@ -12,7 +12,7 @@ var azureToken = Environment.GetEnvironmentVariable("AZURE_MQTT_TOKEN");
 
 if (string.IsNullOrWhiteSpace(host) || !int.TryParse(portText, out var port))
 {
-    Console.Error.WriteLine("MQTT_HOST and MQTT_PORT environment variables are required.");
+    await Console.Error.WriteLineAsync("MQTT_HOST and MQTT_PORT environment variables are required.").ConfigureAwait(false);
     return 1;
 }
 
@@ -20,7 +20,7 @@ var useTls = bool.TryParse(useTlsText, out var parsedUseTls) && parsedUseTls;
 var delaySeconds = args.Length > 0 && int.TryParse(args[0], out var parsedDelay) ? parsedDelay : 30;
 
 Console.WriteLine($"Waiting {delaySeconds} seconds for broker and clients to be ready...");
-await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+await Task.Delay(TimeSpan.FromSeconds(delaySeconds)).ConfigureAwait(false);
 
 var optionsBuilder = new MqttClientOptionsBuilder()
     .WithTcpServer(host, port)
@@ -39,7 +39,7 @@ if (useTls)
 }
 
 var client = new MqttClientFactory().CreateMqttClient();
-await client.ConnectAsync(optionsBuilder.Build());
+await client.ConnectAsync(optionsBuilder.Build()).ConfigureAwait(false);
 
 var repositoryRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 var testDataDirectory = Path.Combine(repositoryRoot, "tests", "TestData");
@@ -48,9 +48,9 @@ var crewStatusResponseTopic = "test/pirate/ship/response/crew-status";
 var treasureCorrelationData = Guid.NewGuid().ToByteArray();
 var crewStatusCorrelationData = Guid.NewGuid().ToByteArray();
 
-await PublishTestSuiteAsync();
+await PublishTestSuiteAsync().ConfigureAwait(false);
 
-await client.DisconnectAsync(new MqttClientDisconnectOptions());
+await client.DisconnectAsync(new MqttClientDisconnectOptions()).ConfigureAwait(false);
 client.Dispose();
 
 if (!string.IsNullOrWhiteSpace(azureHost)
@@ -73,20 +73,20 @@ if (!string.IsNullOrWhiteSpace(azureHost)
         .Build();
 
     client = new MqttClientFactory().CreateMqttClient();
-    await client.ConnectAsync(azureOptions);
-    await PublishTestSuiteAsync();
-    await client.DisconnectAsync(new MqttClientDisconnectOptions());
+    await client.ConnectAsync(azureOptions).ConfigureAwait(false);
+    await PublishTestSuiteAsync().ConfigureAwait(false);
+    await client.DisconnectAsync(new MqttClientDisconnectOptions()).ConfigureAwait(false);
     client.Dispose();
 }
 
 async Task PublishTestSuiteAsync()
 {
-await PublishFileAsync("test/viewer/image", "image/png", "test-image.png");
-await PublishFileAsync("test/viewer/video", "video/mp4", "test-video.mp4");
-await PublishFileAsync("test/viewer/json", "application/json", "test-struct.json");
-await PublishFileAsync("test/viewer/hex", "application/octet-stream", "story.7z");
-await PublishAsync("test/viewer/raw", "text/plain", Encoding.UTF8.GetBytes("Crow's NestMQTT test message"));
-await PublishAsync("test/retain", "application/json", Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { messageType = "retained", timestamp = DateTimeOffset.UtcNow })), retain: true);
+await PublishFileAsync("test/viewer/image", "image/png", "test-image.png").ConfigureAwait(false);
+await PublishFileAsync("test/viewer/video", "video/mp4", "test-video.mp4").ConfigureAwait(false);
+await PublishFileAsync("test/viewer/json", "application/json", "test-struct.json").ConfigureAwait(false);
+await PublishFileAsync("test/viewer/hex", "application/octet-stream", "story.7z").ConfigureAwait(false);
+await PublishAsync("test/viewer/raw", "text/plain", Encoding.UTF8.GetBytes("Crow's NestMQTT test message")).ConfigureAwait(false);
+await PublishAsync("test/retain", "application/json", Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { messageType = "retained", timestamp = DateTimeOffset.UtcNow })), retain: true).ConfigureAwait(false);
 
 await PublishAsync(
     "test/pirate/ship/request/treasure-map",
@@ -99,7 +99,7 @@ await PublishAsync(
         timestamp = DateTimeOffset.UtcNow,
     }),
     responseTopic: treasureResponseTopic,
-    correlationData: treasureCorrelationData);
+    correlationData: treasureCorrelationData).ConfigureAwait(false);
 
 await PublishAsync(
     "test/pirate/ship/request/crew-status",
@@ -112,7 +112,7 @@ await PublishAsync(
         timestamp = DateTimeOffset.UtcNow,
     }),
     responseTopic: crewStatusResponseTopic,
-    correlationData: crewStatusCorrelationData);
+    correlationData: crewStatusCorrelationData).ConfigureAwait(false);
 
 await PublishAsync(
     treasureResponseTopic,
@@ -123,7 +123,7 @@ await PublishAsync(
         status = "success",
         timestamp = DateTimeOffset.UtcNow,
     }),
-    correlationData: treasureCorrelationData);
+    correlationData: treasureCorrelationData).ConfigureAwait(false);
 
 await PublishAsync(
     "test/userprops/demo",
@@ -140,7 +140,7 @@ await PublishAsync(
         ["sent-at"] = DateTimeOffset.UtcNow.ToString("O"),
         ["sender"] = "TestDataSender",
         ["version"] = "1.0.0",
-    });
+    }).ConfigureAwait(false);
 
 foreach (var expirySeconds in new uint[] { 5, 30, 90 })
 {
@@ -148,7 +148,7 @@ foreach (var expirySeconds in new uint[] { 5, 30, 90 })
         $"test/expiry/{expirySeconds}s",
         "application/octet-stream",
         [],
-        messageExpiryInterval: expirySeconds);
+        messageExpiryInterval: expirySeconds).ConfigureAwait(false);
 }
 }
 
@@ -157,7 +157,10 @@ return 0;
 
 async Task PublishFileAsync(string topic, string contentType, string filename)
 {
-    await PublishAsync(topic, contentType, await File.ReadAllBytesAsync(Path.Combine(testDataDirectory, filename)));
+    await PublishAsync(
+        topic,
+        contentType,
+        await File.ReadAllBytesAsync(Path.Combine(testDataDirectory, filename)).ConfigureAwait(false)).ConfigureAwait(false);
 }
 
 async Task PublishAsync(
@@ -200,6 +203,6 @@ async Task PublishAsync(
         messageBuilder.WithMessageExpiryInterval(messageExpiryInterval.Value);
     }
 
-    await client.PublishAsync(messageBuilder.Build());
+    await client.PublishAsync(messageBuilder.Build()).ConfigureAwait(false);
     Console.WriteLine($"Sent {topic} ({payload.Length} bytes).");
 }

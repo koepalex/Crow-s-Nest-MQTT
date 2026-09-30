@@ -28,6 +28,9 @@ public static class DeleteTopicCommandExtensions
         IDeleteTopicService deleteTopicService,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(arguments);
+        ArgumentNullException.ThrowIfNull(deleteTopicService);
+
         return ExecuteDeleteTopicCommandAsync(processor, arguments, deleteTopicService, cancellationToken);
     }
 

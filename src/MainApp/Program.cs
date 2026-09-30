@@ -146,7 +146,9 @@ class Program
                         Avalonia.Threading.Dispatcher.UIThread.Post(
                             () => _ = aspireVm.ConnectOnLaunchAsync().ContinueWith(
                                 t => Log.Error(t.Exception!, "Auto-connect on launch failed"),
-                                TaskContinuationOptions.OnlyOnFaulted),
+                                CancellationToken.None,
+                                TaskContinuationOptions.OnlyOnFaulted,
+                                TaskScheduler.Default),
                             Avalonia.Threading.DispatcherPriority.Loaded);
                     }
 
