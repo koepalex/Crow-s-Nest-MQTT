@@ -33,13 +33,13 @@ if (-not (Test-Path $nuget)) {
     Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/MQTTnet/5.2.0.1603" -OutFile $nuget
 }
 $extractPath = Join-Path $env:TEMP "MQTTnet_extracted_5.2.0"
-# Load the net8.0 build of MQTTnet: it's compatible with every pwsh 7.x
-# runtime (all of which run on .NET 8+, including the .NET 10 previews used by
-# pwsh 7.6-preview). The lib\net10.0 build references types like
-# System.Runtime.CompilerServices.InlineArray3<T> that are missing on early
-# .NET 10 previews and would fail with "Could not load type" during disconnect.
-$dllPath = Join-Path $extractPath "lib\net8.0\MQTTnet.dll"
-if (-not (Test-Path $dllPath)) {
+$frameworkDescription = [System.Runtime.InteropServices.RuntimeInformation]::FrameworkDescription
+if ([System.Environment]::Version.Major -lt 10 -or $frameworkDescription -match "-(preview|rc)") {
+    throw "SendTestData.ps1 requires PowerShell hosted on the stable .NET 10 LTS runtime or later. Current runtime: $frameworkDescription."
+}
+
+$dllPath = Join-Path $extractPath "lib\net10.0\MQTTnet.dll"
+if (-not (Test-Path -LiteralPath $dllPath)) {
     if (Test-Path $extractPath) { Remove-Item $extractPath -Recurse -Force }
     Expand-Archive -Path $nuget -DestinationPath $extractPath -Force
 }
@@ -89,7 +89,7 @@ function Connect-MqttClientWithRetry {
     for ($attempt = 1; $attempt -le $connectRetryCount; $attempt++) {
         try {
             $optionsBuilder = [MQTTnet.MqttClientOptionsBuilder]::new()
-            $optionsBuilder = $optionsBuilder.WithTcpServer($mqttHost, [int]$port).WithClientId($clientId)
+            $optionsBuilder = $optionsBuilder.WithTcpServer($mqttHost, [int]$port).WithProtocolVersion([MQTTnet.Formatter.MqttProtocolVersion]::V500).WithClientId($clientId)
             if ($useTls) {
                 $tlsOptions = [MQTTnet.MqttClientTlsOptions]::new()
                 $tlsOptions.UseTls = $true
@@ -106,6 +106,11 @@ function Connect-MqttClientWithRetry {
             return
         } catch {
             $message = $_.Exception.InnerException.Message ?? $_.Exception.Message
+            if ($null -ne $client) {
+                $client.Dispose()
+                $script:client = $null
+            }
+
             if ($attempt -eq $connectRetryCount) {
                 throw "Unable to connect to $mqttHost`:$port after $connectRetryCount attempts. Last error: $message"
             }
@@ -142,24 +147,11 @@ function Send-MqttMessage {
 
 # Connect
 Write-Host "Connecting to $mqttHost : $port with client id $clientId (TLS: $useTls)"
-$optionsBuilder = [MQTTnet.MqttClientOptionsBuilder]::new()
-$optionsBuilder = $optionsBuilder.WithTcpServer($mqttHost, [int]$port).WithClientId($clientId)
-if ($useTls) {
-    $tlsOptions = [MQTTnet.MqttClientTlsOptions]::new()
-    $tlsOptions.UseTls = $true
-    $tlsOptions.AllowUntrustedCertificates = $true
-    $tlsOptions.IgnoreCertificateChainErrors = $true
-    $tlsOptions.IgnoreCertificateRevocationErrors = $true
-    $tlsOptions.CertificateValidationHandler = { $true }
-    $optionsBuilder = $optionsBuilder.WithTlsOptions($tlsOptions)
-}
-
-$client = $factory.CreateMqttClient()
-$options = $optionsBuilder.Build()
-$null = $client.ConnectAsync($options).WaitAsync($publishTimeout).GetAwaiter().GetResult()
+Connect-MqttClientWithRetry
 
 if ($ConnectOnly) {
     Write-Host "MQTT connection succeeded."
+    $client.Dispose()
     exit 0
 }
 
@@ -505,11 +497,8 @@ Write-Host "Sent 3 messages with expiry intervals: 5s, 30s, 90s"
 Write-Host "These messages will visually expire in the Crow's NestMQTT UI with strikethrough and warning icons."
 Write-Host ""
 
-# Disconnect
-if ($client.IsConnected) {
-    $opts = [MQTTnet.MqttClientDisconnectOptions]::new()
-    $null = $client.DisconnectAsync($opts).WaitAsync($publishTimeout).GetAwaiter().GetResult()
-}
+# Disposing is sufficient for this one-shot clean-session connection.
+$client.Dispose()
 Write-Host "Disconnected."
 
 # --- Summary ---
