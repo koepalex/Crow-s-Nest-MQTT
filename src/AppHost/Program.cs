@@ -130,15 +130,13 @@ else
     AddClientInstances(name => builder.AddProject<Projects.CrowsNestMqtt_App>(name));
 }
 
-// Add delayed test data sender that publishes sample data after broker is ready
+// Run the test data sender on the .NET 10 LTS runtime on every platform.
 var toolsDir = Path.GetFullPath(Path.Combine(builder.AppHostDirectory, "..", "..", "tools"));
-var testDataSender = OperatingSystem.IsLinux()
-    ? builder.AddExecutable(
-        "test-data-sender",
-        "dotnet",
-        Path.Combine(toolsDir, "TestDataSender", "bin", buildConfiguration, "net10.0"),
-        "CrowsNestMqtt.TestDataSender.dll")
-    : builder.AddExecutable("test-data-sender", "pwsh", toolsDir, "-File", "SendTestDataDelayed.ps1");
+var testDataSender = builder.AddExecutable(
+    "test-data-sender",
+    "dotnet",
+    Path.Combine(toolsDir, "TestDataSender", "bin", buildConfiguration, "net10.0"),
+    "CrowsNestMqtt.TestDataSender.dll");
 
 testDataSender
     .WithReference(mqttEndpoint)
