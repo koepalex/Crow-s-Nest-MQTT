@@ -1,5 +1,6 @@
 using System.Reactive;
 using System.Reactive.Concurrency;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using CrowsNestMqtt.BusinessLogic;
 using CrowsNestMqtt.BusinessLogic.Models;
@@ -17,6 +18,31 @@ namespace CrowsNestMqtt.UnitTests.ViewModels;
 
 public sealed class PublishViewModelTests : IDisposable
 {
+    private sealed class TrackingScheduler : IScheduler
+    {
+        public DateTimeOffset Now => DateTimeOffset.UtcNow;
+
+        public int ActiveSchedules { get; private set; }
+
+        public IDisposable Schedule<TState>(TState state, Func<IScheduler, TState, IDisposable> action) =>
+            Schedule(state, TimeSpan.Zero, action);
+
+        public IDisposable Schedule<TState>(
+            TState state,
+            TimeSpan dueTime,
+            Func<IScheduler, TState, IDisposable> action)
+        {
+            ActiveSchedules++;
+            return Disposable.Create(() => ActiveSchedules--);
+        }
+
+        public IDisposable Schedule<TState>(
+            TState state,
+            DateTimeOffset dueTime,
+            Func<IScheduler, TState, IDisposable> action) =>
+            Schedule(state, dueTime - Now, action);
+    }
+
     private readonly IMqttService _mqttService;
     private readonly IPublishHistoryService _historyService;
 
@@ -35,6 +61,22 @@ public sealed class PublishViewModelTests : IDisposable
     }
 
     private PublishViewModel CreateViewModel() => new(_mqttService, _historyService);
+
+    [Fact]
+    public void Dispose_CancelsPendingSyntaxHighlightingUpdate()
+    {
+        var scheduler = new TrackingScheduler();
+        var vm = new PublishViewModel(
+            _mqttService,
+            _historyService,
+            syntaxHighlightingScheduler: scheduler);
+
+        Assert.Equal(1, scheduler.ActiveSchedules);
+
+        vm.Dispose();
+
+        Assert.Equal(0, scheduler.ActiveSchedules);
+    }
 
     // ──────────────────────────────────────────────
     // Constructor & Default Property Values

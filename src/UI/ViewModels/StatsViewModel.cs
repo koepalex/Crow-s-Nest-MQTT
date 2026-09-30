@@ -7,7 +7,7 @@ using System.Text;
 using CrowsNestMqtt.BusinessLogic.Models;
 using CrowsNestMqtt.BusinessLogic.Services;
 using ReactiveUI;
-using RxVoid = ReactiveUI.Primitives.RxVoid;
+using RxVoid = System.Reactive.Unit;
 using Serilog;
 
 namespace CrowsNestMqtt.UI.ViewModels;

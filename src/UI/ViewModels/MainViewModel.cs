@@ -3,7 +3,7 @@ using Avalonia;
 using Avalonia.Controls; // For TopLevel
 using Avalonia.Threading; // Already present
 using ReactiveUI;
-using RxVoid = ReactiveUI.Primitives.RxVoid;
+using RxVoid = System.Reactive.Unit;
 using Serilog; // Added Serilog
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;

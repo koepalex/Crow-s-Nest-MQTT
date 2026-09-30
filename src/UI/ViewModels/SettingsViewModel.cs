@@ -4,7 +4,7 @@ using CrowsNestMqtt.BusinessLogic.Exporter;
 using CrowsNestMqtt.BusinessLogic.Configuration;
 using CrowsNestMqtt.BusinessLogic.Services;
 using ReactiveUI;
-using RxVoid = ReactiveUI.Primitives.RxVoid;
+using RxVoid = System.Reactive.Unit;
 using CrowsNestMqtt.Utils; // For AppLogger
 using System;
 using System.Collections.ObjectModel;

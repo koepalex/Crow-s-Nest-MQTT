@@ -9,7 +9,7 @@ dotnet build CrowsNestMQTT.slnx --configuration Release
 
 ### Run All Tests
 ```powershell
-dotnet test --configuration Release --filter "Category!=LocalOnly&Category!=RequiresMqttBroker"
+dotnet test --configuration Release --filter-not-trait "Category=LocalOnly" --filter-not-trait "Category=RequiresMqttBroker"
 ```
 
 ### Run Single Test Project
@@ -41,14 +41,14 @@ Debug > Attach to Process to debug a client instance.
 
 ### Run Single Test
 ```powershell
-dotnet test tests/UnitTests/UnitTests.csproj --filter "ClassName.TestMethodName"
+dotnet test tests/UnitTests/UnitTests.csproj --filter-method "ClassName.TestMethodName"
 ```
 
 ### Generate Coverage Report
 ```powershell
 dotnet tool install -g dotnet-coverage --version 18.9.0
 dotnet tool install -g dotnet-reportgenerator-globaltool --version 5.5.10
-dotnet-coverage collect --settings ./codecoverage.config.xml --output ./TestResults/coverage.cobertura.xml --output-format cobertura -- dotnet test --no-build --configuration Release --filter "Category!=LocalOnly&Category!=RequiresMqttBroker" --results-directory ./TestResults
+dotnet-coverage collect --settings ./codecoverage.config.xml --output ./TestResults/coverage.cobertura.xml --output-format cobertura -- dotnet test --no-build --configuration Release --filter-not-trait "Category=LocalOnly" --filter-not-trait "Category=RequiresMqttBroker" --results-directory ./TestResults
 reportgenerator -reports:"./TestResults/coverage.cobertura.xml" -targetdir:"./TestResults/CoverageReport" -reporttypes:"Html;Cobertura;JsonSummary"
 ```
 
@@ -282,12 +282,12 @@ N
 
 ## File Exclusions from Testing
 
-Tests marked with `Category!=LocalOnly` filter are excluded from CI. This includes:
+Tests marked with the `LocalOnly` or `RequiresMqttBroker` category are excluded from CI. This includes:
 - Tests requiring a live MQTT broker
 - Tests with external dependencies
 - Long-running integration tests
 
-Local developers can run these with: `dotnet test --filter "Category==LocalOnly"`
+Local developers can run these with: `dotnet test --filter-trait "Category=LocalOnly"`
 
 ## Dependencies
 
