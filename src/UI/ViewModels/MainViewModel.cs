@@ -10,6 +10,7 @@ using System.Collections.Specialized;
 using System.Reactive; // Required for Unit
 using System.Reactive.Linq; // Required for Select, ObserveOn, Throttle, DistinctUntilChanged
 using System.Buffers;
+using System.Runtime.InteropServices;
 using System.Text; // For Encoding and StringBuilder
 using System.Text.Json; // Added for JSON formatting
 using Avalonia.Media.Imaging;
@@ -897,19 +898,30 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         {
             try
             {
-                    if (OperatingSystem.IsLinux())
-                    {
-                        Core.Initialize();
-                    }
-                    else
-                    {
-                        Core.Initialize(AppContext.BaseDirectory);
-                    }
+                if (OperatingSystem.IsWindows())
+                {
+                    var libVlcDirectory = LibVlcPathResolver.GetWindowsLibraryDirectory(
+                        AppContext.BaseDirectory,
+                        RuntimeInformation.ProcessArchitecture);
+                    Core.Initialize(libVlcDirectory);
+                }
+                else if (OperatingSystem.IsLinux())
+                {
+                    Core.Initialize();
+                }
+                else
+                {
+                    Core.Initialize(AppContext.BaseDirectory);
+                }
+
                 _libVLC = new LibVLC();
                 _vlcMediaPlayer = new MediaPlayer(_libVLC);
                 VlcMediaPlayer = _vlcMediaPlayer;
             }
-            catch (VLCException ex)
+            catch (Exception ex) when (ex is VLCException
+                                       or DllNotFoundException
+                                       or BadImageFormatException
+                                       or PlatformNotSupportedException)
             {
                 AppLogger.Warning($"LibVLC initialization failed: {ex.Message}. Video playback will not be available.");
                 _libVLC = null;
