@@ -16,6 +16,8 @@ public class CommandParserService : ICommandParserService
     /// <inheritdoc />
     public CommandResult ParseInput(string input, SettingsData settingsData)
     {
+        ArgumentNullException.ThrowIfNull(settingsData);
+
         if (string.IsNullOrWhiteSpace(input))
         {
             // Treat empty input as a search for nothing (effectively clearing search)
@@ -420,7 +422,7 @@ public class CommandParserService : ICommandParserService
                     // Topic pattern specified
                     return CommandResult.SuccessCommand(new ParsedCommand(CommandType.DeleteTopic, arguments));
                 }
-                else if (arguments.Count == 2 && arguments[1].ToLowerInvariant() == "--confirm")
+                else if (arguments.Count == 2 && arguments[1].Equals("--confirm", StringComparison.OrdinalIgnoreCase))
                 {
                     // Topic pattern with confirmation flag
                     return CommandResult.SuccessCommand(new ParsedCommand(CommandType.DeleteTopic, arguments));

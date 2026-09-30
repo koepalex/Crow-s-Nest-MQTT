@@ -7,7 +7,7 @@ namespace CrowsNestMqtt.UI.Services;
 /// <summary>
 /// Manages image payload loading, display, and operations.
 /// </summary>
-public class ImageViewerManager : IImageViewerManager, IDisposable
+public sealed class ImageViewerManager : IImageViewerManager, IDisposable
 {
     private bool _isImageViewerVisible;
     private Bitmap? _imagePayload;

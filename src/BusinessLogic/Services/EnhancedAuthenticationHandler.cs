@@ -52,6 +52,8 @@ public class EnhancedAuthenticationHandler: IMqttEnhancedAuthenticationHandler
 
     public async Task HandleEnhancedAuthenticationAsync(MqttEnhancedAuthenticationEventArgs eventArgs)
     {
+        ArgumentNullException.ThrowIfNull(eventArgs);
+
         AppLogger.Information(
             $"Enhanced Authentication: server-initiated AUTH packet received (method={eventArgs.AuthenticationMethod}, reason={eventArgs.ReasonCode}).");
 

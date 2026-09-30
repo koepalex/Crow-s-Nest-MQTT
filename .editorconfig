@@ -23,6 +23,17 @@ insert_final_newline = false
 #### .NET Coding Conventions ####
 [*.{cs,vb}]
 
+# These API-design rules conflict with established public contracts. Changing the
+# collection, event, nested-result, and method/property shapes would be breaking.
+dotnet_diagnostic.CA1002.severity = none
+dotnet_diagnostic.CA1003.severity = none
+dotnet_diagnostic.CA1024.severity = none
+dotnet_diagnostic.CA1034.severity = none
+dotnet_diagnostic.CA2227.severity = none
+
+# Crow's Nest MQTT is an application suite, not a CLS-targeted reusable library.
+dotnet_diagnostic.CA1014.severity = none
+
 # Organize usings
 dotnet_separate_import_directive_groups = true
 dotnet_sort_system_directives_first = true
@@ -387,3 +398,19 @@ dotnet_diagnostic.CA1859.severity = suggestion
 # explicit and localized rather than requiring per-file pragmas.
 [tests/**/*.cs]
 dotnet_diagnostic.CA2007.severity = none
+
+# Avalonia view event handlers must resume on the UI synchronization context.
+[src/UI/Views/*.cs]
+dotnet_diagnostic.CA2007.severity = none
+
+# Window lifecycle cleanup is performed in StatsWindow.OnClosed.
+[src/UI/Views/StatsWindow.axaml.cs]
+dotnet_diagnostic.CA1001.severity = none
+
+# These types retain established constructible/service APIs; their process-lifetime
+# state is intentionally released with the application rather than by callers.
+[src/Utils/JsonTreeBuilder.cs]
+dotnet_diagnostic.CA1052.severity = none
+
+[src/BusinessLogic/Services/PublishHistoryService.cs]
+dotnet_diagnostic.CA1001.severity = none

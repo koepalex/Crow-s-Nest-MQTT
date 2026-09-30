@@ -17,7 +17,7 @@ namespace CrowsNestMqtt.BusinessLogic.Services;
 /// Service implementation for deleting retained MQTT messages.
 /// Publishes empty retained messages to clear topics with parallel processing support.
 /// </summary>
-public class DeleteTopicService : IDeleteTopicService
+public partial class DeleteTopicService : IDeleteTopicService
 {
     private readonly IMqttService _mqttService;
     private readonly ILogger<DeleteTopicService> _logger;
@@ -46,7 +46,7 @@ public class DeleteTopicService : IDeleteTopicService
 
         try
         {
-            _logger.LogInformation("Starting delete operation for pattern: {Pattern}", command.TopicPattern);
+            LogStartingDelete(_logger, command.TopicPattern);
 
             // Validate the operation first
             var validation = ValidateDeleteOperation(command.TopicPattern, command.MaxTopicLimit);
@@ -69,7 +69,7 @@ public class DeleteTopicService : IDeleteTopicService
             {
                 // Direct topic deletion - no need to discover, just attempt to clear the retained message
                 topicsToDelete = new List<string> { command.TopicPattern };
-                _logger.LogInformation("Direct topic deletion for: {Topic}", command.TopicPattern);
+                LogDirectDelete(_logger, command.TopicPattern);
             }
             else
             {
@@ -78,7 +78,7 @@ public class DeleteTopicService : IDeleteTopicService
 
                 if (topicsToDelete.Count == 0)
                 {
-                    _logger.LogInformation("No topics found matching pattern: {Pattern}", command.TopicPattern);
+                    LogNoTopicsFound(_logger, command.TopicPattern);
                     return new DeleteTopicResult
                     {
                         Status = DeleteOperationStatus.CompletedSuccessfully,
@@ -96,8 +96,7 @@ public class DeleteTopicService : IDeleteTopicService
             // Check if confirmation is required
             if (topicsToDelete.Count > command.MaxTopicLimit && !command.RequireConfirmation)
             {
-                _logger.LogWarning("Topic count {Count} exceeds limit {Limit} without confirmation",
-                    topicsToDelete.Count, command.MaxTopicLimit);
+                LogConfirmationRequired(_logger, topicsToDelete.Count, command.MaxTopicLimit);
                 return new DeleteTopicResult
                 {
                     Status = DeleteOperationStatus.AwaitingConfirmation,
@@ -138,14 +137,17 @@ public class DeleteTopicService : IDeleteTopicService
                 SummaryMessage = GenerateSummaryMessage(result.SuccessfulDeletions, result.FailedDeletions.Count, validation.WarningMessages)
             };
 
-            _logger.LogInformation("Delete operation completed. Success: {Success}, Failed: {Failed}, Duration: {Duration}ms",
-                finalResult.SuccessfulDeletions, finalResult.FailedDeletions.Count, stopwatch.ElapsedMilliseconds);
+            LogDeleteCompleted(
+                _logger,
+                finalResult.SuccessfulDeletions,
+                finalResult.FailedDeletions.Count,
+                stopwatch.ElapsedMilliseconds);
 
             return finalResult;
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Delete operation was cancelled");
+            LogDeleteCancelled(_logger);
             return new DeleteTopicResult
             {
                 Status = DeleteOperationStatus.Aborted,
@@ -159,7 +161,7 @@ public class DeleteTopicService : IDeleteTopicService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Delete operation failed with unexpected error");
+            LogDeleteFailed(_logger, ex);
             return new DeleteTopicResult
             {
                 Status = DeleteOperationStatus.Failed,
@@ -175,7 +177,9 @@ public class DeleteTopicService : IDeleteTopicService
     /// <inheritdoc />
     public async Task<IList<string>> FindTopicsWithRetainedMessages(string topicPattern, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Finding topics with retained messages for pattern: {Pattern}", topicPattern);
+        ArgumentNullException.ThrowIfNull(topicPattern);
+
+        LogFindingTopics(_logger, topicPattern);
 
         // Use the MQTT service's existing buffered topics to find matching topics
         var bufferedTopics = _mqttService.GetBufferedTopics();
@@ -194,7 +198,7 @@ public class DeleteTopicService : IDeleteTopicService
             }
         }
 
-        _logger.LogDebug("Found {Count} topics matching pattern {Pattern}", matchingTopics.Count, topicPattern);
+        LogTopicsFound(_logger, matchingTopics.Count, topicPattern);
         await Task.CompletedTask.ConfigureAwait(false); // Maintain async interface
 
         return matchingTopics;
@@ -227,7 +231,7 @@ public class DeleteTopicService : IDeleteTopicService
             // Check for potentially dangerous patterns
             if (topicPattern == "#" || topicPattern == "+" ||
                 topicPattern.EndsWith('#') || topicPattern.EndsWith('+') ||
-                topicPattern.Contains("+"))
+                topicPattern.Contains('+'))
             {
                 warnings.Add("This pattern may match a very large number of topics");
             }
@@ -309,7 +313,7 @@ public class DeleteTopicService : IDeleteTopicService
                     failures.Add(failure);
                 }
 
-                _logger.LogWarning(ex, "Failed to delete topic: {Topic}", topic);
+                LogTopicDeleteFailed(_logger, topic, ex);
             }
             finally
             {
@@ -343,7 +347,7 @@ public class DeleteTopicService : IDeleteTopicService
             qos: MqttQualityOfServiceLevel.AtLeastOnce, // Use QoS 1 for reliability
             combinedCts.Token).ConfigureAwait(false);
 
-        _logger.LogDebug("Cleared retained message for topic: {Topic}", topic);
+        LogTopicCleared(_logger, topic);
     }
 
     private static DeletionErrorType ClassifyError(Exception exception)
@@ -434,4 +438,37 @@ public class DeleteTopicService : IDeleteTopicService
 
         return string.Join(", ", parts);
     }
+
+    [LoggerMessage(EventId = 1, Level = LogLevel.Information, Message = "Starting delete operation for pattern: {Pattern}")]
+    private static partial void LogStartingDelete(ILogger logger, string pattern);
+
+    [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "Direct topic deletion for: {Topic}")]
+    private static partial void LogDirectDelete(ILogger logger, string topic);
+
+    [LoggerMessage(EventId = 3, Level = LogLevel.Information, Message = "No topics found matching pattern: {Pattern}")]
+    private static partial void LogNoTopicsFound(ILogger logger, string pattern);
+
+    [LoggerMessage(EventId = 4, Level = LogLevel.Warning, Message = "Topic count {Count} exceeds limit {Limit} without confirmation")]
+    private static partial void LogConfirmationRequired(ILogger logger, int count, int limit);
+
+    [LoggerMessage(EventId = 5, Level = LogLevel.Information, Message = "Delete operation completed. Success: {Success}, Failed: {Failed}, Duration: {Duration}ms")]
+    private static partial void LogDeleteCompleted(ILogger logger, int success, int failed, long duration);
+
+    [LoggerMessage(EventId = 6, Level = LogLevel.Information, Message = "Delete operation was cancelled")]
+    private static partial void LogDeleteCancelled(ILogger logger);
+
+    [LoggerMessage(EventId = 7, Level = LogLevel.Error, Message = "Delete operation failed with unexpected error")]
+    private static partial void LogDeleteFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 8, Level = LogLevel.Debug, Message = "Finding topics with retained messages for pattern: {Pattern}")]
+    private static partial void LogFindingTopics(ILogger logger, string pattern);
+
+    [LoggerMessage(EventId = 9, Level = LogLevel.Debug, Message = "Found {Count} topics matching pattern {Pattern}")]
+    private static partial void LogTopicsFound(ILogger logger, int count, string pattern);
+
+    [LoggerMessage(EventId = 10, Level = LogLevel.Warning, Message = "Failed to delete topic: {Topic}")]
+    private static partial void LogTopicDeleteFailed(ILogger logger, string topic, Exception exception);
+
+    [LoggerMessage(EventId = 11, Level = LogLevel.Debug, Message = "Cleared retained message for topic: {Topic}")]
+    private static partial void LogTopicCleared(ILogger logger, string topic);
 }

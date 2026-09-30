@@ -36,6 +36,8 @@ public class PublishHistoryService : IPublishHistoryService
     /// <inheritdoc />
     public void AddEntry(MqttPublishRequest request, string? filePath = null)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
         // Don't store large binary payloads in history — cap at 64KB for Base64
         const int maxPayloadBytesForHistory = 64 * 1024;
         string? payloadBase64 = null;

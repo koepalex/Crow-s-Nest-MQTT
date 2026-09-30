@@ -198,6 +198,8 @@ public sealed class StatsViewModel : ReactiveObject, IDisposable
     /// </summary>
     public static string BuildMarkdown(IEnumerable<TopicStatsRowViewModel> rows)
     {
+        ArgumentNullException.ThrowIfNull(rows);
+
         var sb = new StringBuilder();
         sb.AppendLine("| Topic | # Messages | Total Size | Avg Size | Mean Interval |");
         sb.AppendLine("| --- | ---: | ---: | ---: | ---: |");

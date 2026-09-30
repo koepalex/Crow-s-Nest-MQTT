@@ -72,7 +72,7 @@ public class MessageViewModelFactory : IMessageViewModelFactory
 
         if (preview.Length > maxLength)
         {
-            return preview.Substring(0, maxLength) + "...";
+            return string.Concat(preview.AsSpan(0, maxLength), "...");
         }
 
         return preview;
@@ -86,7 +86,7 @@ public class MessageViewModelFactory : IMessageViewModelFactory
         if (message.CorrelationData == null || message.CorrelationData.Length == 0)
             return false;
 
-        var correlationHex = BitConverter.ToString(message.CorrelationData).Replace("-", "");
+        var correlationHex = Convert.ToHexString(message.CorrelationData);
 
         // Try to link as a response first (handles responses that echo ResponseTopic)
         bool linked = false;

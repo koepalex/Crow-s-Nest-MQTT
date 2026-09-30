@@ -144,7 +144,7 @@ public sealed class MockBrokerLifecycleTests
         var port = TestHelpers.GetFreeTcpPort();
         await using var broker = new MockBroker(new MockBrokerOptions("127.0.0.1", port, UseTls: false));
         using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => broker.StartAsync(cts.Token));
     }
@@ -163,7 +163,7 @@ public sealed class MockBrokerLifecycleTests
     {
         var port = TestHelpers.GetFreeTcpPort();
         var log = new CapturingLogWriter();
-        var broker = new MockBroker(new MockBrokerOptions("127.0.0.1", port, UseTls: false), log);
+        await using var broker = new MockBroker(new MockBrokerOptions("127.0.0.1", port, UseTls: false), log);
         await broker.StartAsync();
 
         await broker.StopAsync();

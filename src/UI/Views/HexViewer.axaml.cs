@@ -80,7 +80,7 @@ namespace CrowsNestMqtt.UI.Views
                     else
                         sb.Append("   ");
                 }
-                sb.Append(" ");
+                sb.Append(' ');
                 for (int j = 0; j < bytesPerLine; j++)
                 {
                     if (i + j < bytes.Length)

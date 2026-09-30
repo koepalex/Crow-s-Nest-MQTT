@@ -63,7 +63,9 @@ public sealed class AvaloniaUIScheduler : IScheduler
         }
 
         var subscription = new SerialDisposable();
+#pragma warning disable CA2000 // Ownership is transferred to CancellationDisposable below.
         var cts = new CancellationTokenSource();
+#pragma warning restore CA2000
         subscription.Disposable = new CancellationDisposable(cts);
 
         _ = DispatcherTimer.RunOnce(

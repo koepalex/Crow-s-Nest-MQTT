@@ -32,7 +32,7 @@ public record MqttPublishRequest
     /// <summary>
     /// Whether the message should be retained by the broker. Default: false.
     /// </summary>
-    public bool Retain { get; init; } = false;
+    public bool Retain { get; init; }
 
     /// <summary>
     /// MQTT V5: MIME type of the payload (e.g., "application/json").
@@ -57,7 +57,7 @@ public record MqttPublishRequest
     /// <summary>
     /// MQTT V5: Message lifetime in seconds. 0 means no expiry (default).
     /// </summary>
-    public uint MessageExpiryInterval { get; init; } = 0;
+    public uint MessageExpiryInterval { get; init; }
 
     /// <summary>
     /// MQTT V5: Custom user properties as key-value pairs.

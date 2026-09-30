@@ -37,5 +37,5 @@ public record TopicDeletionFailure
     /// Whether this failure should be retried automatically.
     /// Some transient errors like network timeouts can be retried.
     /// </summary>
-    public bool IsRetryable { get; init; } = false;
+    public bool IsRetryable { get; init; }
 }

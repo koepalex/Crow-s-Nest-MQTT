@@ -42,7 +42,7 @@ public class UserPropertyViewModel : ReactiveObject
 /// ViewModel for the non-modal publish window.
 /// Manages all publish fields, MQTT V5 properties, syntax highlighting, and publish history.
 /// </summary>
-public class PublishViewModel : ReactiveObject, IDisposable
+public sealed class PublishViewModel : ReactiveObject, IDisposable
 {
     private readonly IMqttService? _mqttService;
     private readonly IPublishHistoryService? _publishHistoryService;
@@ -633,5 +633,6 @@ public class PublishViewModel : ReactiveObject, IDisposable
         AddUserPropertyCommand.Dispose();
         RemoveUserPropertyCommand.Dispose();
         ToggleV5PropertiesCommand.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

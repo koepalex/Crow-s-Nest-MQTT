@@ -95,6 +95,8 @@ public abstract class MessageExporterBase : IMessageExporter
     /// </summary>
     protected static string? SafeWriteToFile(string filePath, Action writeAction, int messageCount)
     {
+        ArgumentNullException.ThrowIfNull(writeAction);
+
         try
         {
             writeAction();

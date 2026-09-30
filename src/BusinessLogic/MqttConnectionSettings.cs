@@ -23,7 +23,7 @@ public class MqttConnectionSettings
     /// </summary>
     public long? DefaultTopicBufferSizeBytes { get; set; }
     public AuthenticationMode AuthMode { get; set; } = new AnonymousAuthenticationMode();
-    public bool UseTls { get; set; } = false;
+    public bool UseTls { get; set; }
     /// <summary>
     /// Transport protocol to use for the MQTT connection. Default is TCP.
     /// </summary>

@@ -80,10 +80,10 @@ public class SettingsViewModel : ReactiveObject
     public ReactiveCommand<TopicBufferLimitViewModel, RxVoid> RemoveTopicLimitCommand { get; }
 
 #pragma warning disable IDE0044 // Add readonly modifier
-    private bool _isLoading = false; // Flag to prevent saving during initial load
+    private bool _isLoading; // Flag to prevent saving during initial load
 #pragma warning restore IDE0044 // Add readonly modifier
 
-    private bool _useTls = false;
+    private bool _useTls;
     public bool UseTls
     {
         get => _useTls;
@@ -296,7 +296,7 @@ private string _subscriptionTopic = "#";
 
         // Populate with enum values
         _availableExportTypes = new ReadOnlyObservableCollection<ExportTypes>(
-            new ObservableCollection<ExportTypes>(Enum.GetValues(typeof(ExportTypes)).Cast<ExportTypes>()));
+            new ObservableCollection<ExportTypes>(Enum.GetValues<ExportTypes>()));
         
         // Set default export path if not loaded
         if (string.IsNullOrEmpty(ExportPath))
@@ -312,10 +312,10 @@ private string _subscriptionTopic = "#";
                 AuthModeSelection.Azure
             });
         _availableThemes = new ReadOnlyObservableCollection<AppTheme>(
-            new ObservableCollection<AppTheme>(Enum.GetValues(typeof(AppTheme)).Cast<AppTheme>()));
+            new ObservableCollection<AppTheme>(Enum.GetValues<AppTheme>()));
 
         _availableTransports = new ReadOnlyObservableCollection<TransportProtocol>(
-            new ObservableCollection<TransportProtocol>(Enum.GetValues(typeof(TransportProtocol)).Cast<TransportProtocol>()));
+            new ObservableCollection<TransportProtocol>(Enum.GetValues<TransportProtocol>()));
     }
 
     /// <summary>
@@ -556,6 +556,8 @@ private string _subscriptionTopic = "#";
 
     public void From(SettingsData settingsData)
     {
+        ArgumentNullException.ThrowIfNull(settingsData);
+
         // Suppress the Azure auth-mode setter's auto-config here — settingsData
         // may legitimately carry a non-default Port/Transport (e.g. from a
         // persisted Aspire-provisioned configuration) that must not be

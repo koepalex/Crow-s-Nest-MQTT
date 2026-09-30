@@ -48,6 +48,8 @@ public class JsonExporter : MessageExporterBase
 
     public override (string content, bool isPayloadValidUtf8, string payloadAsString) GenerateDetailedTextFromMessage(MqttApplicationMessage msg, DateTime receivedTime)
     {
+        ArgumentNullException.ThrowIfNull(msg);
+
         string jsonContent = string.Empty;
         string payloadAsString = "[No Payload]"; // Default value
         bool isPayloadValidUtf8 = false; // Default value
@@ -83,7 +85,7 @@ public class JsonExporter : MessageExporterBase
                 Retain = msg.Retain,
                 MessageExpiryInterval = msg.MessageExpiryInterval,
                 CorrelationData = msg.CorrelationData != null && msg.CorrelationData.Length > 0
-                    ? BitConverter.ToString(msg.CorrelationData.ToArray()).Replace("-", string.Empty)
+                    ? Convert.ToHexString(msg.CorrelationData.ToArray())
                     : null, // Convert to hexadecimal string to match metadata table display
                 PayloadFormatIndicator = msg.PayloadFormatIndicator,
                 ContentType = msg.ContentType,
@@ -105,6 +107,8 @@ public class JsonExporter : MessageExporterBase
 
     public override string? ExportToFile(MqttApplicationMessage msg, DateTime receivedTime, string exportFolderPath)
     {
+        ArgumentNullException.ThrowIfNull(msg);
+
         try
         {
             var (jsonContent, _, _) = GenerateDetailedTextFromMessage(msg, receivedTime); // Discard bool and payload string
@@ -142,6 +146,9 @@ public class JsonExporter : MessageExporterBase
         List<DateTime> timestamps,
         string outputFilePath)
     {
+        ArgumentNullException.ThrowIfNull(messages);
+        ArgumentNullException.ThrowIfNull(timestamps);
+
         // Create DTOs for all messages
         var dtos = new List<MqttMessageExportDto>();
 
@@ -182,7 +189,7 @@ public class JsonExporter : MessageExporterBase
                 Retain = msg.Retain,
                 MessageExpiryInterval = msg.MessageExpiryInterval,
                 CorrelationData = msg.CorrelationData != null && msg.CorrelationData.Length > 0
-                    ? BitConverter.ToString(msg.CorrelationData.ToArray()).Replace("-", string.Empty)
+                    ? Convert.ToHexString(msg.CorrelationData.ToArray())
                     : null,
                 PayloadFormatIndicator = msg.PayloadFormatIndicator,
                 ContentType = msg.ContentType,
@@ -196,8 +203,7 @@ public class JsonExporter : MessageExporterBase
         // Serialize and write using base class error handling
         return SafeWriteToFile(outputFilePath, () =>
         {
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            string jsonContent = JsonSerializer.Serialize(dtos, options);
+            string jsonContent = JsonSerializer.Serialize(dtos, JsonExporterContext.Default.ListMqttMessageExportDto);
             File.WriteAllText(outputFilePath, jsonContent);
         }, messages.Count);
     }
