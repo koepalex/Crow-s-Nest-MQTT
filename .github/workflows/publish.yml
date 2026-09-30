@@ -11,7 +11,7 @@ jobs:
     outputs:
       semVer: ${{ steps.gitversion.outputs.semVer }}
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0 # Fetch all history for GitVersion
 
@@ -22,19 +22,19 @@ jobs:
         git fetch --prune origin
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v5
+      uses: actions/setup-dotnet@v6
       with:
         global-json-file: "./global.json"
 
     - name: Install GitVersion
-      uses: gittools/actions/gitversion/setup@v4.4.2
+      uses: gittools/actions/gitversion/setup@v4.7.0
       with:
         versionSpec: '6.3.x'
         includePrerelease: true
 
     - name: Determine Version
       id: gitversion
-      uses: gittools/actions/gitversion/execute@v4.4.2
+      uses: gittools/actions/gitversion/execute@v4.7.0
 
     - name: Display GitVersion outputs (for debugging)
       run: |
@@ -61,14 +61,14 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v6 # Checkout code again for this job
+    - uses: actions/checkout@v7 # Checkout code again for this job
       with:
         fetch-depth: 0 # Fetch all history for GitVersion
         ref: ${{ github.ref }} # Ensure the correct ref is checked out
         fetch-tags: true # Explicitly fetch all tags
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v5
+      uses: actions/setup-dotnet@v6
       with:
         global-json-file: "./global.json"
 
@@ -93,7 +93,7 @@ jobs:
 
     - name: Upload Application (${{ matrix.runtime }})
       if: matrix.runtime != 'osx-x64' && matrix.runtime != 'osx-arm64'
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: crows-nest-mqtt-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }} # Use version from needs context
         path: ./publish/${{ matrix.runtime }}
@@ -101,7 +101,7 @@ jobs:
 
     - name: Upload macOS DMG (${{ matrix.runtime }})
       if: matrix.runtime == 'osx-x64' || matrix.runtime == 'osx-arm64'
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: crows-nest-mqtt-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }} # Use version from needs context
         path: ./publish/${{ matrix.runtime }}/*.dmg
@@ -126,7 +126,7 @@ jobs:
 
     - name: Upload MSIX (${{ matrix.runtime }})
       if: matrix.runtime == 'win-x64' || matrix.runtime == 'win-arm64'
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: crows-nest-mqtt-msix-${{ matrix.runtime }}-${{ needs.determine_version.outputs.semVer }}
         path: ./publish/msix/*.msix
@@ -139,16 +139,16 @@ jobs:
       - determine_version
       - publish
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Download win-x64 MSIX
-      uses: actions/download-artifact@v6
+      uses: actions/download-artifact@v8
       with:
         name: crows-nest-mqtt-msix-win-x64-${{ needs.determine_version.outputs.semVer }}
         path: ./msix-inputs/
 
     - name: Download win-arm64 MSIX
-      uses: actions/download-artifact@v6
+      uses: actions/download-artifact@v8
       with:
         name: crows-nest-mqtt-msix-win-arm64-${{ needs.determine_version.outputs.semVer }}
         path: ./msix-inputs/
@@ -162,7 +162,7 @@ jobs:
           -OutputPath "./publish/bundle/CrowsNestMqtt-${{ needs.determine_version.outputs.semVer }}.msixbundle"
 
     - name: Upload MSIX Bundle
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: crows-nest-mqtt-msixbundle-${{ needs.determine_version.outputs.semVer }}
         path: ./publish/bundle/*.msixbundle
@@ -179,7 +179,7 @@ jobs:
       contents: write
     steps:
     - name: Download artifacts
-      uses: actions/download-artifact@v6
+      uses: actions/download-artifact@v8
       with:
         path: ./release/
          
