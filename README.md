@@ -92,32 +92,40 @@ xattr -dr com.apple.quarantine /Applications/CrowsNestMQTT.app
 
 ## Graphical User Interface
 
-![](./doc/images/settings_open.png)
+![](./doc/images/main-view.png)
 
 The Crow’s NestMQTT graphical interface is organized into several key areas:
 
-**1. Command Plate**
+**Command Plate**
 Used to execute commands, as Crow's NestMQTT is designed for developer this is the main interaction mode. For list and description of available commands see [Command Interface section](#command-interface). 
 
 Command Plate can be selected by `Ctrl + Shift + P` keyboard shortcut.
 
-**2. Settings Pane**
-Used to configure Crow'S NestMQTT, can be opened/closed by clicking on `Gear` button or using :settings command.
+**Connection dialog**
+Used to connect Crow's NestMQTT to an MQTT Broker, can be opened/closed by clicking on `Connect` button or using :connect command.
 
-**3. MQTT Topic Tree**
+**Settings Dialog**
+Used to configure Crow's NestMQTT, can be opened/closed by clicking on `Gear` button or using :settings command.
+
+**MQTT Topic Tree**
 Used to show MQTT topics, where messages are received. Selecting a topic here will set the context for the other panes.
 
-**4. History View**
+**History View**
 Shows the history of received messages of the selected topic. Including the received time, the size, a small preview and the possibility to copy the whole message. Selecting a message here will set the context for details and metadata panes.
 
-**5. Payload View**
-Shows the payload of the message selected in history view. Supports rendering of JSON payload or shows payload as text. The default viewer is depending on `content-type` of the selected Message. The viewer can be switched by using `:view raw`, `:view json` and `:view image` commands.
+**Payload View**
+Shows the payload of the message selected in history view. Supports rendering of JSON payload or shows payload as text. The default viewer is depending on `content-type` of the selected Message. The viewer can be switched by using `:view raw`, `:view json`, `:view image` and `:view video` commands.
 
-**6. Metadata View**
+**Metadata View**
 Shows all the metadata of the message selected in history view. Including standard metadata like `correlation-id`, `response-topic` but also custom metadata like `user-properties`. When a message has a non-zero `message-expiry-interval`, the metadata view shows the remaining time or "EXPIRED" status. Expired messages display a yellow warning icon next to the expiry field.
 
 ### Settings
-**1. Connection Settings**  
+### Connection Settings 
+
+![](./doc/images/connection_settings.png)
+
+**General** 
+
 Configure how the client connects to your MQTT broker:
 - **Hostname**: The broker address (default: `localhost`).
 - **Port**: The broker port (default: `1883`).
@@ -129,7 +137,7 @@ Configure how the client connects to your MQTT broker:
 - **Clean Session**: If enabled, the broker does not retain session data after disconnect.
 - **Session Expiry Interval**: How long (in seconds) the broker should retain session state after disconnect (if Clean Session is off).
 
-**2. Authentication**  
+**Authentication**  
 Choose the authentication mode:
 - **Anonymous**: No credentials required.
 - **Username/Password**: Enter credentials for brokers requiring authentication.
@@ -145,12 +153,16 @@ Choose the authentication mode:
   transport. The default OAuth scope is `https://eventgrid.azure.net/.default`
   but can be overridden in the **OAuth Scope** field.
 
-**3. Export Options**  
+### Application Settings
+
+![](./doc/images/settings_open.png)
+
+**Export Options**  
 Control how and where message logs are exported:
 - **Export Format**: Choose between JSON or plain text.
 - **Export Path**: Directory for exported files.
 
-**4. Topic Buffer Limits**  
+**Topic Buffer Limits**  
 Set per-topic message buffer limits to manage memory usage:
 - **Topic Filter**: MQTT topic or wildcard (e.g., `#` for all topics).
 - **Max Size (Bytes)**: Maximum buffer size for each topic.
