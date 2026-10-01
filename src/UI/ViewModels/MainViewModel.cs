@@ -1108,13 +1108,13 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                         _isAutoSelectingMessage = true;
                         this.RaisePropertyChanged(nameof(IsExportAllButtonEnabled));
 
-                        // Auto-select first message when:
-                        //  - A node is selected
-                        //  - We have messages for that node now
-                        //  - No current selection or current selection is no longer in the filtered view
+                        // Select the newest message when auto-follow is enabled.
+                        // Otherwise, select only when the current selection is invalid.
                         if (SelectedNode != null &&
                             _filteredMessageHistory.Count > 0 &&
-                            (SelectedMessage == null || !_filteredMessageHistory.Contains(SelectedMessage)))
+                            (Settings.AutoFollowLatestMessage ||
+                             SelectedMessage == null ||
+                             !_filteredMessageHistory.Contains(SelectedMessage)))
                         {
                             SelectedMessage = _filteredMessageHistory.FirstOrDefault();
                         }
@@ -1681,8 +1681,10 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         if (_normalizedSelectedPath != null && _filteredMessageHistory.Count == 0)
         {
             var candidate = _messageHistorySource.Items
-                .FirstOrDefault(m => NormalizeTopic(m.Topic) == _normalizedSelectedPath);
-            if (candidate != null && SelectedMessage != candidate)
+                .Where(m => NormalizeTopic(m.Topic) == _normalizedSelectedPath)
+                .OrderByDescending(m => m.Timestamp)
+                .FirstOrDefault();
+            if (candidate != null && ShouldSelectFallbackMessage(candidate, _normalizedSelectedPath))
             {
                 SelectedMessage = candidate;
             }
@@ -1727,7 +1729,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                         // Attempt stronger fallback selection from source
                         var deferredCandidate = selectedSourceMessages.FirstOrDefault();
 
-                        if (deferredCandidate != null && SelectedMessage != deferredCandidate)
+                        if (deferredCandidate != null && ShouldSelectFallbackMessage(deferredCandidate, sel))
                         {
                             Log.Verbose("Deferred fallback selecting message {MessageId} for topic '{Topic}'.", deferredCandidate.MessageId, deferredCandidate.Topic);
                             SelectedMessage = deferredCandidate;
@@ -1759,7 +1761,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                                         .Where(m => NormalizeTopic(m.Topic) == sel)
                                         .OrderByDescending(m => m.Timestamp)
                                         .FirstOrDefault();
-                                    if (secondCandidate != null && SelectedMessage != secondCandidate)
+                                    if (secondCandidate != null && ShouldSelectFallbackMessage(secondCandidate, sel))
                                     {
                                         Log.Verbose("Second deferred fallback selecting message {MessageId} for topic '{Topic}'.", secondCandidate.MessageId, secondCandidate.Topic);
                                         SelectedMessage = secondCandidate;
@@ -1789,7 +1791,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                                             .Where(m => NormalizeTopic(m.Topic) == sel)
                                             .OrderByDescending(m => m.Timestamp)
                                             .FirstOrDefault();
-                                        if (secondCandidate != null && SelectedMessage != secondCandidate)
+                                        if (secondCandidate != null && ShouldSelectFallbackMessage(secondCandidate, sel))
                                         {
                                             Log.Verbose("Second deferred fallback selecting message {MessageId} for topic '{Topic}'.", secondCandidate.MessageId, secondCandidate.Topic);
                                             SelectedMessage = secondCandidate;
@@ -4944,9 +4946,11 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 _simpleFilteredHistory.Add(message);
             }
 
-            // Simple auto-selection for tests
+            // Match the production auto-selection behavior.
             if (SelectedNode != null && _simpleFilteredHistory.Any() &&
-                (SelectedMessage == null || !_simpleFilteredHistory.Contains(SelectedMessage)))
+                (Settings.AutoFollowLatestMessage ||
+                 SelectedMessage == null ||
+                 !_simpleFilteredHistory.Contains(SelectedMessage)))
             {
                 SelectedMessage = _simpleFilteredHistory.FirstOrDefault();
             }
@@ -4963,6 +4967,18 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         {
             Log.Error(ex, "Error in simple filtered history update");
         }
+    }
+
+    private bool ShouldSelectFallbackMessage(MessageViewModel candidate, string selectedPath)
+    {
+        if (SelectedMessage == candidate)
+        {
+            return false;
+        }
+
+        return Settings.AutoFollowLatestMessage ||
+               SelectedMessage == null ||
+               NormalizeTopic(SelectedMessage.Topic) != selectedPath;
     }
 
     // --- IDisposable Implementation ---
