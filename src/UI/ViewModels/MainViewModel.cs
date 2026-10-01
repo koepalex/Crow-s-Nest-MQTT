@@ -2754,6 +2754,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
     private async Task DisconnectAsync()
     {
         Log.Information("Disconnect/Cancel command executed.");
+        ClearHistory();
         // The MqttEngine's DisconnectAsync is now responsible for handling
         // both disconnection and cancellation of an ongoing connection attempt.
         await _mqttService.DisconnectAsync().ConfigureAwait(false);
