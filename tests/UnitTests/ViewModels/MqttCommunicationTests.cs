@@ -143,6 +143,29 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
         }
 
         [Fact]
+        public async Task DisconnectCommand_ShouldClearMessageHistory()
+        {
+            using var viewModel = new MainViewModel(_commandParserService, _mqttServiceMock, null, null, null, uiScheduler: System.Reactive.Concurrency.Scheduler.Immediate);
+            var message = new MqttApplicationMessageBuilder()
+                .WithTopic("test/topic")
+                .WithPayload("payload")
+                .Build();
+            var identifiedArgs = new IdentifiedMqttApplicationMessageReceivedEventArgs(Guid.NewGuid(), message, "client1");
+
+            _mqttServiceMock.MessagesBatchReceived += Raise.Event<EventHandler<IReadOnlyList<IdentifiedMqttApplicationMessageReceivedEventArgs>>>(
+                _mqttServiceMock,
+                new List<IdentifiedMqttApplicationMessageReceivedEventArgs> { identifiedArgs });
+
+            Assert.Single(viewModel.FilteredMessageHistory);
+            Assert.Single(viewModel.TopicTreeNodes);
+
+            await viewModel.DisconnectCommand.Execute(System.Reactive.Unit.Default);
+
+            Assert.Empty(viewModel.FilteredMessageHistory);
+            Assert.Empty(viewModel.TopicTreeNodes);
+        }
+
+        [Fact]
         public void ConnectionStateChanged_ShouldUpdateConnectionState()
         {
             // Arrange
