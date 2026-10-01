@@ -9,4 +9,7 @@
   <ItemGroup>
     <PackageReference Include="MQTTnet" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="CrowsNestMqtt.AppHostTests" />
+  </ItemGroup>
 </Project>

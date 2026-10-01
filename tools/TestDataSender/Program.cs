@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using CrowsNestMqtt.TestDataSender;
 using MQTTnet;
 using MQTTnet.Protocol;
 
@@ -18,6 +19,14 @@ if (string.IsNullOrWhiteSpace(host) || !int.TryParse(portText, out var port))
 
 var useTls = bool.TryParse(useTlsText, out var parsedUseTls) && parsedUseTls;
 var delaySeconds = args.Length > 0 && int.TryParse(args[0], out var parsedDelay) ? parsedDelay : 30;
+var liveTopic = Environment.GetEnvironmentVariable("LIVE_MESSAGE_TOPIC");
+if (string.IsNullOrWhiteSpace(liveTopic))
+{
+    liveTopic = LiveMessagePublisher.DefaultTopic;
+}
+
+var liveIntervalSeconds = ReadPositiveDoubleEnvironmentVariable("LIVE_MESSAGE_INTERVAL_SECONDS", 5);
+var liveDurationSeconds = ReadPositiveDoubleEnvironmentVariable("LIVE_MESSAGE_DURATION_SECONDS", 10 * 60);
 
 Console.WriteLine($"Waiting {delaySeconds} seconds for broker and clients to be ready...");
 await Task.Delay(TimeSpan.FromSeconds(delaySeconds)).ConfigureAwait(false);
@@ -40,6 +49,7 @@ if (useTls)
 
 var client = new MqttClientFactory().CreateMqttClient();
 await client.ConnectAsync(optionsBuilder.Build()).ConfigureAwait(false);
+var mainClient = client;
 
 var repositoryRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 var testDataDirectory = Path.Combine(repositoryRoot, "tests", "TestData");
@@ -49,9 +59,6 @@ var treasureCorrelationData = Guid.NewGuid().ToByteArray();
 var crewStatusCorrelationData = Guid.NewGuid().ToByteArray();
 
 await PublishTestSuiteAsync().ConfigureAwait(false);
-
-await client.DisconnectAsync(new MqttClientDisconnectOptions()).ConfigureAwait(false);
-client.Dispose();
 
 if (!string.IsNullOrWhiteSpace(azureHost)
     && int.TryParse(azurePortText, out var azurePort)
@@ -77,7 +84,19 @@ if (!string.IsNullOrWhiteSpace(azureHost)
     await PublishTestSuiteAsync().ConfigureAwait(false);
     await client.DisconnectAsync(new MqttClientDisconnectOptions()).ConfigureAwait(false);
     client.Dispose();
+    client = mainClient;
 }
+
+Console.WriteLine(
+    $"Publishing live messages to {liveTopic} every {liveIntervalSeconds} seconds for {liveDurationSeconds} seconds...");
+await LiveMessagePublisher.PublishAsync(
+    (message, _) => PublishAsync(message.Topic, message.ContentType, message.Payload),
+    TimeSpan.FromSeconds(liveIntervalSeconds),
+    TimeSpan.FromSeconds(liveDurationSeconds),
+    topic: liveTopic).ConfigureAwait(false);
+
+await mainClient.DisconnectAsync(new MqttClientDisconnectOptions()).ConfigureAwait(false);
+mainClient.Dispose();
 
 async Task PublishTestSuiteAsync()
 {
@@ -205,4 +224,17 @@ async Task PublishAsync(
 
     await client.PublishAsync(messageBuilder.Build()).ConfigureAwait(false);
     Console.WriteLine($"Sent {topic} ({payload.Length} bytes).");
+}
+
+static double ReadPositiveDoubleEnvironmentVariable(string name, double defaultValue)
+{
+    var value = Environment.GetEnvironmentVariable(name);
+    return double.TryParse(
+               value,
+               System.Globalization.NumberStyles.Float,
+               System.Globalization.CultureInfo.InvariantCulture,
+               out var parsed)
+           && parsed > 0
+        ? parsed
+        : defaultValue;
 }

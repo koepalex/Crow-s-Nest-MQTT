@@ -50,6 +50,22 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.Contains("test.mqtt.server", json);
             Assert.Contains("8883", json);
         }
+
+        [Fact]
+        public void SettingsData_AutoFollowLatestMessage_RoundtripsThroughJson()
+        {
+            var settings = new SettingsData("test.mqtt.server", 1883, AutoFollowLatestMessage: true);
+
+            var json = JsonSerializer.Serialize(
+                settings,
+                SettingsViewModelJsonContext.Default.SettingsData);
+            var deserialized = JsonSerializer.Deserialize(
+                json,
+                SettingsViewModelJsonContext.Default.SettingsData);
+
+            Assert.NotNull(deserialized);
+            Assert.True(deserialized.AutoFollowLatestMessage);
+        }
         
         [Fact]
         public void TestTopicBufferLimitViewModel_Serialization()

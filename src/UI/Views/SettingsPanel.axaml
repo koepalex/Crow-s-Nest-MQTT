@@ -54,6 +54,13 @@
             </ui:FASettingsExpander.Footer>
         </ui:FASettingsExpander>
 
+        <!--  Auto-follow Latest Message  -->
+        <ui:FASettingsExpander Description="Select each newest message as it arrives in the history view" Header="Auto-follow Latest Message">
+            <ui:FASettingsExpander.Footer>
+                <ToggleSwitch IsChecked="{Binding Settings.AutoFollowLatestMessage, Mode=TwoWay}" />
+            </ui:FASettingsExpander.Footer>
+        </ui:FASettingsExpander>
+
         <!--  Application Theme  -->
         <ui:FASettingsExpander Description="Choose the application color theme" Header="Application Theme">
             <ui:FASettingsExpander.Footer>

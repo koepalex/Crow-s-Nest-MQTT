@@ -10,6 +10,11 @@ param(
     [string]$VideoPath = "",
     [string]$JsonPath = "",
     [string]$BinaryPath = "",
+    [string]$LiveTopic = "test/live/auto-follow",
+    [ValidateRange(1, 2147483647)]
+    [int]$LiveMessageIntervalSeconds = 5,
+    [ValidateRange(0.01, 1440)]
+    [double]$LiveMessageDurationMinutes = 10,
     [switch]$ConnectOnly
 )
 
@@ -495,6 +500,37 @@ Write-Host ""
 Write-Host "=== Message Expiry Summary ==="
 Write-Host "Sent 3 messages with expiry intervals: 5s, 30s, 90s"
 Write-Host "These messages will visually expire in the Crow's NestMQTT UI with strikethrough and warning icons."
+Write-Host ""
+
+# --- Live messages for auto-follow testing ---
+
+$liveDurationSeconds = $LiveMessageDurationMinutes * 60
+$liveMessageCount = [int][Math]::Ceiling($liveDurationSeconds / $LiveMessageIntervalSeconds)
+
+Write-Host "=== Live Message Stream ==="
+Write-Host "Publishing $liveMessageCount messages to '$LiveTopic' every $LiveMessageIntervalSeconds seconds for $LiveMessageDurationMinutes minutes."
+
+for ($sequence = 1; $sequence -le $liveMessageCount; $sequence++) {
+    Start-Sleep -Seconds $LiveMessageIntervalSeconds
+
+    $livePayload = @{
+        messageType = "auto_follow_test"
+        sequence = $sequence
+        totalMessages = $liveMessageCount
+        timestamp = (Get-Date).ToString("o")
+    } | ConvertTo-Json -Compress
+
+    $livePayloadBytes = [System.Text.Encoding]::UTF8.GetBytes($livePayload)
+    $liveMessageBuilder = [MQTTnet.MqttApplicationMessageBuilder]::new()
+    $liveMessageBuilder = $liveMessageBuilder.WithTopic($LiveTopic).WithPayload($livePayloadBytes)
+    $liveMessageBuilder = $liveMessageBuilder.WithContentType("application/json")
+    $liveMessageBuilder = $liveMessageBuilder.WithQualityOfServiceLevel([MQTTnet.Protocol.MqttQualityOfServiceLevel]::AtLeastOnce)
+    $liveMessage = $liveMessageBuilder.Build()
+
+    Send-MqttMessage -Message $liveMessage -Description "Live message $sequence/$liveMessageCount sent to topic '$LiveTopic'."
+}
+
+Write-Host "Live message stream completed."
 Write-Host ""
 
 # Disposing is sufficient for this one-shot clean-session connection.

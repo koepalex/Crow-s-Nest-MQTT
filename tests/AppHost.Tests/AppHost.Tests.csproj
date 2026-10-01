@@ -18,6 +18,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\AppHost\AppHost.csproj" />
+    <ProjectReference Include="..\..\tools\TestDataSender\TestDataSender.csproj" />
     <!-- The tests launch the mock broker as a child process (dotnet <dll>), so
          we need its output on disk. ReferenceOutputAssembly=false keeps the
          test assembly clean of the mock's transitive types. -->

@@ -7,6 +7,29 @@ namespace CrowsNestMqtt.UnitTests.ViewModels;
 public class SettingsViewModelTests
 {
     [Fact]
+    public void SettingsData_AutoFollowLatestMessage_DefaultsToFalse()
+    {
+        var data = new SettingsData("host", 1883);
+
+        Assert.False(data.AutoFollowLatestMessage);
+    }
+
+    [Fact]
+    public void IntoAndFrom_RoundtripAutoFollowLatestMessage()
+    {
+        var environmentOverrides = new EnvironmentSettingsOverrides { IsAspireEnvironment = true };
+        var source = new SettingsViewModel(environmentOverrides)
+        {
+            AutoFollowLatestMessage = true
+        };
+
+        var target = new SettingsViewModel(environmentOverrides);
+        target.From(source.Into());
+
+        Assert.True(target.AutoFollowLatestMessage);
+    }
+
+    [Fact]
     public void IsUsernamePasswordSelected_IsTrue_WhenAuthModeIsUsernamePassword()
     {
         // Arrange

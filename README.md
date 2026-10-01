@@ -162,6 +162,9 @@ Control how and where message logs are exported:
 - **Export Format**: Choose between JSON or plain text.
 - **Export Path**: Directory for exported files.
 
+**Message History**
+- **Auto-follow Latest Message**: Select each newest message as it arrives so the payload and metadata views follow incoming traffic. Disable it to keep the current message selected.
+
 **Topic Buffer Limits**  
 Set per-topic message buffer limits to manage memory usage:
 - **Topic Filter**: MQTT topic or wildcard (e.g., `#` for all topics).

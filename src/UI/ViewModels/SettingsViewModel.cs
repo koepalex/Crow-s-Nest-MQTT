@@ -161,6 +161,16 @@ public bool ShowConnectionDialogOnLaunch
     set => this.RaiseAndSetIfChanged(ref _showConnectionDialogOnLaunch, value);
 }
 
+private bool _autoFollowLatestMessage;
+/// <summary>
+/// Whether the history view selects the newest message as messages arrive.
+/// </summary>
+public bool AutoFollowLatestMessage
+{
+    get => _autoFollowLatestMessage;
+    set => this.RaiseAndSetIfChanged(ref _autoFollowLatestMessage, value);
+}
+
 private AppTheme _theme = AppTheme.System;
 public AppTheme Theme
 {
@@ -238,6 +248,7 @@ private string _subscriptionTopic = "#";
             this.WhenAnyValue(x => x.UseTls).Select(_ => Unit.Default),
             this.WhenAnyValue(x => x.SubscriptionQoS).Select(_ => Unit.Default),
             this.WhenAnyValue(x => x.ShowConnectionDialogOnLaunch).Select(_ => Unit.Default),
+            this.WhenAnyValue(x => x.AutoFollowLatestMessage).Select(_ => Unit.Default),
             this.WhenAnyValue(x => x.Theme).Select(_ => Unit.Default));
 
         // Observable for transport-related property changes (and Azure scope /
@@ -547,7 +558,8 @@ private string _subscriptionTopic = "#";
             WebSocketProxyUsername: WebSocketProxyUsername,
             WebSocketProxyPassword: WebSocketProxyPassword,
             ShowConnectionDialogOnLaunch: ShowConnectionDialogOnLaunch,
-            Theme: Theme
+            Theme: Theme,
+            AutoFollowLatestMessage: AutoFollowLatestMessage
         )
         {
             TopicSpecificBufferLimits = topicLimits
@@ -584,6 +596,7 @@ private string _subscriptionTopic = "#";
             WebSocketProxyPassword = settingsData.WebSocketProxyPassword;
             ShowConnectionDialogOnLaunch = settingsData.ShowConnectionDialogOnLaunch;
             Theme = settingsData.Theme;
+            AutoFollowLatestMessage = settingsData.AutoFollowLatestMessage;
             TopicSpecificLimits.Clear();
 
             // Ensure we always have the default '#' limit

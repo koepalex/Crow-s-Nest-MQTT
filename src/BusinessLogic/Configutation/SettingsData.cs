@@ -32,7 +32,8 @@ public record SettingsData(
     string? WebSocketProxyUsername = null,
     string? WebSocketProxyPassword = null,
     bool ShowConnectionDialogOnLaunch = true,
-    AppTheme Theme = AppTheme.System)
+    AppTheme Theme = AppTheme.System,
+    bool AutoFollowLatestMessage = false)
 {
     public IList<TopicBufferLimit> TopicSpecificBufferLimits { get; init; } = new List<TopicBufferLimit>();
     /// <summary>
