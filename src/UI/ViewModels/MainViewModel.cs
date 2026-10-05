@@ -309,8 +309,18 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 {
                     try
                     {
+                        Log.Information(
+                            "[DEBUG-183] SelectedMessage update started. MessageId={MessageId}, ContentType={ContentType}, UiThread={UiThread}",
+                            value.MessageId,
+                            value.GetFullMessage()?.ContentType,
+                            CheckUiThreadAccess());
                         // Immediate (synchronous) update for unit tests asserting right after assignment
                         UpdateMessageDetails(value);
+                        Log.Information(
+                            "[DEBUG-183] SelectedMessage update completed. MessageId={MessageId}, ImageVisible={ImageVisible}, JsonVisible={JsonVisible}",
+                            value.MessageId,
+                            IsImageViewerVisible,
+                            IsJsonViewerVisible);
                     }
                     catch (Exception ex)
                     {
@@ -1934,6 +1944,16 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         if (_isUpdatingMessageDetails)
             return;
 
+        var diagnosticStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var diagnosticMessageId = messageVm?.MessageId;
+        var diagnosticContentType = messageVm?.GetFullMessage()?.ContentType;
+        Log.Information(
+            "[DEBUG-183] UpdateMessageDetails entered. MessageId={MessageId}, ContentType={ContentType}, UiThread={UiThread}, HasImage={HasImage}",
+            diagnosticMessageId,
+            diagnosticContentType,
+            CheckUiThreadAccess(),
+            ImagePayload is not null);
+
         try
         {
             _isUpdatingMessageDetails = true;
@@ -1959,8 +1979,15 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         IsImageViewerVisible = false;
         IsVideoViewerVisible = false;
         IsHexViewerVisible = false;
+        Log.Information(
+            "[DEBUG-183] Disposing previous image. MessageId={MessageId}, HasImage={HasImage}, PixelSize={PixelSize}",
+            diagnosticMessageId,
+            ImagePayload is not null,
+            ImagePayload?.PixelSize);
         ImagePayload?.Dispose();
+        Log.Information("[DEBUG-183] Previous image disposed. MessageId={MessageId}", diagnosticMessageId);
         ImagePayload = null;
+        Log.Information("[DEBUG-183] ImagePayload cleared. MessageId={MessageId}", diagnosticMessageId);
         // Clear the document content instead of the string property
         RawPayloadDocument.Text = string.Empty;
         PayloadSyntaxHighlighting = null; // Clear syntax highlighting
@@ -2215,8 +2242,16 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         {
             try
             {
+                Log.Information(
+                    "[DEBUG-183] Image decode started. MessageId={MessageId}, PayloadBytes={PayloadBytes}",
+                    diagnosticMessageId,
+                    payloadBytes.Length);
                 using var ms = new MemoryStream(payloadBytes);
                 ImagePayload = new Bitmap(ms);
+                Log.Information(
+                    "[DEBUG-183] Image decode completed. MessageId={MessageId}, PixelSize={PixelSize}",
+                    diagnosticMessageId,
+                    ImagePayload.PixelSize);
                 IsImageViewerVisible = true;
                 IsJsonViewerVisible = false;
                 IsRawTextViewerVisible = false;
@@ -2290,7 +2325,15 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                     return;
                 }
 
+                Log.Information(
+                    "[DEBUG-183] JSON load started. MessageId={MessageId}, PayloadChars={PayloadChars}",
+                    diagnosticMessageId,
+                    payloadAsString.Length);
                 JsonViewer.LoadJson(payloadAsString);
+                Log.Information(
+                    "[DEBUG-183] JSON load completed. MessageId={MessageId}, ParseError={ParseError}",
+                    diagnosticMessageId,
+                    JsonViewer.JsonParseError);
                 if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
                 {
                     IsJsonViewerVisible = true;
@@ -2319,6 +2362,12 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         finally
         {
             _isUpdatingMessageDetails = false;
+            diagnosticStopwatch.Stop();
+            Log.Information(
+                "[DEBUG-183] UpdateMessageDetails exited. MessageId={MessageId}, ContentType={ContentType}, ElapsedMs={ElapsedMs}",
+                diagnosticMessageId,
+                diagnosticContentType,
+                diagnosticStopwatch.ElapsedMilliseconds);
         }
     }
 
