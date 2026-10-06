@@ -53,6 +53,7 @@ var mainClient = client;
 
 var repositoryRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 var testDataDirectory = Path.Combine(repositoryRoot, "tests", "TestData");
+var issue183Topic = "test/issues/183/mixed-snapshot-feed";
 var treasureResponseTopic = "test/pirate/ship/response/treasure-map";
 var crewStatusResponseTopic = "test/pirate/ship/response/crew-status";
 var treasureCorrelationData = Guid.NewGuid().ToByteArray();
@@ -106,6 +107,19 @@ await PublishFileAsync("test/viewer/json", "application/json", "test-struct.json
 await PublishFileAsync("test/viewer/hex", "application/octet-stream", "story.7z").ConfigureAwait(false);
 await PublishAsync("test/viewer/raw", "text/plain", Encoding.UTF8.GetBytes("Crow's NestMQTT test message")).ConfigureAwait(false);
 await PublishAsync("test/retain", "application/json", Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { messageType = "retained", timestamp = DateTimeOffset.UtcNow })), retain: true).ConfigureAwait(false);
+
+await PublishFileAsync(issue183Topic, "image/png", "test-image.png").ConfigureAwait(false);
+await PublishAsync(
+    issue183Topic,
+    "application/json",
+    JsonSerializer.SerializeToUtf8Bytes(new
+    {
+        messageType = "vibration",
+        source = "aio-snapshot-feed",
+        acceleration = new { x = 0.12, y = -0.04, z = 9.81 },
+        timestamp = DateTimeOffset.UtcNow,
+    })).ConfigureAwait(false);
+await PublishFileAsync(issue183Topic, "image/png", "test-image.png").ConfigureAwait(false);
 
 await PublishAsync(
     "test/pirate/ship/request/treasure-map",
