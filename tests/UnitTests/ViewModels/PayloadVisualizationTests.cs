@@ -491,6 +491,29 @@ namespace CrowsNestMqtt.UnitTests.ViewModels
             Assert.False(viewModel.IsVideoViewerVisible);
             Assert.False(viewModel.IsJsonViewerVisible);
             Assert.False(viewModel.IsRawTextViewerVisible);
+            Assert.Empty(viewModel.RawPayloadDocument.Text);
+
+            var jsonPayload = Encoding.UTF8.GetBytes("""{"messageType":"vibration","source":"aio-snapshot-feed"}""");
+            var jsonMessage = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(jsonPayload)
+                .WithContentType("application/json")
+                .Build();
+            var jsonMessageVm = new MessageViewModel(
+                Guid.NewGuid(),
+                topic,
+                DateTime.Now,
+                Encoding.UTF8.GetString(jsonPayload),
+                jsonPayload.Length,
+                _mqttServiceMock,
+                _statusBarServiceMock,
+                jsonMessage);
+
+            viewModel.SelectedMessage = jsonMessageVm;
+
+            Assert.True(viewModel.IsJsonViewerVisible);
+            Assert.False(viewModel.IsImageViewerVisible);
+            Assert.Null(viewModel.ImagePayload);
         }
     }
 }

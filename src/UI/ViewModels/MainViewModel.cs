@@ -63,7 +63,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
     private readonly IDisposable _messageHistorySubscription; // To dispose the pipeline
     private readonly ReadOnlyObservableCollection<MessageViewModel> _filteredMessageHistory; // Field for the bound collection
     private readonly ObservableCollection<MessageViewModel> _simpleFilteredHistory = new(); // Simple non-reactive collection for test mode
-    private readonly IDisposable _selectedMessageSubscription; // To dispose the selected message subscription
     private readonly IDisposable _commandTextSubscription; // To dispose the command text subscription
     private string _currentSearchTerm = string.Empty; // Backing field for search term
     private readonly List<string> _availableCommands; // Added list of commands for suggestions
@@ -175,11 +174,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 if (FilteredMessageHistory.Any() && (SelectedMessage == null || !FilteredMessageHistory.Contains(SelectedMessage)))
                 {
                     SelectedMessage = FilteredMessageHistory.FirstOrDefault();
-                    // Force immediate details update (synchronous in tests with ImmediateDispatcher)
-                    if (SelectedMessage != null && CheckUiThreadAccess())
-                    {
-                        UpdateMessageDetails(SelectedMessage);
-                    }
                 }
 
                 // Defer a second pass until after DynamicData re-applies the filter for the new SelectedNode.
@@ -199,10 +193,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                     if (FilteredMessageHistory.Any())
                     {
                         SelectedMessage = FilteredMessageHistory.FirstOrDefault();
-                        if (SelectedMessage != null && CheckUiThreadAccess())
-                        {
-                            UpdateMessageDetails(SelectedMessage);
-                        }
                     }
                     else
                     {
@@ -217,10 +207,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                             if (candidate != null)
                             {
                                 SelectedMessage = candidate;
-                                if (CheckUiThreadAccess())
-                                {
-                                    UpdateMessageDetails(SelectedMessage);
-                                }
                             }
                         }
                     }
@@ -305,22 +291,11 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
                 {
                     this.RaisePropertyChanged(nameof(IsDeleteButtonEnabled));
                 }
-                if (changed && value != null)
+                if (changed)
                 {
                     try
                     {
-                        Log.Information(
-                            "[DEBUG-183] SelectedMessage update started. MessageId={MessageId}, ContentType={ContentType}, UiThread={UiThread}",
-                            value.MessageId,
-                            value.GetFullMessage()?.ContentType,
-                            CheckUiThreadAccess());
-                        // Immediate (synchronous) update for unit tests asserting right after assignment
                         UpdateMessageDetails(value);
-                        Log.Information(
-                            "[DEBUG-183] SelectedMessage update completed. MessageId={MessageId}, ImageVisible={ImageVisible}, JsonVisible={JsonVisible}",
-                            value.MessageId,
-                            IsImageViewerVisible,
-                            IsJsonViewerVisible);
                     }
                     catch (Exception ex)
                     {
@@ -1218,23 +1193,8 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
 
         // --- Property Change Reactions ---
 
-        // When SelectedMessage changes, update the MessageDetails
-        // Disable reactive subscriptions in test mode to prevent hanging
         if (!_testMode)
         {
-            var selectedMessageChanged = this.WhenAnyValue(x => x.SelectedMessage);
-            if (Application.Current != null)
-            {
-                _selectedMessageSubscription = selectedMessageChanged
-                    .ObserveOn(_uiScheduler)
-                    .Subscribe(UpdateMessageDetails);
-            }
-            else
-            {
-                // In pure unit-test (non-Avalonia) context stay on the creation thread of TextDocument
-                _selectedMessageSubscription = selectedMessageChanged.Subscribe(UpdateMessageDetails);
-            }
-
             // When CommandText changes, update the CommandSuggestions
             _commandTextSubscription = this.WhenAnyValue(x => x.CommandText)
                 .Throttle(TimeSpan.FromMilliseconds(150), _uiScheduler) // Small debounce (injected scheduler)
@@ -1245,7 +1205,6 @@ public class MainViewModel : ReactiveObject, IDisposable, IStatusBarService // I
         else
         {
             // In test mode, create dummy disposables to satisfy readonly field requirements
-            _selectedMessageSubscription = System.Reactive.Disposables.Disposable.Empty;
             _commandTextSubscription = System.Reactive.Disposables.Disposable.Empty;
         }
 
@@ -1944,16 +1903,6 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         if (_isUpdatingMessageDetails)
             return;
 
-        var diagnosticStopwatch = System.Diagnostics.Stopwatch.StartNew();
-        var diagnosticMessageId = messageVm?.MessageId;
-        var diagnosticContentType = messageVm?.GetFullMessage()?.ContentType;
-        Log.Information(
-            "[DEBUG-183] UpdateMessageDetails entered. MessageId={MessageId}, ContentType={ContentType}, UiThread={UiThread}, HasImage={HasImage}",
-            diagnosticMessageId,
-            diagnosticContentType,
-            CheckUiThreadAccess(),
-            ImagePayload is not null);
-
         try
         {
             _isUpdatingMessageDetails = true;
@@ -1979,15 +1928,9 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         IsImageViewerVisible = false;
         IsVideoViewerVisible = false;
         IsHexViewerVisible = false;
-        Log.Information(
-            "[DEBUG-183] Disposing previous image. MessageId={MessageId}, HasImage={HasImage}, PixelSize={PixelSize}",
-            diagnosticMessageId,
-            ImagePayload is not null,
-            ImagePayload?.PixelSize);
-        ImagePayload?.Dispose();
-        Log.Information("[DEBUG-183] Previous image disposed. MessageId={MessageId}", diagnosticMessageId);
+        var previousImage = ImagePayload;
         ImagePayload = null;
-        Log.Information("[DEBUG-183] ImagePayload cleared. MessageId={MessageId}", diagnosticMessageId);
+        previousImage?.Dispose();
         // Clear the document content instead of the string property
         RawPayloadDocument.Text = string.Empty;
         PayloadSyntaxHighlighting = null; // Clear syntax highlighting
@@ -2159,6 +2102,52 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         var payloadBytes = msg.Payload.ToArray();
         HexPayloadBytes = null;
 
+        // Binary media must bypass UTF-8 decoding and the text document. Decoding image
+        // payloads as text creates large short-lived strings and forces AvaloniaEdit to
+        // process binary data that will never be displayed.
+        if (msg.ContentType?.StartsWith("video/", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            VideoPayload = payloadBytes;
+            IsVideoViewerVisible = true;
+            StatusBarText = "Displaying video payload.";
+            this.RaisePropertyChanged(nameof(ShowJsonParseError));
+            this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+            return;
+        }
+
+        if (msg.ContentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            try
+            {
+                using var ms = new MemoryStream(payloadBytes);
+                ImagePayload = new Bitmap(ms);
+                IsImageViewerVisible = true;
+                StatusBarText = "Displaying image payload.";
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Could not decode image from payload for content type {ContentType}", msg.ContentType);
+                ImagePayload?.Dispose();
+                ImagePayload = null;
+                IsImageViewerVisible = true;
+                StatusBarText = "Image payload (decode failed).";
+            }
+            this.RaisePropertyChanged(nameof(ShowJsonParseError));
+            this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+            return;
+        }
+
+        if (IsBinaryContentType(msg.ContentType) && payloadBytes.Length > 0)
+        {
+            HexPayloadBytes = payloadBytes;
+            IsHexViewerVisible = true;
+            StatusBarText = "Displaying binary payload in hex viewer.";
+            Log.Information("Auto-switched to hex viewer for binary content type: {ContentType}", msg.ContentType);
+            this.RaisePropertyChanged(nameof(ShowJsonParseError));
+            this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
+            return;
+        }
+
         if (payloadBytes.Length > 0)
         {
             try
@@ -2217,86 +2206,6 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         }
 
         // Determine initial view state and syntax highlighting
-        if (msg.ContentType?.StartsWith("video/", StringComparison.OrdinalIgnoreCase) == true)
-        {
-            try
-            {
-                VideoPayload = payloadBytes;
-                IsVideoViewerVisible = true;
-                IsImageViewerVisible = false;
-                IsJsonViewerVisible = false;
-                IsRawTextViewerVisible = false;
-                IsHexViewerVisible = false;
-                StatusBarText = "Displaying video payload.";
-            }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "Could not load video from payload for content type {ContentType}", msg.ContentType);
-                ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
-            }
-            this.RaisePropertyChanged(nameof(ShowJsonParseError));
-            this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
-            return;
-        }
-        if (msg.ContentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true)
-        {
-            try
-            {
-                Log.Information(
-                    "[DEBUG-183] Image decode started. MessageId={MessageId}, PayloadBytes={PayloadBytes}",
-                    diagnosticMessageId,
-                    payloadBytes.Length);
-                using var ms = new MemoryStream(payloadBytes);
-                ImagePayload = new Bitmap(ms);
-                Log.Information(
-                    "[DEBUG-183] Image decode completed. MessageId={MessageId}, PixelSize={PixelSize}",
-                    diagnosticMessageId,
-                    ImagePayload.PixelSize);
-                IsImageViewerVisible = true;
-                IsJsonViewerVisible = false;
-                IsRawTextViewerVisible = false;
-                IsVideoViewerVisible = false;
-                IsHexViewerVisible = false;
-                StatusBarText = "Displaying image payload.";
-            }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "Could not decode image from payload for content type {ContentType}", msg.ContentType);
-                ImagePayload?.Dispose();
-                ImagePayload = null;
-                IsImageViewerVisible = true;
-                IsJsonViewerVisible = false;
-                IsRawTextViewerVisible = false;
-                IsVideoViewerVisible = false;
-                IsHexViewerVisible = false;
-                StatusBarText = "Image payload (decode failed).";
-            }
-            this.RaisePropertyChanged(nameof(ShowJsonParseError));
-            this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
-            return;
-        }
-        if (IsBinaryContentType(msg.ContentType) && payloadBytes.Length > 0)
-        {
-            try
-            {
-                HexPayloadBytes = payloadBytes;
-                IsHexViewerVisible = true;
-                IsJsonViewerVisible = false;
-                IsRawTextViewerVisible = false;
-                IsImageViewerVisible = false;
-                IsVideoViewerVisible = false;
-                StatusBarText = "Displaying binary payload in hex viewer.";
-                Log.Information("Auto-switched to hex viewer for binary content type: {ContentType}", msg.ContentType);
-            }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "Could not load hex viewer for binary payload for content type {ContentType}", msg.ContentType);
-                ShowRawPayload(isPayloadValidUtf8, payloadAsString, msg);
-            }
-            this.RaisePropertyChanged(nameof(ShowJsonParseError));
-            this.RaisePropertyChanged(nameof(IsAnyPayloadViewerVisible));
-            return;
-        }
         // text/* content-type: skip JSON auto-parse and show raw viewer directly
         if (msg.ContentType?.StartsWith("text/", StringComparison.OrdinalIgnoreCase) == true && isPayloadValidUtf8)
         {
@@ -2325,15 +2234,7 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                     return;
                 }
 
-                Log.Information(
-                    "[DEBUG-183] JSON load started. MessageId={MessageId}, PayloadChars={PayloadChars}",
-                    diagnosticMessageId,
-                    payloadAsString.Length);
                 JsonViewer.LoadJson(payloadAsString);
-                Log.Information(
-                    "[DEBUG-183] JSON load completed. MessageId={MessageId}, ParseError={ParseError}",
-                    diagnosticMessageId,
-                    JsonViewer.JsonParseError);
                 if (string.IsNullOrEmpty(JsonViewer.JsonParseError))
                 {
                     IsJsonViewerVisible = true;
@@ -2362,12 +2263,6 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
         finally
         {
             _isUpdatingMessageDetails = false;
-            diagnosticStopwatch.Stop();
-            Log.Information(
-                "[DEBUG-183] UpdateMessageDetails exited. MessageId={MessageId}, ContentType={ContentType}, ElapsedMs={ElapsedMs}",
-                diagnosticMessageId,
-                diagnosticContentType,
-                diagnosticStopwatch.ElapsedMilliseconds);
         }
     }
 
@@ -5062,7 +4957,6 @@ private void ProcessMessageBatchOnUIThread(List<IdentifiedMqttApplicationMessage
                 // NOW dispose reactive subscriptions - they won't trigger event handlers anymore
                 _messageHistorySubscription?.Dispose();
                 _messageHistorySource.Dispose();
-                _selectedMessageSubscription?.Dispose(); // Dispose the selected message subscription
                 _commandTextSubscription?.Dispose(); // Dispose the command text subscription
                 _globalHookSubscription?.Dispose(); // Dispose hook subscription
                 try
